@@ -1,0 +1,7 @@
+defpackage poet/config:
+  import toml/parser
+
+public defstruct ConfigFile
+
+public defn parse-config () -> ConfigFile:
+  ConfigFile()

@@ -1,0 +1,42 @@
+defpackage poet:
+    import core
+    import poet/utils
+    import poet/config
+    import poet/commands
+
+defn main ():
+    ; What operations do we want `poet` to perform?
+    ;
+    ; 1. Initialize packages
+    ;   - Initialize poet.toml
+    ;   - Initialize stanza.proj
+    ;
+    ; 2. Build packages
+    ;   - Check that dependencies have been fetched
+    ;   - Build the project
+    ;
+    ; 3. Add package dependencies
+    ;   - Add dependencies to ./deps
+    ;   - Add include package stanza.proj to stanza.proj
+
+    val args = command-line-arguments()
+    if length(args) < 2:
+        error-with-usage("Not enough arguments given.")
+
+    try:
+        val command = args[1]
+        switch(command):
+            "init":
+                poet/commands/init(if length(args) > 2: args[2] else: false)
+            "build":
+                poet/commands/build()
+            "add":
+                if length(args) > 3:
+                    poet/commands/add(args[2], args[3])
+                else:
+                    error-with-usage("No argument given to `poet add`")
+            else: error-with-usage("Invalid argument given: `%_`" % [command]) 
+    catch (e: Exception):
+        error("%~" % [e])
+
+main()

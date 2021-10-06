@@ -1,0 +1,75 @@
+defpackage poet/utils:
+    import core
+    import core/parsed-path
+
+public defn error-with-usage (msg: Printable|String) -> Void:
+  error(msg, true)
+
+public defn error (msg: Printable|String) -> Void:
+  error(msg, false)
+
+defn error (msg: Printable|String, usage?: True|False) -> Void:
+  val program = command-line-arguments()[0]
+  println(STANDARD-ERROR-STREAM, "%_: %_" % [program, msg])
+  if usage?:
+    println(STANDARD-ERROR-STREAM, "usage: %_ [build|init|add]" % [program])
+  exit(1)
+
+defn and-then<?T, ?U> (v: ?T|False, f: (T) -> ?U) -> U|False:
+  match(v):
+    (_: False): false
+    (t: T): f(t)
+
+public defn open (f: (FileOutputStream) -> False, path: String, append?: True|False) -> False:
+  val file = FileOutputStream(path, append?)
+  try: f(file)
+  finally: close(file)
+
+lostanza val GET-CWD-BUFF-SIZE: long = 0x1000L
+extern getcwd: (ptr<byte>, long) -> ptr<byte>
+
+public lostanza defn get-cwd () -> ref<String>:
+  val buff = call-c clib/malloc(GET-CWD-BUFF-SIZE)
+  call-c getcwd(buff, GET-CWD-BUFF-SIZE)
+  val ret = String(buff)
+  call-c clib/free(buff)
+  return ret
+
+public defn strip-end (s: String, strip: String) -> String:
+  if s[(length(s) - length(strip)) to false] == strip:
+    s[0 to length(s) - length(strip)]
+  else:
+    s
+
+public defn split (s: String, delim: Char) -> [String, String]|False:
+  match(index-of-char(s, delim)):
+    (i: Int): [s[0 to i], s[(i + 1) to false]]
+    (_): false
+
+public defn split-last (s: String, delim: Char) -> [String, String]|False:
+  match(last-index-of-char(s, delim)):
+    (i: Int): [s[0 to i], s[(i + 1) to false]]
+    (_): false
+
+public defn dirname (path: String) -> String|False:
+  split-last(path, '/') $> and-then{_, {_[1]}}
+
+public defn shallow-clone-git-repo (url: String, directory: String) -> Int:
+  defn exit (code: Int) -> Int:
+    if code != 0:
+      throw(Exception("git clone failed!"))
+    code
+  val process = Process("git", ["git", "clone", url, "--depth", "1", directory])
+  match(wait(process)):
+    (code:ProcessDone): exit(value(code))
+    (_): exit(-1)
+
+public defn init-git-repo (path: String) -> Int:
+  defn exit (code: Int) -> Int:
+    if code != 0:
+      throw(Exception("git init failed!"))
+    code
+  val process = Process("git", ["git", "init", path])
+    match(wait(process)):
+      (code:ProcessDone): exit(value(code))
+      (_): exit(-1)
