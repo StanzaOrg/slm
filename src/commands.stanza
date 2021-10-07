@@ -1,114 +1,12 @@
 defpackage poet/commands:
   import core
-  import poet/utils
-  import poet/dependency
+  import poet/commands/init
 
-protected defn init (project-dir: String|False) -> False:
-  val dir = resolve-path! $ match(project-dir:String):
-    project-dir
-  else:
-    get-cwd()
-
-  val poet-toml-path = append(dir, "/poet.toml")
-  val poet-dir-path = append(dir, "/.poet/")
-
-  defn poet-file-exists (file: String) -> Void:
-    error("init: poet already initialized (`%_` exists)" % [file])
-
-  for path in [poet-toml-path, poet-dir-path] do:
-    if file-exists?(path):
-      poet-file-exists(path)
-
-  create-dir(poet-dir-path)
-  create-dir(append(poet-dir-path, "/pkgs/"))
-  create-dir(append(poet-dir-path, "/deps/"))
-  spit(append(poet-dir-path, "stanza.proj"), "")
-
-  val project-name = match(project-dir:String):
-    if project-dir[length(project-dir) - 1] == '/':
-      project-dir[0 to length(project-dir) - 1]
-    else:
-      project-dir
-  else:
-    dirname(dir)
-
-  within f = open(poet-toml-path, false):
-    println(f, \<>version = "0.0.1"<>)
-    println(f, \<>name = "%_"<> % [project-name])
-
-  val stanza-pkgs-path = append(dir, "/pkgs/")
-  if not file-exists?(stanza-pkgs-path):
-    create-dir(stanza-pkgs-path)
-
-  val git-dir = append(dir, "/.git")
-  if not file-exists?(git-dir):
-    init-git-repo(dir)
-
-  val git-ignore = append(dir, "/.gitignore")
-  if not file-exists?(git-ignore):
-    within f = open(git-ignore, false):
-      println(f, ".poet")
-
-  val stanza-lib-src-path = append(dir, "/lib.stanza")
-  if not file-exists?(stanza-lib-src-path):
-    within f = open(stanza-lib-src-path, false):
-      println(f, "defpackage %_" % [project-name])
-
-  val stanza-proj-path = append(dir, "/stanza.proj")
-  if not file-exists?(stanza-proj-path):
-    within f = open(stanza-proj-path, false):
-      println{f, _} $
-        match(project-name:String):
-          \<>package %_ defined-in "lib.stanza"
-
-build pkgs:
-    inputs: %_
-<>
-          % [project-name, project-name]
-        else:
-          ""
+protected defn init (project-dir*: String|False) -> False:
+  poet/commands/init/init(project-dir*)
 
 protected defn add (kind: String, dependency: String) -> False:
-  defn error-incorrectly-formed () -> Void:
-    error("incorrectly formatted dependency: `%_`" % [dependency])
-
-  defn parse-git-dependency (full-locator: String) -> Dependency:
-    match(split-last(full-locator, '/')):
-      ([leading-url, name]: [String, String]):
-        Dependency(GitLocator(full-locator), strip-end(name, ".git"))
-      (_):
-        error-incorrectly-formed()
-
-  defn parse-path-dependency (path: String) -> Dependency:
-    if not file-exists?(append(path, "/poet.toml")):
-      error("no `poet.toml` at path dependency `%_`" % [path])
-    else:
-      match(split(resolve-path!(path), '/')):
-        ([leading-path, dir]: [String, String]):
-          Dependency(PathLocator(path), dir)
-        (_):
-          error-incorrectly-formed()
-
-  val current-dir = resolve-path!(".")
-  val poet-toml-path = append(current-dir, "/poet.toml")
-  if not file-exists?(poet-toml-path):
-    error("poet.toml doesn't exist, was the project initialized?")
-
-  val stanza-proj-path = append(current-dir, "/stanza.proj")
-  if not file-exists?(poet-toml-path):
-    error("stanza.proj doesn't exist, was the project initialized?")
-
-  val dep = switch(kind):
-    "--git": parse-git-dependency(dependency)
-    "--path": parse-path-dependency(dependency)
-    else: error("add: unknown argument `%_`" % [kind])
-
-  within f = open(poet-toml-path, true):
-    println(f, "%_ = \"%_\"" % [name(dep), location(dep)])
-
-  within f = open(stanza-proj-path, true):
-    println(f, \<>include "%_/stanza.proj"<> % [path(dep)])
+  poet/commands/add/add(kind, dependency)
 
 protected defn build () -> False:
-  call-system("stanza", ["stanza", "build", "pkgs", "-pkg", "./.poet/pkgs"])
-  false
+  poet/commands/build/build()

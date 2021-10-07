@@ -1,0 +1,75 @@
+defpackage poet/commands/init:
+  import core
+  import poet/utils
+
+public defn init (project-dir*: String|False) -> False:
+  ; First get the fully-resolved path of the directory where we're initializing
+  ; a package. If no path was given, use the current directory.
+  val project-dir = resolve-path! $
+    match(project-dir*:String):
+      project-dir*
+    else:
+      get-cwd()
+
+  val project-name = dirname(project-dir)
+
+  val poet-toml-path = append(project-dir, "/poet.toml")
+  val poet-dir-path = append(project-dir, "/.poet/")
+
+  ; Check that a package wasn't already initialized
+  for path in [poet-toml-path, poet-dir-path] do:
+    if file-exists?(path):
+      error("init: package already initialized (`%_` exists)" % [path])
+
+  ; Create our initial package structure:
+  ;   - .poet/
+  ;     - pkgs/
+  ;     - deps/
+  ;     - stanza.proj
+  ;   - poet.toml
+  ;   - stanza.proj
+  ;   - <package>.stanza
+  create-dir(poet-dir-path)
+  create-dir(append(poet-dir-path, "/pkgs/"))
+  create-dir(append(poet-dir-path, "/deps/"))
+  touch(append(poet-dir-path, "stanza.proj"))
+
+  within f = open(poet-toml-path, false):
+    println(f, \<>version = "0.0.1"<>)
+    println(f, \<>name = "%_"<> % [project-name])
+
+  create-dir(append(project-dir, "/pkgs/"))
+
+  val git-ignore = append(project-dir, "/.gitignore")
+  if not file-exists?(git-ignore):
+    within f = open(git-ignore, false):
+      println(f, ".poet")
+
+  val stanza-lib-file = to-string("%_.stanza" % [project-name])
+  val stanza-lib-src-path = append(project-dir, stanza-lib-file)
+  if not file-exists?(stanza-lib-src-path):
+    within f = open(stanza-lib-src-path, false):
+      println{f, _} $ \<>defpackage %_:
+  import core
+
+defn main () -> False:
+  println("Hello, world!")
+
+main()
+<>
+      % [project-name]
+
+  val stanza-proj-path = append(project-dir, "/stanza.proj")
+  if not file-exists?(stanza-proj-path):
+    within f = open(stanza-proj-path, false):
+      println{f, _} $
+        match(project-name:String):
+          \<>package %_ defined-in "%_.stanza"<> % [project-name, project-name]
+        else:
+          ""
+
+  val git-dir = append(project-dir, "/.git")
+  if not file-exists?(git-dir):
+    init-git-repo(project-dir)
+
+  false

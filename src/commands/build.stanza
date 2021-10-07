@@ -1,0 +1,6 @@
+defpackage poet/commands/build:
+  import core
+
+public defn build () -> False:
+  call-system("stanza", ["stanza", "build", "pkgs", "-pkg", "./.poet/pkgs"])
+  false

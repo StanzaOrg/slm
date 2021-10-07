@@ -54,6 +54,9 @@ public defn split-last (s: String, delim: Char) -> [String, String]|False:
 public defn dirname (path: String) -> String|False:
   split-last(path, '/') $> and-then{_, {_[1]}}
 
+public defn touch (path: String) -> False:
+  spit(path, "")
+
 public defn shallow-clone-git-repo (url: String, directory: String) -> Int:
   defn exit (code: Int) -> Int:
     if code != 0:

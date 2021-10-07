@@ -1,0 +1,45 @@
+defpackage poet/commands/add:
+  import core
+  import poet/utils
+  import poet/dependency
+
+public defn add (kind: String, dependency: String) -> False:
+  defn error-incorrectly-formed () -> Void:
+    error("incorrectly formatted dependency: `%_`" % [dependency])
+
+  defn parse-git-dependency (full-locator: String) -> Dependency:
+    match(split-last(full-locator, '/')):
+      ([leading-url, name]: [String, String]):
+        Dependency(GitLocator(full-locator), strip-end(name, ".git"))
+      (_):
+        error-incorrectly-formed()
+
+  defn parse-path-dependency (path: String) -> Dependency:
+    if not file-exists?(append(path, "/poet.toml")):
+      error("no `poet.toml` at path dependency `%_`" % [path])
+    else:
+      match(split(resolve-path!(path), '/')):
+        ([leading-path, dir]: [String, String]):
+          Dependency(PathLocator(path), dir)
+        (_):
+          error-incorrectly-formed()
+
+  val current-dir = resolve-path!(".")
+  val poet-toml-path = append(current-dir, "/poet.toml")
+  if not file-exists?(poet-toml-path):
+    error("poet.toml doesn't exist, was the project initialized?")
+
+  val stanza-proj-path = append(current-dir, "/stanza.proj")
+  if not file-exists?(poet-toml-path):
+    error("stanza.proj doesn't exist, was the project initialized?")
+
+  val dep = switch(kind):
+    "--git": parse-git-dependency(dependency)
+    "--path": parse-path-dependency(dependency)
+    else: error("add: unknown argument `%_`" % [kind])
+
+  within f = open(poet-toml-path, true):
+    println(f, "%_ = \"%_\"" % [name(dep), location(dep)])
+
+  within f = open(stanza-proj-path, true):
+    println(f, \<>include "%_/stanza.proj"<> % [path(dep)])
