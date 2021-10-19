@@ -2,6 +2,7 @@ defpackage poet/commands/add:
   import core
   import poet/utils
   import poet/dependency
+  import poet/config
 
 public defn add (kind: String, dependency: String) -> False:
   defn error-incorrectly-formed () -> Void:
@@ -29,10 +30,6 @@ public defn add (kind: String, dependency: String) -> False:
   if not file-exists?(poet-toml-path):
     error("poet.toml doesn't exist, was the project initialized?")
 
-  val stanza-proj-path = append(current-dir, "/stanza.proj")
-  if not file-exists?(poet-toml-path):
-    error("stanza.proj doesn't exist, was the project initialized?")
-
   val dep = switch(kind):
     "--git": parse-git-dependency(dependency)
     "--path": parse-path-dependency(dependency)
@@ -40,6 +37,3 @@ public defn add (kind: String, dependency: String) -> False:
 
   within f = open(poet-toml-path, true):
     println(f, "%_ = \"%_\"" % [name(dep), location(dep)])
-
-  within f = open(stanza-proj-path, true):
-    println(f, \<>include "%_/stanza.proj"<> % [path(dep)])

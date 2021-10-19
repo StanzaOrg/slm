@@ -1,6 +1,10 @@
 defpackage poet/commands/init:
   import core
+  import collections
   import poet/utils
+  import toml/file
+  import toml/value
+  import toml/table
 
 public defn init (project-dir*: String|False) -> False:
   ; First get the fully-resolved path of the directory where we're initializing
@@ -11,7 +15,7 @@ public defn init (project-dir*: String|False) -> False:
     else:
       get-cwd()
 
-  val project-name = dirname(project-dir)
+  val project-name = unwrap(dirname(project-dir))
 
   val poet-toml-path = append(project-dir, "/poet.toml")
   val poet-dir-path = append(project-dir, "/.poet/")
@@ -35,15 +39,16 @@ public defn init (project-dir*: String|False) -> False:
   touch(append(poet-dir-path, "stanza.proj"))
 
   within f = open(poet-toml-path, false):
-    println(f, \<>version = "0.0.1"<>)
-    println(f, \<>name = "%_"<> % [project-name])
-
-  create-dir(append(project-dir, "/pkgs/"))
+    println{f, _} $
+      TomlFile $ [
+        "version" => "0.0.1",
+        "name"    => project-name,
+        "dependencies" => TomlTable(),
+      ]
 
   val git-ignore = append(project-dir, "/.gitignore")
-  if not file-exists?(git-ignore):
-    within f = open(git-ignore, false):
-      println(f, ".poet")
+  within f = open(git-ignore, file-exists?(git-ignore)):
+    println(f, ".poet")
 
   val stanza-lib-file = to-string("%_.stanza" % [project-name])
   val stanza-lib-src-path = append(project-dir, stanza-lib-file)

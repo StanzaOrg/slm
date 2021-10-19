@@ -1,6 +1,39 @@
 defpackage poet/commands/build:
   import core
+  import collections
+  import poet/config
+  import poet/utils
+  import toml/table
+  import toml/value
 
-public defn build () -> False:
-  call-system("stanza", ["stanza", "build", "pkgs", "-pkg", "./.poet/pkgs"])
+defn fetch-dependencies () -> False:
+  val dependencies = HashSet<String>()
+  ; What needs to be done?
+  ; - The top-level `poet.toml` needs to be parsed
+  ; - Each dependency must be located, and if remote, fetched
+  ; - Each dependency must have its `poet.toml` parsed, then
+  ;   its dependencies fetched
+  ; - We do so until we reach a fixed point (no new deps added)
+  defn parse-config-and-fetch-dependencies (path: String) -> False:
+    if not file-exists?(path):
+      error("tried to fetch dependencies from `%_`, but it doesn't exist!")
+    val dependencies? = get?(parse-config(path), "dependencies")
+    match(dependencies?: TomlValue):
+      for dep in dependencies? as TomlTable do:
+        val dep-path = to-string(".poet/deps/%_" % [key(dep)])
+        if not file-exists?(dep-path):
+          add(dependencies, dep)
+          println("poet: build: debug: cloning %_" % [key(dep)])
+          shallow-clone-git-repo(value(dep) as String, key(dep))
+          parse-config-and-fetch-dependencies $
+            to-string("%_/poet.toml")
+
+  parse-config-and-fetch-dependencies("poet.toml")
+  within f = open(".poet/stanza.proj", false):
+    for dep in dependencies do:
+      println(f, to-string("include \"%_/stanza.proj\""))
+
+public defn build (args: Tuple<String>) -> False:
+  fetch-dependencies()
+  call-system("stanza", ["stanza", "build", "-pkg", "./.poet/pkgs"])
   false

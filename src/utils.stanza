@@ -20,6 +20,11 @@ defn and-then<?T, ?U> (v: ?T|False, f: (T) -> ?U) -> U|False:
     (_: False): false
     (t: T): f(t)
 
+public defn unwrap<?T> (v?: ?T|False) -> T:
+  match(v?):
+    (_: False): fatal("unwrapped false value")
+    (v: T): v
+
 public defn open (f: (FileOutputStream) -> False, path: String, append?: True|False) -> False:
   val file = FileOutputStream(path, append?)
   try: f(file)

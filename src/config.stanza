@@ -1,7 +1,18 @@
 defpackage poet/config:
+  import core
+  import toml/file
   import toml/parser
+  import toml/table
+  import toml/value
 
-public defstruct ConfigFile
+public defstruct ConfigFile:
+  toml: TomlFile
 
-public defn parse-config () -> ConfigFile:
-  ConfigFile()
+public defn parse-config (path: String) -> ConfigFile:
+  ConfigFile(parse-file(slurp(path)))
+
+public defn get? (config-file: ConfigFile, key: String) -> TomlValue|False:
+  get?(table(toml(config-file)), key)
+
+public defn get (config-file: ConfigFile, key: String) -> TomlValue:
+  get(table(toml(config-file)), key)
