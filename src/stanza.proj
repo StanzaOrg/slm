@@ -1,6 +1,7 @@
-package poet defined-in "poet.stanza"
+package poet/main defined-in "main.stanza"
 package poet/utils defined-in "utils.stanza"
 package poet/config defined-in "config.stanza"
 package poet/dependency defined-in "dependency.stanza"
 package poet/commands defined-in "commands.stanza"
+package poet/flags defined-in "flags.stanza"
 include "commands/stanza.proj"

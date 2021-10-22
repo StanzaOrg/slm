@@ -6,7 +6,13 @@ defpackage poet/commands/build:
   import toml/table
   import toml/value
 
-defn fetch-dependencies () -> False:
+defn sync-dependency (dep-path: String) -> False:
+  run-git-command-in-dir(dep-path, ["fetch"])
+  run-git-command-in-dir(dep-path, ["checkout", "master", "--quiet"])
+  run-git-command-in-dir(dep-path, ["reset", "--hard", "origin/master", "--quiet"])
+  false
+
+defn fetch-and-sync-dependencies () -> False:
   val dependencies = HashSet<String>()
   ; What needs to be done?
   ; - The top-level `poet.toml` needs to be parsed
@@ -16,24 +22,32 @@ defn fetch-dependencies () -> False:
   ; - We do so until we reach a fixed point (no new deps added)
   defn parse-config-and-fetch-dependencies (path: String) -> False:
     if not file-exists?(path):
-      error("tried to fetch dependencies from `%_`, but it doesn't exist!")
+      throw(Exception $
+        "tried to fetch dependencies from `%_`, but it doesn't exist!" % [path])
+    if poet/flags/verbose?:
+      println("poet: parsing dependencies from `%_`" % [path])
     val dependencies? = get?(parse-config(path), "dependencies")
     match(dependencies?: TomlValue):
       for dep in dependencies? as TomlTable do:
+        add(dependencies, key(dep))
+
         val dep-path = to-string(".poet/deps/%_" % [key(dep)])
-        if not file-exists?(dep-path):
-          add(dependencies, dep)
+        if file-exists?(dep-path):
+          sync-dependency(dep-path)
+        else:
           println("poet: build: debug: cloning %_" % [key(dep)])
-          shallow-clone-git-repo(value(dep) as String, key(dep))
-          parse-config-and-fetch-dependencies $
-            to-string("%_/poet.toml")
+          shallow-clone-git-repo(value(dep) as String, dep-path)
+
+        parse-config-and-fetch-dependencies $
+          to-string("%_/poet.toml" % [dep-path])
 
   parse-config-and-fetch-dependencies("poet.toml")
+
   within f = open(".poet/stanza.proj", false):
     for dep in dependencies do:
-      println(f, to-string("include \"%_/stanza.proj\""))
+      println(f, to-string(\<>include "deps/%_/stanza.proj"<> % [dep]))
 
 public defn build (args: Tuple<String>) -> False:
-  fetch-dependencies()
+  fetch-and-sync-dependencies()
   call-system("stanza", ["stanza", "build", "-pkg", "./.poet/pkgs"])
   false

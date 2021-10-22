@@ -2,5 +2,5 @@ include ".poet/stanza.proj"
 include "src/stanza.proj"
 
 build main:
-    inputs: poet
+    inputs: poet/main
     o: "poet"

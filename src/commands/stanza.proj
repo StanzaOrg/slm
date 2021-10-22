@@ -1,3 +1,4 @@
 package poet/commands/init defined-in "init.stanza"
 package poet/commands/add defined-in "add.stanza"
 package poet/commands/build defined-in "build.stanza"
+package poet/commands/clean defined-in "clean.stanza"

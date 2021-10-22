@@ -1,0 +1,8 @@
+defpackage poet/commands/clean:
+  import core
+  import poet/utils
+
+public defn clean () -> False:
+  delete-files-in-dir(".poet/pkgs/")
+  delete-files-in-dir(".poet/deps/")
+  create-empty-file(".poet/stanza.proj")

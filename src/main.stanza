@@ -1,8 +1,9 @@
-defpackage poet:
+defpackage poet/main:
     import core
     import poet/utils
     import poet/config
     import poet/commands
+    import poet/flags
 
 defn main ():
     ; What operations do we want `poet` to perform?
@@ -29,14 +30,16 @@ defn main ():
             "init":
                 poet/commands/init(if length(args) > 2: args[2] else: false)
             "build":
-                poet/commands/build()
+                poet/commands/build(to-tuple $ command-line-arguments()[1 to false])
             "add":
                 if length(args) > 3:
                     poet/commands/add(args[2], args[3])
                 else:
                     error-with-usage("No argument given to `poet add`")
+            "clean":
+                poet/commands/clean()
             else: error-with-usage("Invalid argument given: `%_`" % [command]) 
     catch (e: Exception):
-        error("%~" % [e])
+        error("%_" % [e])
 
 main()

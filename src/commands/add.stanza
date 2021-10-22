@@ -16,17 +16,17 @@ public defn add (kind: String, dependency: String) -> False:
         error-incorrectly-formed()
 
   defn parse-path-dependency (path: String) -> Dependency:
-    if not file-exists?(append(path, "/poet.toml")):
+    if not file-exists?(to-string("%_/poet.toml" % [path])):
       error("no `poet.toml` at path dependency `%_`" % [path])
     else:
-      match(split(resolve-path!(path), '/')):
-        ([leading-path, dir]: [String, String]):
-          Dependency(PathLocator(path), dir)
-        (_):
+      match(base-name?(path)):
+        (dir: One<String>):
+          Dependency(PathLocator(path), value!(dir))
+        (_: None):
           error-incorrectly-formed()
 
   val current-dir = resolve-path!(".")
-  val poet-toml-path = append(current-dir, "/poet.toml")
+  val poet-toml-path = to-string("%_/poet.toml" % [current-dir])
   if not file-exists?(poet-toml-path):
     error("poet.toml doesn't exist, was the project initialized?")
 

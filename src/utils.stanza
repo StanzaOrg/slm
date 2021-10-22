@@ -59,25 +59,58 @@ public defn split-last (s: String, delim: Char) -> [String, String]|False:
 public defn dirname (path: String) -> String|False:
   split-last(path, '/') $> and-then{_, {_[1]}}
 
-public defn touch (path: String) -> False:
+public defn create-empty-file (path: String) -> False:
   spit(path, "")
 
-public defn shallow-clone-git-repo (url: String, directory: String) -> Int:
-  defn exit (code: Int) -> Int:
+public defn run-command-throw-on-error (
+  args: Tuple<String>,
+  error: Exception|Printable|String
+) -> Int:
+  defn throw-if-non-zero (code: Int) -> Int:
     if code != 0:
-      throw(Exception("git clone failed!"))
+      throw $ match(error):
+        (e: Exception): e
+        (e: Printable|String): Exception(to-string(e))
     code
-  val process = Process("git", ["git", "clone", url, "--depth", "1", directory])
+  val process = Process(args[0], args)
   match(wait(process)):
-    (code:ProcessDone): exit(value(code))
-    (_): exit(-1)
+    (code:ProcessDone): throw-if-non-zero(value(code))
+    (_): throw-if-non-zero(-1)
 
-public defn init-git-repo (path: String) -> Int:
-  defn exit (code: Int) -> Int:
-    if code != 0:
-      throw(Exception("git init failed!"))
-    code
-  val process = Process("git", ["git", "init", path])
-    match(wait(process)):
-      (code:ProcessDone): exit(value(code))
-      (_): exit(-1)
+public defn run-git-command-in-dir (work-tree: String, args0: Tuple<String>) -> Int:
+  val git-dir = to-string("%_/.git/" % [work-tree])
+  val base-args = ["git", "--git-dir", git-dir, "--work-tree", work-tree]
+  val args = to-tuple $ cat(base-args, args0)
+  run-command-throw-on-error(args, "'%_' failed!" % [string-join(args, " ")])
+
+public defn shallow-clone-git-repo (url: String, directory: String) -> Int:
+  run-command-throw-on-error(["git", "clone", url, "--depth", "1", directory],
+                             "'git clone %_' failed!" % [url])
+
+public defn git-init (path: String) -> Int:
+  run-command-throw-on-error(["git", "init", path],
+                             "'git init %_' failed!" % [path])
+
+public defn delete-files-in-dir (path: String) -> False:
+  val dir-path = parse-path(path)
+  for file in dir-files(path) do:
+    val file-path = to-string $ relative-to-dir(dir-path, file)
+    if file-type(file-path, false) is DirectoryType:
+      delete-recursive(file-path)
+    else:
+      delete-file(file-path)
+
+public defn nth?<?T> (c: IndexedCollection<?T>, n: Int) -> Maybe<T>:
+  if n < length(c):
+    One(get(c, n))
+  else:
+    None()
+
+public defn last?<?T> (c: IndexedCollection<?T>) -> Maybe<T>:
+  if length(c) == 0:
+    None()
+  else:
+    One(get(c, length(c) - 1))
+
+public defn base-name? (path: String) -> Maybe<String>:
+  last?(entries(parse-path(path)))

@@ -1,0 +1,4 @@
+defpackage poet/flags:
+  import core
+
+protected var verbose?: True|False = false
