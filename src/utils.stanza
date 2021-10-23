@@ -1,6 +1,7 @@
 defpackage poet/utils:
     import core
     import core/parsed-path
+    import collections
 
 public defn error-with-usage (msg: Printable|String) -> Void:
   error(msg, true)
@@ -113,4 +114,8 @@ public defn last?<?T> (c: IndexedCollection<?T>) -> Maybe<T>:
     One(get(c, length(c) - 1))
 
 public defn base-name? (path: String) -> Maybe<String>:
-  last?(entries(parse-path(path)))
+  path
+    $> entries{parse-path(_)}
+    $> map{to-string, _}
+    $> to-vector<String>{_}
+    $> last?{_}
