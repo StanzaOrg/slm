@@ -65,13 +65,13 @@ public defn init (project-dir*: String|False) -> False:
     spit{src-stanza-proj-path, _} $
       match(project-name:String):
         val main-package = to-string("%_/main" % [project-name])
-        \<>package %_ defined-in "%_.stanza"
+        \<>package %_ defined-in "main.stanza"
 
 build main:
   inputs: %_
   o: "%_"
 <>
-        % [main-package, project-name, main-package, project-name]
+        % [main-package, main-package, project-name]
       else:
         ""
 
