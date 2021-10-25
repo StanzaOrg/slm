@@ -6,6 +6,9 @@ defpackage poet/commands/build:
   import toml/table
   import toml/value
 
+; TODO: run commands in parallel up to some configurable limit
+; (default: number of cores?)
+
 defn sync-dependency (dep-path: String) -> False:
   run-git-command-in-dir(dep-path, ["fetch"])
   run-git-command-in-dir(dep-path, ["checkout", "master", "--quiet"])
@@ -20,34 +23,45 @@ defn fetch-and-sync-dependencies () -> False:
   ; - Each dependency must have its `poet.toml` parsed, then
   ;   its dependencies fetched
   ; - We do so until we reach a fixed point (no new deps added)
-  defn parse-config-and-fetch-dependencies (path: String) -> False:
+  defn parse-config-and-fetch-dependencies (root: True|False, path: String) -> False:
     if not file-exists?(path):
       throw(Exception $
         "tried to fetch dependencies from `%_`, but it doesn't exist!" % [path])
     if poet/flags/verbose?:
       println("poet: parsing dependencies from `%_`" % [path])
     val dependencies? = get?(parse-config(path), "dependencies")
-    match(dependencies?: TomlValue):
-      for dep in dependencies? as TomlTable do:
-        add(dependencies, key(dep))
+    match(dependencies?: One<TomlValue>):
+      for dep in value!(dependencies?) as TomlTable do:
+        if not get(dependencies, key(dep)):
+          add(dependencies, key(dep))
 
-        val dep-path = to-string(".poet/deps/%_" % [key(dep)])
-        if file-exists?(dep-path):
-          sync-dependency(dep-path)
-        else:
-          println("poet: build: debug: cloning %_" % [key(dep)])
-          shallow-clone-git-repo(value(dep) as String, dep-path)
+          val dep-path = to-string(".poet/deps/%_" % [key(dep)])
+          if file-exists?(dep-path):
+            if not root:
+              sync-dependency(dep-path)
+          else:
+            println("poet: build: debug: cloning %_" % [key(dep)])
+            shallow-clone-git-repo(value(dep) as String, dep-path)
 
-        parse-config-and-fetch-dependencies $
-          to-string("%_/poet.toml" % [dep-path])
+          parse-config-and-fetch-dependencies{false, _} $
+            to-string("%_/poet.toml" % [dep-path])
 
-  parse-config-and-fetch-dependencies("poet.toml")
+  parse-config-and-fetch-dependencies(true, "poet.toml")
 
   within f = open(".poet/stanza.proj", false):
     for dep in dependencies do:
       println(f, to-string(\<>include "deps/%_/stanza.proj"<> % [dep]))
+    println(f, \<>include "../stanza.proj"<>)
 
-public defn build (args: Tuple<String>) -> False:
+public defn build (args0: Tuple<String>) -> False:
   fetch-and-sync-dependencies()
-  call-system("stanza", ["stanza", "build", "-pkg", "./.poet/pkgs"])
+
+  val poet-dir = to-string $ "%_/.poet" % [get-cwd()]
+
+  val args = to-tuple $ cat-all([["stanza", "build"], args0, ["-pkg", "pkgs"]])
+  ProcessBuilder(args)
+    $> in-dir{_, poet-dir}
+    $> build
+    $> wait-process-throw-on-nonzero{_, "build failed!"}
+    
   false

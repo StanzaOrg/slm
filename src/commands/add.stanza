@@ -1,5 +1,6 @@
 defpackage poet/commands/add:
   import core
+  import maybe-utils
   import poet/utils
   import poet/dependency
   import poet/config
@@ -9,21 +10,19 @@ public defn add (kind: String, dependency: String) -> False:
     error("incorrectly formatted dependency: `%_`" % [dependency])
 
   defn parse-git-dependency (full-locator: String) -> Dependency:
-    match(split-last(full-locator, '/')):
-      ([leading-url, name]: [String, String]):
+    split-last(full-locator, '/')
+      $> value-or-else{_, error-incorrectly-formed}
+      $> fn ([leading-url, name]):
         Dependency(GitLocator(full-locator), strip-end(name, ".git"))
-      (_):
-        error-incorrectly-formed()
 
   defn parse-path-dependency (path: String) -> Dependency:
     if not file-exists?(to-string("%_/poet.toml" % [path])):
       error("no `poet.toml` at path dependency `%_`" % [path])
     else:
-      match(base-name?(path)):
-        (dir: One<String>):
-          Dependency(PathLocator(path), value!(dir))
-        (_: None):
-          error-incorrectly-formed()
+      base-name?(path)
+        $> value-or-else{_, error-incorrectly-formed}
+        $> fn (dir):
+          Dependency(PathLocator(path), dir)
 
   val current-dir = resolve-path!(".")
   val poet-toml-path = to-string("%_/poet.toml" % [current-dir])
