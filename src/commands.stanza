@@ -1,7 +1,7 @@
 defpackage poet/commands:
   import core
 
-protected defn init (project-dir*: String|False) -> False:
+protected defn init (project-dir*: Maybe<String>) -> False:
   poet/commands/init/init(project-dir*)
 
 protected defn add (kind: String, dependency: String) -> False:
@@ -12,3 +12,6 @@ protected defn build (args: Tuple<String>) -> False:
 
 protected defn clean () -> False:
   poet/commands/clean/clean()
+
+protected defn publish () -> False:
+  poet/commands/publish/publish()

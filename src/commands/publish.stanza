@@ -1,0 +1,11 @@
+defpackage poet/commands/publish:
+  import core
+  import poet/utils
+  import poet/config
+
+public defn publish () -> False:
+  if is-git-repo-dirty?(get-cwd()):
+    error("publish: can't publish with changes, stash or commit them.")
+  val version =
+    get?(parse-config("poet.toml"), "version")
+  false
