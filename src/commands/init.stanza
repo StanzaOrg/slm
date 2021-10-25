@@ -1,21 +1,18 @@
 defpackage poet/commands/init:
   import core
   import collections
+  import maybe-utils
   import poet/utils
   import toml/file
   import toml/value
   import toml/table
 
-public defn init (project-dir*: String|False) -> False:
+public defn init (project-dir*: Maybe<String>) -> False:
   ; First get the fully-resolved path of the directory where we're initializing
   ; a package. If no path was given, use the current directory.
-  val project-dir = resolve-path! $
-    match(project-dir*:String):
-      project-dir*
-    else:
-      get-cwd()
+  val project-dir = project-dir* $> value-or{_, get-cwd()}
 
-  val project-name = unwrap(dirname(project-dir))
+  val project-name = value!(dirname(project-dir))
 
   val poet-toml-path = to-string("%_/poet.toml" % [project-dir])
   val poet-dir-path = to-string("%_/.poet/" % [project-dir])
@@ -46,7 +43,7 @@ public defn init (project-dir*: String|False) -> False:
     println(f, ".poet")
 
   spit{poet-toml-path, _} $
-    TomlFile $ [
+    TomlFile $ to-seq $ [
       "name"    => project-name,
       "version" => "0.0.1",
       "dependencies" => TomlTable(),
