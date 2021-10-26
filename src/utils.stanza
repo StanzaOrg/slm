@@ -14,7 +14,7 @@ defn error (msg: Printable|String, usage?: True|False) -> Void:
   val program = command-line-arguments()[0]
   println(STANDARD-ERROR-STREAM, "%_: %_" % [program, msg])
   if usage?:
-    println(STANDARD-ERROR-STREAM, "usage: %_ [add|build|clean|init]" % [program])
+    println(STANDARD-ERROR-STREAM, "usage: %_ [add|build|clean|init|publish]" % [program])
   exit(1)
 
 public defn unwrap<?T> (v?: ?T|False) -> T:
@@ -112,17 +112,34 @@ public defn run-command-throw-on-error (
   wait-process-throw-on-nonzero(Process(args[0], args), error)
 
 public defn is-git-repo-dirty? (work-tree: String) -> True|False:
-  val git-ls = ProcessBuilder(["git", "status", "-z"])
+  not empty? $ call-system-and-get-output("git", ["git", "status", "-z"])
+
+public defn git-rev-parse (rev: String) -> String:
+  trim $ call-system-and-get-output("git", ["git", "rev-parse", "--verify", "--quiet", rev])
+
+public defn git-remote-tag-refs (remote: String) -> HashTable<String, String>:
+  val output = call-system-and-get-output("git", ["git", "ls-remote", "-q", "--tags", remote])
+  val pairs = to-tuple $ split(output, "\n")
+  to-hashtable<String, String> $ seq?{_, pairs} $ fn (line):
+    val elements = to-tuple $ split(line, "\t")
+    if length(elements) == 2:
+      One(elements[1] => elements[0])
+    else:
+      None()
+
+public defn run-git-command-in-dir (work-tree?: Maybe<String>, args0: Tuple<String>) -> Int:
+  val args = to-tuple $ cat(["git"], args0)
+  val work-tree = work-tree? $> value-or{_, get-cwd()}
+  val process = ProcessBuilder(args)
     $> in-dir{_, work-tree}
-    $> with-output
     $> build
-  val output = slurp-stream(output-stream(git-ls))
-  not empty?(output)
+  wait-process-throw-on-nonzero(process, "'%_' failed!" % [string-join(args, " ")])
 
 public defn run-git-command-in-dir (work-tree: String, args0: Tuple<String>) -> Int:
-  val args = to-tuple $ cat(["git"], args0)
-  val process = ProcessBuilder(args) $> in-dir{_, work-tree} $> build
-  wait-process-throw-on-nonzero(process, "'%_' failed!" % [string-join(args, " ")])
+  run-git-command-in-dir(One(work-tree), args0)
+
+public defn run-git-command (args0: Tuple<String>) -> Int:
+  run-git-command-in-dir(None(), args0)
 
 public defn shallow-clone-git-repo (url: String, directory: String) -> Int:
   run-command-throw-on-error(["git", "clone", url, "--depth", "1", directory],

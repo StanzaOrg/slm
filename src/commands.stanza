@@ -12,3 +12,6 @@ protected defn build (args: Tuple<String>) -> False:
 
 protected defn clean () -> False:
   poet/commands/clean/clean()
+
+protected defn publish () -> False:
+  poet/commands/publish/publish()

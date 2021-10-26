@@ -1,0 +1,52 @@
+defpackage poet/commands/publish:
+  import core
+  import collections
+  import maybe-utils
+  import poet/utils
+  import poet/config
+
+public defn publish () -> False:
+  ; What do we need to do?
+  ;
+  ; 1. Check if the repo is dirty. If it is, fail out. We don't want people
+  ;    thinking they're publishing the latest changes when they're not, and we
+  ;    don't want to get into the business of figuring out how to do that for
+  ;    them automatically.
+  ;
+  ; 2. Grab the user's version from their `poet.toml`. If `poet.toml` doesn't
+  ;    exist, or it doesn't contain a `version`, fail out.
+  ;
+  ; 3. Check if the version they're on is already tagged remotely. If so, fail
+  ;    out. We don't want to let a user accidentally overwrite a remote tag.
+  ;
+  ; 4. Check if the version they're on is already tagged locally. If not, tag
+  ;    the version and continue. If so, check that the local tag matches our
+  ;    current HEAD, and bail out if it doesn't, since we don't want to push
+  ;    the wrong tag. 
+
+  if is-git-repo-dirty?(get-cwd()):
+    error("publish: can't publish with changes, stash or commit them.")
+
+  val version = get?(parse-config("poet.toml"), "version")
+    $> value-or-else{_, {error("publish: no `version` in your poet.toml")}}
+
+  val version-tag = append("v", version as String)
+  val version-ref = to-string $ "refs/tags/%_" % [version-tag]
+
+  val remote-tags = git-remote-tag-refs("origin")
+  val remote-tag-rev = get?(remote-tags, version-ref)
+  if remote-tag-rev is String:
+    error("publish: can't publish %_, already tagged remotely at `%_`"
+          % [version-tag, remote-tag-rev])
+
+  val version-tag-rev = git-rev-parse(version-tag)
+  if not empty?(version-tag-rev) and version-tag-rev != git-rev-parse("HEAD"):
+    error(\<>publish: can't publish %_, already tagged locally at `%_`
+Either retag it using `git tag --force %_`, or publish a different version.<>
+          % [version-tag, version-tag-rev, version-tag])
+
+  run-git-command(["tag", version-tag])
+  run-git-command(["push", "--tags"])
+  run-git-command(["push"])
+
+  false

@@ -39,6 +39,8 @@ defn main ():
           poet/commands/clean()
       "init":
         poet/commands/init(nth?(args, 2))
+      "publish":
+        poet/commands/publish()
       else:
         error-with-usage("Invalid argument given: `%_`" % [command]) 
   catch (e: Exception):
