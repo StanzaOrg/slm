@@ -1,24 +1,25 @@
 defpackage poet/dependency:
   import core
+  import maybe-utils
 
 public defstruct Dependency:
-    locator: Locator
-    name: String
+  name: String
+  uri: String
+  version?: Maybe<String>
 
 public defn path (dep: Dependency) -> String:
-    match(locator(dep)):
-        (locator:GitLocator): append(".poet/deps/", name(dep))
-        (locator:PathLocator): path(locator)
+  to-string $ ".poet/deps/%_" % [name(dep)]
 
-public defn location (dep: Dependency) -> String:
-    match(locator(dep)):
-        (locator:GitLocator): repo-url(locator)
-        (locator:PathLocator): path(locator)
+public defn spec (dep: Dependency) -> String:
+  to-string $ "%_|%_"
+    % [name(dep), version?(dep) $> value-or{_, "latest"}]
 
-public deftype Locator
-public defstruct GitLocator <: Locator:
-    repo-url: String
+public defn parse-dependency (name: String, locator: String) -> Maybe<Dependency>:
+  val elements = to-tuple $ split(locator, "|")
 
-public defstruct PathLocator <: Locator:
-    path: String
-
+  if length(elements) $> contains?{[1, 2], _}:
+    val uri = elements[0]
+    val version? = One(elements[1]) when length(elements) > 1 else None()
+    One(Dependency(name, uri, version?))
+  else:
+    None()

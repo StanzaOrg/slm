@@ -4,6 +4,7 @@ defpackage poet/commands/build:
   import maybe-utils
   import poet/config
   import poet/utils
+  import poet/dependency
   import toml/parser
   import toml/file
   import toml/table
@@ -76,28 +77,6 @@ defn ensure-poet-dir-structure-exists () -> False:
     create-dir!(".poet/pkgs/")
 
   false
-
-defstruct Dependency:
-  name: String
-  uri: String
-  version?: Maybe<String>
-
-defn path (dep: Dependency) -> String:
-  to-string $ ".poet/deps/%_" % [name(dep)]
-
-defn spec (dep: Dependency) -> String:
-  to-string $ "%_|%_"
-    % [name(dep), version?(dep) $> value-or{_, "latest"}]
-
-defn parse-dependency (name: String, locator: String) -> Maybe<Dependency>:
-  val elements = to-tuple $ split(locator, "|")
-
-  if length(elements) $> contains?{[1, 2], _}:
-    val uri = elements[0]
-    val version? = One(elements[1]) when length(elements) > 1 else None()
-    One(Dependency(name, uri, version?))
-  else:
-    None()
 
 defn fetch-and-sync-dependencies () -> False:
   val resolved-dependencies = HashSet<String>()
