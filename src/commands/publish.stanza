@@ -5,6 +5,9 @@ defpackage poet/commands/publish:
   import poet/utils
   import poet/config
 
+defn git-rev-parse (rev: String) -> String:
+  git-rev-parse(get-cwd(), rev)
+
 public defn publish () -> False:
   ; What do we need to do?
   ;

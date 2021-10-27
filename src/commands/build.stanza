@@ -1,27 +1,75 @@
 defpackage poet/commands/build:
   import core
   import collections
+  import maybe-utils
   import poet/config
   import poet/utils
+  import toml/parser
+  import toml/file
   import toml/table
   import toml/value
 
-; TODO: run commands in parallel up to some configurable limit
-; (default: number of cores?)
+defn parse-poet-lock-file (path: String) -> HashTable<String, String>:
+  slurp(path)
+    $> parse-file
+    $> table
+    $> to-seq
+    $> seq{fn (kv): key(kv) => value(kv) as String , _}
+    $> to-hashtable<String, String>
 
-defn sync-dependency (dep-path: String) -> False:
-  run-git-command-in-dir(dep-path, ["fetch"])
-  run-git-command-in-dir(dep-path, ["checkout", "master", "--quiet"])
-  run-git-command-in-dir(dep-path, ["reset", "--hard", "origin/master", "--quiet"])
-  false
+defn sync-dependency (dep: Dependency, hash?: Maybe<String>, ref?: Maybe<String>):
+  defn repo-head-at-hash? () -> True|False:
+    hash?
+      $> map{_, {_ == git-rev-parse(path(dep), "HEAD")}}
+      $> value-or{_, false}
+
+  defn git (args: Tuple<String>):
+    run-git-command-in-dir(path(dep), args)
+
+  if not repo-head-at-hash?():
+    println("debug: syncing '%_'" % [spec(dep)])
+
+    val ref = ref? $> value-or{_, "HEAD"}
+    val reset-ref = if ref == "HEAD":
+      "origin/HEAD"
+    else:
+      ref
+
+    git(["fetch", "--quiet", "--force", "origin", ref])
+    git(["reset", "--quiet", "--hard", reset-ref])
+
+defn clone-and-checkout-dependency (dep: Dependency):
+  println("poet: build: cloning %_" % [spec(dep)])
+  shallow-clone-git-repo(uri(dep), path(dep))
+
+  defn parse-version (version: String) -> Maybe<[Int, Int, Int]>:
+    defn malformed () -> Void:
+      error(\<>poet: build: malformed version '%_' in poet.toml:
+%_ = "%_|%_" <> % [version, name(dep), uri(dep), version])
+
+    val elements = to-tuple $ split(version, ".")
+    if length(elements) == 3:
+      val major = elements[0] $> to-int $> to-maybe $> value-or-else{_, malformed}
+      val minor = elements[1] $> to-int $> to-maybe $> value-or-else{_, malformed}
+      val patch = elements[2] $> to-int $> to-maybe $> value-or-else{_, malformed}
+      One([major, minor, patch])
+    else:
+      None()
+
+  defn version-tag ([major, minor, patch]: [Int, Int, Int]) -> String:
+    to-string("v%~.%~.%~" % [major, minor, patch])
+
+  version?(dep)
+    $> and-then{_, parse-version}
+    $> map{_, version-tag}
+    $> map{_, run-git-command-in-dir{path(dep), ["checkout", "--quiet", _]}}
+    $> value-or{_, false}
 
 defn ensure-poet-dir-structure-exists () -> False:
   defn create-dir! (path: String) -> True|False:
     if not file-exists?(path):
       create-dir(path)
       true
-    else:
-      false
 
   if create-dir!(".poet/"):
     create-dir!(".poet/deps/")
@@ -29,43 +77,88 @@ defn ensure-poet-dir-structure-exists () -> False:
 
   false
 
+defstruct Dependency:
+  name: String
+  uri: String
+  version?: Maybe<String>
+
+defn path (dep: Dependency) -> String:
+  to-string $ ".poet/deps/%_" % [name(dep)]
+
+defn spec (dep: Dependency) -> String:
+  to-string $ "%_|%_"
+    % [name(dep), version?(dep) $> value-or{_, "latest"}]
+
+defn parse-dependency (name: String, locator: String) -> Maybe<Dependency>:
+  val elements = to-tuple $ split(locator, "|")
+
+  if length(elements) $> contains?{[1, 2], _}:
+    val uri = elements[0]
+    val version? = One(elements[1]) when length(elements) > 1 else None()
+    One(Dependency(name, uri, version?))
+  else:
+    None()
+
 defn fetch-and-sync-dependencies () -> False:
-  val dependencies = HashSet<String>()
-  ; What needs to be done?
-  ; - The top-level `poet.toml` needs to be parsed
-  ; - Each dependency must be located, and if remote, fetched
-  ; - Each dependency must have its `poet.toml` parsed, then
-  ;   its dependencies fetched
-  ; - We do so until we reach a fixed point (no new deps added)
-  defn parse-config-and-fetch-dependencies (root: True|False, path: String) -> False:
-    if not file-exists?(path):
-      throw(Exception $
-        "tried to fetch dependencies from `%_`, but it doesn't exist!" % [path])
-    if poet/flags/verbose?:
-      println("poet: parsing dependencies from `%_`" % [path])
-    val dependencies? = get?(parse-config(path), "dependencies")
+  val resolved-dependencies = HashSet<String>()
+  val dependency-hashes = if file-exists?("poet.lock"):
+    parse-poet-lock-file("poet.lock")
+  else:
+    HashTable<String, String>()
+
+  defn parse-config-and-fetch-dependencies (poet-toml-path: String) -> False:
+    if not file-exists?(poet-toml-path):
+      throw $ Exception $
+        "tried to fetch dependencies from `%_`, but it doesn't exist!"
+         % [poet-toml-path]
+
+    val dependencies? = parse-config(poet-toml-path)
+      $> get?{_, "dependencies"}
+
     match(dependencies?: One<TomlValue>):
+      val child-deps = Vector<Dependency>()
+
       for dep in value!(dependencies?) as TomlTable do:
-        if not get(dependencies, key(dep)):
-          add(dependencies, key(dep))
+        val dependency = parse-dependency(key(dep), value(dep) as String)
+          $> value-or-else{_, {
+            error("build: malformed dependency '%_' given in '%_': '%_'"
+                  % [key(dep), path, value(dep) as String])
+          }}
 
-          val dep-path = to-string(".poet/deps/%_" % [key(dep)])
-          if file-exists?(dep-path):
-            if not root:
-              sync-dependency(dep-path)
+        if not get(resolved-dependencies, name(dependency)):
+          add(resolved-dependencies, name(dependency))
+
+          val hash? = get?(dependency-hashes, name(dependency)) $> to-maybe
+          if file-exists?(path(dependency)):
+            sync-dependency(dependency, hash?, version?(dependency))
           else:
-            println("poet: build: debug: cloning %_" % [key(dep)])
-            shallow-clone-git-repo(value(dep) as String, dep-path)
+            clone-and-checkout-dependency(dependency)
 
-          parse-config-and-fetch-dependencies{false, _} $
-            to-string("%_/poet.toml" % [dep-path])
+          add(child-deps, dependency)
+          if hash? is None:
+            set(dependency-hashes, name(dependency),
+              git-rev-parse(path(dependency), "HEAD"))
 
-  parse-config-and-fetch-dependencies(true, "poet.toml")
+      for dep in child-deps do:
+        parse-config-and-fetch-dependencies $
+          to-string("%_/poet.toml" % [path(dep)])
+
+  parse-config-and-fetch-dependencies("poet.toml")
+  write-poet-lock-file(dependency-hashes, "poet.lock")
 
   within f = open(".poet/stanza.proj", false):
-    for dep in dependencies do:
+    for dep in resolved-dependencies do:
       println(f, to-string(\<>include "deps/%_/stanza.proj"<> % [dep]))
     println(f, \<>include "../stanza.proj"<>)
+
+defn write-poet-lock-file (
+  dependency-hashes: HashTable<String, String>,
+  path: String
+) -> False:
+  dependency-hashes
+    $> to-seq
+    $> TomlFile
+    $> spit{path, _}
 
 public defn build (args0: Tuple<String>) -> False:
   ensure-poet-dir-structure-exists()
