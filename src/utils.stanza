@@ -14,7 +14,7 @@ defn error (msg: Printable|String, usage?: True|False) -> Void:
   val program = command-line-arguments()[0]
   println(STANDARD-ERROR-STREAM, "%_: %_" % [program, msg])
   if usage?:
-    println(STANDARD-ERROR-STREAM, "usage: %_ [add|build|clean|init|publish]" % [program])
+    println(STANDARD-ERROR-STREAM, "usage: %_ [build|clean|init|publish]" % [program])
   exit(1)
 
 public defn unwrap<?T> (v?: ?T|False) -> T:

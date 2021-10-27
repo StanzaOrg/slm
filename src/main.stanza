@@ -16,10 +16,6 @@ defn main ():
   ; 2. Build packages
   ;   - Check that dependencies have been fetched
   ;   - Build the project
-  ;
-  ; 3. Add package dependencies
-  ;   - Add dependencies to ./deps
-  ;   - Add include package stanza.proj to stanza.proj
 
   val args = command-line-arguments()
   if length(args) < 2:
@@ -28,11 +24,6 @@ defn main ():
   try:
     val command = args[1]
     switch(command):
-      "add":
-        if length(args) > 3:
-          poet/commands/add(args[2], args[3])
-        else:
-          error-with-usage("No argument given to `poet add`")
       "build":
         poet/commands/build(to-tuple $ command-line-arguments()[2 to false])
       "clean":

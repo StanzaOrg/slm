@@ -2,5 +2,5 @@ name = "poet"
 version = "0.0.3"
 
 [dependencies]
-stanza-toml = "git@github.com:tylanphear/stanza-toml"
-maybe-utils = "git@github.com:tylanphear/maybe-utils"
+stanza-toml = "git@github.com:tylanphear/stanza-toml|latest"
+maybe-utils = "git@github.com:tylanphear/maybe-utils|0.0.3"
