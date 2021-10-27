@@ -5,8 +5,8 @@ defpackage poet/commands/publish:
   import poet/utils
   import poet/config
 
-defn git-rev-parse (rev: String) -> String:
-  git-rev-parse(get-cwd(), rev)
+defn git-rev-parse (rev: String, fail?: True|False) -> String:
+  git-rev-parse(get-cwd(), rev, fail?)
 
 public defn publish () -> False:
   ; What do we need to do?
@@ -42,8 +42,8 @@ public defn publish () -> False:
     error("publish: can't publish %_, already tagged remotely at `%_`"
           % [version-tag, remote-tag-rev])
 
-  val version-tag-rev = git-rev-parse(version-tag)
-  if not empty?(version-tag-rev) and version-tag-rev != git-rev-parse("HEAD"):
+  val version-tag-rev = git-rev-parse(version-tag, false)
+  if not empty?(version-tag-rev) and version-tag-rev != git-rev-parse("HEAD", true):
     error(\<>publish: can't publish %_, already tagged locally at `%_`
 Either retag it using `git tag --force %_`, or publish a different version.<>
           % [version-tag, version-tag-rev, version-tag])

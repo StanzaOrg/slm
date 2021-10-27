@@ -122,17 +122,22 @@ public defn is-git-repo-dirty? (work-tree: String) -> True|False:
   wait-process-throw-on-nonzero(proc, "'git status -z' failed!")
   not empty?(status)
 
-public defn command-output-in-dir (args: Tuple<String>, dir: String) -> String:
+public defn command-output-in-dir (
+  args: Tuple<String>,
+  dir: String,
+  fail?: True|False
+) -> String:
   val proc = ProcessBuilder(args)
     $> in-dir{_, dir}
     $> with-output
     $> build
   val ret = proc $> get-output $> trim
-  wait-process-throw-on-nonzero(proc, "'%s' failed!" % [args])
+  if fail?:
+    wait-process-throw-on-nonzero(proc, "'%s' failed!" % [args])
   ret
 
-public defn git-rev-parse (work-tree: String, rev: String) -> String:
-  command-output-in-dir(["git", "rev-parse", "--verify", "--quiet", rev], work-tree)
+public defn git-rev-parse (work-tree: String, rev: String, fail?: True|False) -> String:
+  command-output-in-dir(["git", "rev-parse", "--verify", "--quiet", rev], work-tree, fail?)
 
 public defn git-remote-tag-refs (remote: String) -> HashTable<String, String>:
   val output = call-system-and-get-output("git", ["git", "ls-remote", "-q", "--tags", remote])
