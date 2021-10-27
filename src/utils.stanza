@@ -10,6 +10,10 @@ public defn error-with-usage (msg: Printable|String) -> Void:
 public defn error (msg: Printable|String) -> Void:
   error(msg, false)
 
+public defn info (msg: Printable|String) -> False:
+  val program = command-line-arguments()[0]
+  println("%_: %_" % [program, msg])
+
 defn error (msg: Printable|String, usage?: True|False) -> Void:
   val program = command-line-arguments()[0]
   println(STANDARD-ERROR-STREAM, "%_: %_" % [program, msg])
