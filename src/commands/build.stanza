@@ -15,6 +15,20 @@ defn sync-dependency (dep-path: String) -> False:
   run-git-command-in-dir(dep-path, ["reset", "--hard", "origin/master", "--quiet"])
   false
 
+defn ensure-poet-dir-structure-exists () -> False:
+  defn create-dir! (path: String) -> True|False:
+    if not file-exists?(path):
+      create-dir(path)
+      true
+    else:
+      false
+
+  if create-dir!(".poet/"):
+    create-dir!(".poet/deps/")
+    create-dir!(".poet/pkgs/")
+
+  false
+
 defn fetch-and-sync-dependencies () -> False:
   val dependencies = HashSet<String>()
   ; What needs to be done?
@@ -54,6 +68,7 @@ defn fetch-and-sync-dependencies () -> False:
     println(f, \<>include "../stanza.proj"<>)
 
 public defn build (args0: Tuple<String>) -> False:
+  ensure-poet-dir-structure-exists()
   fetch-and-sync-dependencies()
 
   val poet-dir = to-string $ "%_/.poet" % [get-cwd()]
