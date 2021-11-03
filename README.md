@@ -21,3 +21,7 @@ To build a `poet` package, use `poet build`. This will create the `.poet` direct
 To publish a `poet` package, use `poet publish`. For now, you must also have set an upstream (for example, by using `git branch -u <upstream-repo-url>`) for the branch you are on. You must also be in a clean state (no outstanding changes). `poet` will `git tag` the current version (as specified in your `poet.toml`) and then push it to your upstream.
 
 To clean a `poet` package, use `poet clean`. This removes any fetched dependencies and clears your build cache.
+
+# Caveats
+
+Packages that use `poet` must be built using `poet build`, and cannot be built using `stanza build`. Attempting to do so will most likely result in various compile errors due to the build system not pulling in packages from your dependencies. This is in part due to the fact that the Stanza build system is not capable of fetching packages (like `poet build`), but also because a `poet`-compatible `stanza.proj` does not reference the main `.poet/stanza.proj` or `stanza.proj` files from dependent packages in any way. This is mostly not an issue in practice, but something to be aware of if you run into this issue.
