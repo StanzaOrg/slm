@@ -24,4 +24,6 @@ To clean a `poet` package, use `poet clean`. This removes any fetched dependenci
 
 # Caveats
 
-Packages that use `poet` must be built using `poet build`, and cannot be built using `stanza build`. Attempting to do so will most likely result in various compile errors due to the build system not pulling in packages from your dependencies. This is in part due to the fact that the Stanza build system is not capable of fetching packages (like `poet build`), but also because a `poet`-compatible `stanza.proj` does not reference the main `.poet/stanza.proj` or `stanza.proj` files from dependent packages in any way. This is mostly not an issue in practice, but something to be aware of if you run into this issue.
+Packages that use `poet` must be built using `poet build`, and cannot be built using `stanza build`. Attempting to do so will most likely result in various compile errors due to the build system not pulling in packages from your dependencies.
+
+This is in part due to the fact that the Stanza build system is not capable of fetching packages (like `poet build`), but also because a `poet`-compatible `stanza.proj` does not reference the main `.poet/stanza.proj` or `stanza.proj` files from dependent packages in any way. This is mostly not an issue in practice, but something to be aware of if you run into this issue.
