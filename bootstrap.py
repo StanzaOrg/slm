@@ -12,13 +12,21 @@ DEPENDENCIES = {
 
 POET_DIR = os.path.join(os.getcwd(), ".poet")
 
-def tag_to_rev(tag):
-    if tag == "latest":
+def version_to_tag(version):
+    if version == "latest":
         return "HEAD"
     else:
-        return f"v{tag}"
+        return f"v{version}"
+
+# kind of a hack, but SSH authentication doesn't always work, whereas HTTPS
+# always will
+def ssh_to_https(url):
+    url = url.replace("git@", "https://")
+    url = url.replace("github.com:", "github.com/")
+    return url
 
 def git_clone(path, url, rev):
+    url = ssh_to_https(url)
     subprocess.run(["git", "clone", "--depth", "1", "--quiet", url, path])
     subprocess.run(["git", "fetch", "--tags", "--quiet"], cwd=path)
     subprocess.run(["git", "checkout", "--quiet", "--force", rev], cwd=path)
@@ -46,9 +54,9 @@ def main():
 
     # Clone dependencies
     for dependency, identifier in DEPENDENCIES.items():
-        url, tag = tuple(identifier.split("|"))
+        url, version = tuple(identifier.split("|"))
         path = os.path.join(POET_DIR, "deps", dependency)
-        rev = tag_to_rev(tag)
+        rev = version_to_tag(version)
 
         git_clone(path, url, rev)
 
