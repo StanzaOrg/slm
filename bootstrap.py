@@ -20,6 +20,7 @@ def tag_to_rev(tag):
 
 def git_clone(path, url, rev):
     subprocess.run(["git", "clone", "--depth", "1", "--quiet", url, path])
+    subprocess.run(["git", "fetch", "--tags", "--quiet"], cwd=path)
     subprocess.run(["git", "checkout", "--quiet", "--force", rev], cwd=path)
 
 def generate_stanza_proj():
@@ -53,6 +54,8 @@ def main():
 
     generate_stanza_proj()
     run_stanza_build()
+    poet_path = os.path.join(os.getcwd(), "poet")
+    print(f"poet bootstrapped: run `{poet_path} build` to finish building.")
 
 if __name__ == "__main__":
     main()
