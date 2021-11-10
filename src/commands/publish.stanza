@@ -14,27 +14,25 @@ defn git-rev-parse! (rev: String) -> String:
 public defn publish () -> False:
   ; What do we need to do?
   ;
-  ; 1. Check if the repo is dirty. If it is, fail out. We don't want people
-  ;    thinking they're publishing the latest changes when they're not, and we
-  ;    don't want to get into the business of figuring out how to do that for
-  ;    them automatically.
+  ; 1. Grab the user's version from their `poet.toml`. If `poet.toml` doesn't
+  ;    exist, or it doesn't contain a `version`, fail.
   ;
-  ; 2. Grab the user's version from their `poet.toml`. If `poet.toml` doesn't
-  ;    exist, or it doesn't contain a `version`, fail out.
+  ; 2. Check if the repo is dirty. If it is, fail. We don't want users thinking
+  ;    they're publishing the latest changes when they're not.
   ;
-  ; 3. Check if the version they're on is already tagged remotely. If so, fail
-  ;    out. We don't want to let a user accidentally overwrite a remote tag.
+  ; 3. Check if the version they're on is already tagged remotely. If so, fail.
+  ;    We don't want to let a user accidentally overwrite a remote tag.
   ;
   ; 4. Check if the version they're on is already tagged locally. If not, tag
   ;    the version and continue. If so, check that the local tag matches our
-  ;    current HEAD, and bail out if it doesn't, since we don't want to push
-  ;    the wrong tag. 
-
-  if is-git-repo-dirty?(get-cwd()):
-    error("publish: can't publish with changes, stash or commit them.")
+  ;    current HEAD, and fail if it doesn't, since we don't want to push the
+  ;    wrong tag.
 
   val version = get?(parse-config("poet.toml"), "version")
     $> value-or-else{_, {error("publish: no `version` in your poet.toml")}}
+
+  if is-git-repo-dirty?(get-cwd()):
+    error("publish: can't publish with changes, stash or commit them.")
 
   val version-tag = append("v", version as String)
   val version-ref = to-string $ "refs/tags/%_" % [version-tag]
