@@ -1,6 +1,6 @@
 FROM ubuntu:bionic
 RUN apt-get update -y
-RUN apt-get install -y python3 git wget unzip
+RUN apt-get install -y python3 git wget unzip gcc
 
 COPY . /build
 WORKDIR /build
