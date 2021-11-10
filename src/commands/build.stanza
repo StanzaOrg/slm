@@ -25,7 +25,7 @@ defn sync-dependency (
   force?: True|False,
 ) -> True|False:
 
-  val head-hash = git-rev-parse(path(dep), "HEAD", true)
+  val head-hash = git-rev-parse!(path(dep), "HEAD")
   defn repo-head-at-hash? () -> True|False:
     hash?
       $> map{_, {_ == head-hash}}
@@ -148,8 +148,8 @@ defn fetch-and-sync-dependencies () -> False:
           if not in-sync?:
             add(child-deps-to-sync, dependency)
             if hash? is None:
-              set(dependency-hashes, name(dependency),
-                git-rev-parse(path(dependency), "HEAD", true))
+              dependency-hashes[name(dependency)] =
+                git-rev-parse!(path(dependency), "HEAD")
               dependencies-dirty? = true
 
       for dep in child-deps-to-sync do:

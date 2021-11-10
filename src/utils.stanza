@@ -139,6 +139,9 @@ public defn command-output-in-dir (
 public defn git-rev-parse (work-tree: String, rev: String, fail?: True|False) -> String:
   command-output-in-dir(["git", "rev-parse", "--verify", "--quiet", rev], work-tree, fail?)
 
+public defn git-rev-parse! (work-tree: String, rev: String) -> String:
+  git-rev-parse(work-tree, rev, true)
+
 public defn git-remote-tag-refs (remote: String) -> HashTable<String, String>:
   val output = call-system-and-get-output("git", ["git", "ls-remote", "-q", "--tags", remote])
   val pairs = to-tuple $ split(output, "\n")
