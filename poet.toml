@@ -1,5 +1,5 @@
 name = "poet"
-version = "0.0.4"
+version = "0.0.5"
 
 [dependencies]
 stanza-toml = "git@github.com:tylanphear/stanza-toml|latest"
