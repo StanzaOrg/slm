@@ -1,5 +1,6 @@
 defpackage poet/commands/init:
   import core
+  import core/parsed-path
   import collections
   import maybe-utils
   import poet/utils
@@ -10,9 +11,17 @@ defpackage poet/commands/init:
 public defn init (project-dir*: Maybe<String>) -> False:
   ; First get the fully-resolved path of the directory where we're initializing
   ; a package. If no path was given, use the current directory.
-  val project-dir = project-dir* $> value-or{_, get-cwd()}
+  val project-dir = project-dir*
+    $> map{_, parse-path}
+    $> map{_, normalize}
+    $> map{_, to-string}
+    $> value-or{_, get-cwd()}
 
-  val project-name = value!(dirname(project-dir))
+  val project-name = dirname(project-dir)
+    $> value-or{_, project-dir}
+
+  if not file-exists?(project-dir):
+    create-dir(project-dir)
 
   val poet-toml-path = to-string("%_/poet.toml" % [project-dir])
   val poet-dir-path = to-string("%_/.poet/" % [project-dir])
@@ -88,5 +97,8 @@ main()
   val git-dir = to-string("%_/.git" % [project-dir])
   if not file-exists?(git-dir):
     git-init(project-dir)
+
+  println("poet: init: package `%_` initialized in `%_`"
+          % [project-name, project-dir])
 
   false

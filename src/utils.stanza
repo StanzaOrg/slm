@@ -174,7 +174,7 @@ public defn shallow-clone-git-repo (
                              "'git clone %_' failed!" % [url])
 
 public defn git-init (path: String) -> Int:
-  run-command-throw-on-error(["git", "init", path],
+  run-command-throw-on-error(["git", "init", "--quiet", path],
                              "'git init %_' failed!" % [path])
 
 public defn delete-files-in-dir (path: String) -> False:
