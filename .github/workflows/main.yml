@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  # Triggers on pushes to master
+  push:
+    branches: [ master ]
+
+  # Allows running manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-bionic
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Build repo
+        uses: ./.github/actions/build.yml

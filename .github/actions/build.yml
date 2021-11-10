@@ -1,0 +1,4 @@
+name: Build repo
+runs:
+  using: 'docker'
+  image: 'ci/Dockerfile'
