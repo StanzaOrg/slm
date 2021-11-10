@@ -48,8 +48,7 @@ defn sync-dependency (
         git(["reset", "--quiet", "--hard", reset-ref])
       else:
         error(\<>build: dependency '%_' version does not match version in poet.lock.
-Either remove poet.lock or run `poet clean`<>
-          % [name(dep), head-hash, value!(hash?)])
+Either remove poet.lock or run `poet clean`<> % [name(dep)])
 
   up-to-date?
 
