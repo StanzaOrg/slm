@@ -85,14 +85,16 @@ defmethod version-tag? (version: LatestVersion) -> None:
 
 defn clone-and-checkout-dependency (dep: Dependency) -> False:
   info("build: cloning %_" % [spec(dep)])
-  shallow-clone-git-repo(uri(dep), path(dep))
 
-  version?(dep)
+  shallow-clone-git-repo(uri(dep), path(dep))
+  val revision = version?(dep)
     $> and-then{_, parse-version}
     $> and-then{_, version-tag?}
-    $> map{_, run-git-command-in-dir{path(dep), ["checkout", "--quiet", _]}}
-    $> value-or{_, false}
-
+    $> map{_, fn (tag):
+      val refspec = to-string $ "+refs/tags/%_:refs/tags/%_" % [tag, tag]
+      run-git-command-in-dir(path(dep), ["fetch", "--quiet", "origin", refspec])
+      run-git-command-in-dir(path(dep), ["checkout", "--quiet", "--force", tag])
+    }
   false
 
 defn ensure-poet-dir-structure-exists () -> False:
