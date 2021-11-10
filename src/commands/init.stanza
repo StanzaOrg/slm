@@ -20,16 +20,16 @@ public defn init (project-dir*: Maybe<String>) -> False:
   val project-name = dirname(project-dir)
     $> value-or{_, project-dir}
 
-  if not file-exists?(project-dir):
-    create-dir(project-dir)
-
   val poet-toml-path = to-string("%_/poet.toml" % [project-dir])
   val poet-dir-path = to-string("%_/.poet/" % [project-dir])
 
-  ; Check that a package wasn't already initialized
-  for path in [poet-toml-path, poet-dir-path] do:
-    if file-exists?(path):
-      error("init: package already initialized (`%_` exists)" % [path])
+  if file-exists?(project-dir):
+    ; Check that a package wasn't already initialized
+    for path in [poet-toml-path, poet-dir-path] do:
+      if file-exists?(path):
+        error("init: package already initialized (`%_` exists)" % [path])
+  else:
+    create-dir(project-dir)
 
   ; Create our initial package structure:
   ;   - .poet/
@@ -42,15 +42,19 @@ public defn init (project-dir*: Maybe<String>) -> False:
   ;   - src
   ;     - stanza.proj
   ;     - main.stanza
+
+  ; Create empty .poet directory structure
   create-dir(poet-dir-path)
   create-dir(to-string("%_/pkgs/" % [poet-dir-path]))
   create-dir(to-string("%_/deps/" % [poet-dir-path]))
   create-empty-file(to-string("%_/stanza.proj" % [poet-dir-path]))
 
+  ; Create .gitignore
   val git-ignore = to-string("%_/.gitignore" % [project-dir])
   within f = open(git-ignore, file-exists?(git-ignore)):
     println(f, ".poet")
 
+  ; Create poet.toml
   spit{poet-toml-path, _} $
     TomlFile $ to-seq $ [
       "name"    => project-name,
@@ -58,33 +62,36 @@ public defn init (project-dir*: Maybe<String>) -> False:
       "dependencies" => TomlTable(),
     ]
 
+  ; Create stanza.proj
+  val main-package = to-string("%_/main" % [project-name])
   val stanza-proj-path = to-string("%_/stanza.proj" % [project-dir])
   if not file-exists?(stanza-proj-path):
-    spit(stanza-proj-path, \<>include "src/stanza.proj"<>)
-
-  val project-src-dir = to-string("%_/src/" % [project-dir])
-  if not file-exists?(project-src-dir):
-    create-dir(project-src-dir)
-
-  val src-stanza-proj-path = to-string("%_/stanza.proj" % [project-src-dir])
-  if not file-exists?(src-stanza-proj-path):
-    spit{src-stanza-proj-path, _} $
-      match(project-name:String):
-        val main-package = to-string("%_/main" % [project-name])
-        \<>package %_ defined-in "main.stanza"
+    spit(stanza-proj-path, \<>include "src/stanza.proj"
 
 build main:
   inputs: %_
   o: "%_"
 <>
-        % [main-package, main-package, project-name]
-      else:
-        ""
+        % [main-package, project-name])
 
+  ; Create src/
+  val project-src-dir = to-string("%_/src/" % [project-dir])
+  if not file-exists?(project-src-dir):
+    create-dir(project-src-dir)
+
+  ; Create src/stanza.proj
+  val src-stanza-proj-path = to-string("%_/stanza.proj" % [project-src-dir])
+  if not file-exists?(src-stanza-proj-path):
+    spit{src-stanza-proj-path, _} $
+      \<>package %_ defined-in "main.stanza"
+<>
+      % [main-package]
+
+  ; Create src/main.stanza
   val project-main-path = to-string("%_/main.stanza" % [project-src-dir])
   if not file-exists?(project-main-path):
     spit{project-main-path, _} $
-      \<>defpackage %_/main:
+      \<>defpackage %_:
   import core
 
 defn main () -> False:
@@ -92,9 +99,10 @@ defn main () -> False:
 
 main()
 <>
-      % [project-name]
+      % [main-package]
 
-  val git-dir = to-string("%_/.git" % [project-dir])
+  ; Initialize Git repo in .git
+  val git-dir = to-string("%_/.git/" % [project-dir])
   if not file-exists?(git-dir):
     git-init(project-dir)
 
