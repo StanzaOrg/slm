@@ -1,4 +1,4 @@
 name: Build repo
 runs:
   using: 'docker'
-  image: '${GITHUB_WORKSPACE}/ci/Dockerfile'
+  image: '../../../ci/Dockerfile'
