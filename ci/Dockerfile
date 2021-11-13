@@ -9,6 +9,4 @@ RUN echo "install-dir = \"/stanza\"" >> ${HOME}/.stanza
 RUN echo "platform = linux" >> ${HOME}/.stanza
 ENV PATH="/stanza:$PATH"
 
-WORKDIR ${GITHUB_WORKSPACE}
-
 ENTRYPOINT ci/build.sh
