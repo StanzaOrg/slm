@@ -25,15 +25,23 @@ jobs:
 
       - name: Download Stanza
         run: |
-          wget "http://lbstanza.org/resources/stanza/lstanza_0_14_33.zip" -O stanza.zip
+          # Download archive from lbstanza.org and unpack
+          STANZA_VERSION= 0_14_33
+          wget "http://lbstanza.org/resources/stanza/lstanza_${STANZA_VERSION}.zip" \
+            -O stanza.zip
           unzip stanza.zip -d ${{ github.workspace }}/stanza
+          rm -rf stanza.zip
+
+          # Create .stanza in the newly-unpacked Stanza dir
           echo "install-dir = \"/${{ github.workspace }}/stanza\"" >> ${{ github.workspace }}/stanza/.stanza
           echo "platform = linux" >> ${{ github.workspace }}/stanza/.stanza
           ls -la ${{ github.workspace }}/stanza
-          STANZA_ENV=${{ github.workspace }}/stanza.env
-          echo > "$STANZA_ENV"
-          echo "export PATH=\"${{ github.workspace }}/stanza:\$PATH\"" >> "$STANZA_ENV"
-          echo "export STANZA_CONFIG=\"${{ github.workspace }}/stanza\"" >> "$STANZA_ENV"
+
+          # Create Stanza env file for next step
+          cat > ${{ github.workspace }}/stanza.env <<EOF
+export PATH="${{ github.workspace }}/stanza:\$PATH"
+export STANZA_CONFIG="${{ github.workspace }}/stanza"
+EOF
 
       - name: Bootstrap and build
         working-directory: ${{ github.workspace }}
