@@ -6,8 +6,8 @@ import sys
 
 # Keep in sync with `poet.toml`
 DEPENDENCIES = {
-        "stanza-toml": "git@github.com:tylanphear/stanza-toml|latest",
-        "maybe-utils": "git@github.com:tylanphear/maybe-utils|0.0.3",
+        "stanza-toml": "tylanphear/stanza-toml|latest",
+        "maybe-utils": "tylanphear/maybe-utils|0.0.3",
 }
 
 POET_DIR = os.path.join(os.getcwd(), ".poet")
@@ -18,16 +18,20 @@ def version_to_tag(version):
     else:
         return f"v{version}"
 
-def ssh_to_https(url):
-    url = url.replace("git@", "https://")
-    url = url.replace("github.com:", "github.com/")
-    return url
+def make_full_url(url):
+    # Check for CI PAT for access to private repos
+    # (see .github/workflows/main.yml)
+    if 'CI_PAT' in os.environ:
+        return f"https://tylanphear:{os.environ['CI_PAT']}@github.com/{url}"
+    # Otherwise assume user has SSH access to our dependencies
+    else:
+        return "git@github.com:" + url
 
 def git_clone(path, url, rev):
     # kind of a hack: SSH won't work without authentication -- use HTTPS
     # instead. As long as we only depend on public repos, this will work.
-    url = ssh_to_https(url)
-    subprocess.run(["git", "clone", "--depth", "1", "--quiet", url, path])
+    full_url = make_full_url(url)
+    subprocess.run(["git", "clone", "--depth", "1", "--quiet", full_url, path])
     subprocess.run(["git", "fetch", "--tags", "--quiet"], cwd=path)
     subprocess.run(["git", "checkout", "--quiet", "--force", rev], cwd=path)
 
