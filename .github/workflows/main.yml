@@ -18,5 +18,28 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v2
 
-      - name: Build repo
-        uses: ./.github/actions/build/
+      - name: Install apt-get dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y python3 git wget curl unzip gcc
+
+      - name: Download Stanza
+        run: |
+          wget "http://lbstanza.org/resources/stanza/lstanza_0_14_33.zip" -O stanza.zip
+          unzip stanza.zip -d ${{ github.workspace }}/stanza
+          echo "install-dir = \"/${{ github.workspace }}/stanza\"" >> ${{ github.workspace }}/stanza/.stanza
+          echo "platform = linux" >> ${{ github.workspace }}/stanza/.stanza
+          ls -la ${{ github.workspace }}/stanza
+          STANZA_ENV=${{ github.workspace }}/stanza.env
+          echo > "$STANZA_ENV"
+          echo "export PATH=\"${{ github.workspace }}/stanza:\$PATH\"" >> "$STANZA_ENV"
+          echo "export STANZA_CONFIG=\"${{ github.workspace }}/stanza\"" >> "$STANZA_ENV"
+
+      - name: Bootstrap and build
+        working-directory: ${{ github.workspace }}
+        run: |
+          cat ${{ github.workspace }}/stanza.env
+          source ${{ github.workspace }}/stanza.env
+          ci/build.sh
+        env:
+          CI_PAT: ${{ secrets.CI_PAT }}
