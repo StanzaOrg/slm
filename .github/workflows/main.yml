@@ -24,16 +24,8 @@ jobs:
           sudo apt-get install -y python3 git wget curl unzip gcc
 
       - name: Download Stanza
-        run: |
-          wget "http://lbstanza.org/resources/stanza/lstanza_0_14_33.zip" -O stanza.zip
-          unzip stanza.zip -d ${{ github.workspace }}/stanza
-          echo "install-dir = \"/${{ github.workspace }}/stanza\"" >> ${{ github.workspace }}/stanza/.stanza
-          echo "platform = linux" >> ${{ github.workspace }}/stanza/.stanza
-          ls -la ${{ github.workspace }}/stanza
-          STANZA_ENV=${{ github.workspace }}/stanza.env
-          echo > "$STANZA_ENV"
-          echo "export PATH=\"${{ github.workspace }}/stanza:\$PATH\"" >> "$STANZA_ENV"
-          echo "export STANZA_CONFIG=\"${{ github.workspace }}/stanza\"" >> "$STANZA_ENV"
+        run: ci/download-stanza.sh
+        working-directory: ${{ github.workspace }}
 
       - name: Bootstrap and build
         working-directory: ${{ github.workspace }}
