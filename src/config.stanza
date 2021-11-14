@@ -7,13 +7,13 @@ defpackage poet/config:
   import toml/value
 
 public defstruct ConfigFile:
-  toml: TomlFile
+  table: TomlTable
 
 public defn parse-config (path: String) -> ConfigFile:
-  ConfigFile(parse-file(slurp(path)))
+  ConfigFile(table(parse-file(slurp(path))))
 
 public defn get? (config-file: ConfigFile, key: String) -> Maybe<TomlValue>:
-  get?(table(toml(config-file)), key) $> to-maybe
+  get?(table(config-file), key) $> to-maybe
 
 public defn get (config-file: ConfigFile, key: String) -> TomlValue:
-  get(table(toml(config-file)), key)
+  get(table(config-file), key)

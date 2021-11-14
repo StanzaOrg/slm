@@ -6,3 +6,4 @@ public defn clean () -> False:
   delete-files-in-dir(".poet/pkgs/")
   delete-files-in-dir(".poet/deps/")
   create-empty-file(".poet/stanza.proj")
+  delete-file?("poet.lock")

@@ -1,6 +1,7 @@
 name = "poet"
-version = "0.0.5"
+version = "0.1.0"
 
 [dependencies]
+maybe-utils = "git@github.com:tylanphear/maybe-utils|latest"
 stanza-toml = "git@github.com:tylanphear/stanza-toml|latest"
-maybe-utils = "git@github.com:tylanphear/maybe-utils|0.0.3"
+semver = "git@github.com:tylanphear/semver|0.1.1"

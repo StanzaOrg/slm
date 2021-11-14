@@ -1,0 +1,70 @@
+defpackage poet/git-utils:
+  import core
+  import collections
+  import maybe-utils
+  import poet/utils
+
+public defn is-git-repo-dirty? (work-tree: String) -> True|False:
+  val proc = ProcessBuilder(["git", "status", "-z"])
+    $> with-output
+    $> in-dir{_, work-tree}
+    $> build
+  val status = proc $> get-output
+  wait-process-throw-on-nonzero(proc, "'git status -z' failed!")
+  not empty?(status)
+
+public defn git-rev-parse (work-tree: String, rev: String, fail?: True|False) -> String:
+  command-output-in-dir(["git", "rev-parse", "--verify", "--quiet", rev], work-tree, fail?)
+
+public defn git-rev-parse! (work-tree: String, rev: String) -> String:
+  git-rev-parse(work-tree, rev, true)
+
+public defn git-remote-tag-refs (work-tree: String, remote: String) -> HashTable<String, String>:
+  defn parse-tabbed-line (line: String):
+    val elements = to-tuple(split(line, "\t"))
+    switch(length(elements)):
+      2: One(elements[1] => elements[0])
+      else: None()
+
+  command-output-in-dir(
+    ["git", "ls-remote", "--quiet", "--tags", remote],
+    work-tree,
+    true,
+  )
+  $> split{_, "\n"}
+  $> to-tuple
+  $> seq?{parse-tabbed-line, _}
+  $> to-hashtable<String, String> 
+
+public defn run-git-command-in-dir (work-tree?: Maybe<String>, args0: Tuple<String>) -> Int:
+  val args = to-tuple $ cat(["git"], args0)
+  println("debug: %s" % [args])
+  val work-tree = work-tree? $> value-or{_, get-cwd()}
+  val process = ProcessBuilder(args)
+    $> in-dir{_, work-tree}
+    $> build
+  wait-process-throw-on-nonzero(process, "'%_' failed!" % [string-join(args, " ")])
+
+public defn run-git-command-in-dir (work-tree: String, args0: Tuple<String>) -> Int:
+  run-git-command-in-dir(One(work-tree), args0)
+
+public defn run-git-command (args0: Tuple<String>) -> Int:
+  run-git-command-in-dir(None(), args0)
+
+public defn shallow-clone-git-repo (
+  url: String,
+  directory: String
+) -> Int:
+  run-command-throw-on-error(["git", "clone", url, "--quiet", "--depth", "1", directory],
+                             "'git clone %_' failed!" % [url])
+
+public defn git-init (path: String) -> Int:
+  run-command-throw-on-error(["git", "init", "--quiet", path],
+                             "'git init %_' failed!" % [path])
+
+public defn git-current-branch (work-tree: String) -> String:
+  command-output-in-dir(["git", "branch", "--show-current"], work-tree, true)
+
+public defn git-branch-remote (work-tree: String, branch: String) -> String:
+  val branch-remote = to-string("branch.%_.remote" % [branch])
+  command-output-in-dir(["git", "config", "--get", branch-remote], work-tree, true)

@@ -1,101 +1,96 @@
 defpackage poet/commands/build:
   import core
   import collections
+
   import maybe-utils
-  import poet/config
-  import poet/utils
-  import poet/dependency
+  import semver
   import toml/parser
   import toml/file
   import toml/table
   import toml/value
+
+  import poet/config
+  import poet/git-utils
+  import poet/utils
+  import poet/dependency
+  import poet/version
+
+defn git-head-hash! (work-tree: String) -> String:
+  git-rev-parse!(work-tree, "HEAD")
 
 defn parse-poet-lock-file (path: String) -> HashTable<String, String>:
   slurp(path)
     $> parse-file
     $> table
     $> to-seq
-    $> seq{fn (kv): key(kv) => value(kv) as String , _}
+    $> seq{fn (kv): key(kv) => value(kv) as String, _}
     $> to-hashtable<String, String>
 
-defn sync-dependency (
+defn sync-dependency-if-needed (
   dep: Dependency,
   hash?: Maybe<String>,
-  ref?: Maybe<String>,
   force?: True|False,
 ) -> True|False:
 
-  val head-hash = git-rev-parse!(path(dep), "HEAD")
-  defn repo-head-at-hash? () -> True|False:
-    hash?
-      $> map{_, {_ == head-hash}}
-      $> value-or{_, false}
+  ; Sync the given dependency to the specified version tag, if one was given.
+  ; Otherwise, sync it to the latest HEAD.
+  defn sync (dep: Dependency) -> False:
+    defn git (args: Tuple<String>) -> False:
+      run-git-command-in-dir(path(dep), args)
+      false
 
-  defn git (args: Tuple<String>):
-    run-git-command-in-dir(path(dep), args)
+    info("build: syncing '%_'" % [spec(dep)])
 
-  val up-to-date? = repo-head-at-hash?()
+    val ref = version(dep)
+      $> tag?
+      $> value-or{_, "HEAD"}
+
+    val reset-ref = ref when ref != "HEAD" else "origin/HEAD"
+
+    git(["fetch", "--quiet", "--force", "origin", ref])
+    git(["reset", "--quiet", "--hard", reset-ref])
+
+  ; Check if the dep HEAD is at the desired hash, if one was specified
+  val up-to-date? = contains?(hash?, git-head-hash!(path(dep)))
 
   if not up-to-date?:
-    if hash? is One:
-      if force?:
-        info("build: syncing '%_'" % [spec(dep)])
-
-        val ref = ref? $> value-or{_, "HEAD"}
-        val reset-ref = ref when ref != "HEAD" else "origin/HEAD"
-
-        git(["fetch", "--quiet", "--force", "origin", ref])
-        git(["reset", "--quiet", "--hard", reset-ref])
-      else:
-        error(\<>build: dependency '%_' version does not match version in poet.lock.
+    if hash? is None or force?:
+      sync(dep)
+    else:
+      error(\<>build: dependency '%_' version does not match version in poet.lock.
 Either remove poet.lock or run `poet clean`<> % [name(dep)])
 
   up-to-date?
 
-deftype Version
-defstruct IntVersion <: Version:
-  major: Int
-  minor: Int
-  patch: Int
+defn fetch-dependency (dep: Dependency) -> False:
+  info("build: fetching %_" % [spec(dep)])
+  run-git-command(["init", path(dep)])
 
-defstruct LatestVersion <: Version
+  defn git (args: Tuple<String>) -> False:
+    run-git-command-in-dir(path(dep), args)
+    false
 
-defn parse-version (version: String) -> Maybe<Version>:
-  if version == "latest":
-    One(LatestVersion())
-  else:
-    defn parse-int! (s: String) -> Int:
-      s $> to-int $> to-maybe $> value!
+  git(["remote", "add", "origin", uri(dep)])
 
-    val elements = to-tuple $ split(version, ".")
-    if length(elements) == 3:
-      val major = elements[0] $> parse-int!
-      val minor = elements[1] $> parse-int!
-      val patch = elements[2] $> parse-int!
-      One(IntVersion(major, minor, patch))
-    else:
-      None()
+  val tag = match(version(dep)):
+    (version: SemanticVersion): tag(version)
+    (_: LatestVersion):
+      git-remote-tag-refs(path(dep), "origin")
+        $> keys
+        $> filter{prefix?{_, "refs/tags/v"}, _}
+        $> seq{remove-prefix?{_, "refs/tags/v"}, _}
+        $> seq?{parse-semver, _}
+        $> max?
+        $> value-or-else{_, fn ():
+          error("build: dependency '%_' was specified as 'latest', but no valid tags could be found at '%_'"
+                 % [name(dep), uri(dep)])
+        }
+        $> tag
 
-defmulti version-tag? (version: Version) -> Maybe<String>
-defmethod version-tag? (version: IntVersion) -> Maybe<String>:
-  One $ to-string("v%~.%~.%~" % [major(version), minor(version), patch(version)])
+  val refspec = to-string("+refs/tags/%_:refs/tags/%_" % [tag, tag])
 
-defmethod version-tag? (version: LatestVersion) -> None:
-  None()
-
-defn clone-and-checkout-dependency (dep: Dependency) -> False:
-  info("build: cloning %_" % [spec(dep)])
-
-  shallow-clone-git-repo(uri(dep), path(dep))
-  val revision = version?(dep)
-    $> and-then{_, parse-version}
-    $> and-then{_, version-tag?}
-    $> map{_, fn (tag):
-      val refspec = to-string $ "+refs/tags/%_:refs/tags/%_" % [tag, tag]
-      run-git-command-in-dir(path(dep), ["fetch", "--quiet", "origin", refspec])
-      run-git-command-in-dir(path(dep), ["checkout", "--quiet", "--force", tag])
-    }
-  false
+  git(["fetch", "--quiet", "origin", "--depth", "1", refspec])
+  git(["checkout", "--quiet", "--force", tag])
 
 defn ensure-poet-dir-structure-exists () -> False:
   defn create-dir! (path: String) -> True|False:
@@ -113,7 +108,7 @@ defn fetch-and-sync-dependencies () -> False:
   val resolved-dependencies = HashSet<String>()
 
   var dependencies-dirty? = false
-  val dependency-hashes = if file-exists?("poet.lock"):
+  val lock-hashes = if file-exists?("poet.lock"):
     parse-poet-lock-file("poet.lock")
   else:
     HashTable<String, String>()
@@ -134,23 +129,22 @@ defn fetch-and-sync-dependencies () -> False:
         val dependency = parse-dependency(key(dep), value(dep) as String)
           $> value-or-else{_, {
             error("build: malformed dependency '%_' given in '%_': '%_'"
-                  % [key(dep), path, value(dep) as String])
+                  % [key(dep), poet-toml-path, value(dep) as String])
           }}
 
         if not get(resolved-dependencies, name(dependency)):
           add(resolved-dependencies, name(dependency))
 
-          val hash? = get?(dependency-hashes, name(dependency)) $> to-maybe
+          val lock-hash? = get?(lock-hashes, name(dependency)) $> to-maybe
           val in-sync? = if file-exists?(path(dependency)):
-            sync-dependency(dependency, hash?, version?(dependency), false)
+            sync-dependency-if-needed(dependency, lock-hash?, false)
           else:
-            clone-and-checkout-dependency(dependency)
+            fetch-dependency(dependency)
 
           if not in-sync?:
             add(child-deps-to-sync, dependency)
-            if hash? is None:
-              dependency-hashes[name(dependency)] =
-                git-rev-parse!(path(dependency), "HEAD")
+            if lock-hash? is None:
+              lock-hashes[name(dependency)] = git-head-hash!(path(dependency))
               dependencies-dirty? = true
 
       for dep in child-deps-to-sync do:
@@ -160,18 +154,15 @@ defn fetch-and-sync-dependencies () -> False:
   parse-config-and-fetch-dependencies("poet.toml")
 
   if dependencies-dirty?:
-    write-poet-lock-file(dependency-hashes, "poet.lock")
+    write-poet-lock-file(lock-hashes, "poet.lock")
 
   within f = open(".poet/stanza.proj", false):
     for dep in resolved-dependencies do:
       println(f, to-string(\<>include "deps/%_/stanza.proj"<> % [dep]))
     println(f, \<>include "../stanza.proj"<>)
 
-defn write-poet-lock-file (
-  dependency-hashes: HashTable<String, String>,
-  path: String
-) -> False:
-  dependency-hashes
+defn write-poet-lock-file (lock-hashes: HashTable<String, String>, path: String) -> False:
+  lock-hashes
     $> to-seq
     $> TomlFile
     $> spit{path, _}
@@ -180,7 +171,7 @@ public defn build (args0: Tuple<String>) -> False:
   ensure-poet-dir-structure-exists()
   fetch-and-sync-dependencies()
 
-  val poet-dir = to-string $ "%_/.poet" % [get-cwd()]
+  val poet-dir = to-string("%_/.poet" % [get-cwd()])
 
   val args = to-tuple $ cat-all([["stanza", "build"], args0, ["-pkg", "pkgs"]])
   ProcessBuilder(args)

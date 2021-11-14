@@ -9,7 +9,8 @@ from subprocess import CalledProcessError
 # Keep in sync with `poet.toml`
 DEPENDENCIES = {
         "stanza-toml": "tylanphear/stanza-toml|latest",
-        "maybe-utils": "tylanphear/maybe-utils|0.0.3",
+        "maybe-utils": "tylanphear/maybe-utils|latest",
+        "semver": "tylanphear/semver|0.1.1",
 }
 
 POET_DIR = os.path.join(os.getcwd(), ".poet")

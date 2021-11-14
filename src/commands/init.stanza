@@ -4,14 +4,15 @@ defpackage poet/commands/init:
   import collections
   import maybe-utils
   import poet/utils
+  import poet/git-utils
   import toml/file
   import toml/value
   import toml/table
 
-public defn init (project-dir*: Maybe<String>) -> False:
+public defn init (project-dir?: Maybe<String>) -> False:
   ; First get the fully-resolved path of the directory where we're initializing
   ; a package. If no path was given, use the current directory.
-  val project-dir = project-dir*
+  val project-dir = project-dir?
     $> map{_, parse-path}
     $> map{_, normalize}
     $> map{_, to-string}

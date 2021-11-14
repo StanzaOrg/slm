@@ -1,0 +1,24 @@
+defpackage poet/version:
+  import core
+  import semver
+
+public deftype Version:
+  SemanticVersion <: Version
+
+public defstruct LatestVersion <: Version
+
+public defn parse-version (version: String) -> Maybe<Version>:
+  if version == "latest":
+    One(LatestVersion())
+  else:
+    parse-semver(version)
+
+public defmulti tag? (version: Version) -> Maybe<String>
+
+public defn tag (version: SemanticVersion) -> String:
+  append("v", to-string(version))
+defmethod tag? (version: SemanticVersion) -> Maybe<String>:
+  One(tag(version))
+
+defmethod tag? (version: LatestVersion) -> None:
+  None()

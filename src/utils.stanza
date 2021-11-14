@@ -4,6 +4,10 @@ defpackage poet/utils:
     import collections
     import maybe-utils
 
+defn program-name () -> String:
+  val program-path = command-line-arguments()[0]
+  value-or(base-name?(program-path), program-path)
+
 public defn error-with-usage (msg: Printable|String) -> Void:
   error(msg, true)
 
@@ -11,14 +15,12 @@ public defn error (msg: Printable|String) -> Void:
   error(msg, false)
 
 public defn info (msg: Printable|String) -> False:
-  val program = command-line-arguments()[0]
-  println("%_: %_" % [program, msg])
+  println("%_: %_" % [program-name(), msg])
 
 defn error (msg: Printable|String, usage?: True|False) -> Void:
-  val program = command-line-arguments()[0]
-  println(STANDARD-ERROR-STREAM, "%_: %_" % [program, msg])
+  println(STANDARD-ERROR-STREAM, "%_: %_" % [program-name(), msg])
   if usage?:
-    println(STANDARD-ERROR-STREAM, "usage: %_ [build|clean|init|publish]" % [program])
+    println(STANDARD-ERROR-STREAM, "usage: %_ [build|clean|init|publish]" % [program-name()])
   exit(1)
 
 public defn unwrap<?T> (v?: ?T|False) -> T:
@@ -113,15 +115,6 @@ public defn run-command-throw-on-error (
 ) -> Int:
   wait-process-throw-on-nonzero(Process(args[0], args), error)
 
-public defn is-git-repo-dirty? (work-tree: String) -> True|False:
-  val proc = ProcessBuilder(["git", "status", "-z"])
-    $> with-output
-    $> in-dir{_, work-tree}
-    $> build
-  val status = proc $> get-output
-  wait-process-throw-on-nonzero(proc, "'git status -z' failed!")
-  not empty?(status)
-
 public defn command-output-in-dir (
   args: Tuple<String>,
   dir: String,
@@ -136,46 +129,11 @@ public defn command-output-in-dir (
     wait-process-throw-on-nonzero(proc, "'%s' failed!" % [args])
   ret
 
-public defn git-rev-parse (work-tree: String, rev: String, fail?: True|False) -> String:
-  command-output-in-dir(["git", "rev-parse", "--verify", "--quiet", rev], work-tree, fail?)
-
-public defn git-rev-parse! (work-tree: String, rev: String) -> String:
-  git-rev-parse(work-tree, rev, true)
-
-public defn git-remote-tag-refs (remote: String) -> HashTable<String, String>:
-  val output = call-system-and-get-output("git", ["git", "ls-remote", "-q", "--tags", remote])
-  val pairs = to-tuple $ split(output, "\n")
-  to-hashtable<String, String> $ seq?{_, pairs} $ fn (line):
-    val elements = to-tuple $ split(line, "\t")
-    if length(elements) == 2:
-      One(elements[1] => elements[0])
-    else:
-      None()
-
-public defn run-git-command-in-dir (work-tree?: Maybe<String>, args0: Tuple<String>) -> Int:
-  val args = to-tuple $ cat(["git"], args0)
-  val work-tree = work-tree? $> value-or{_, get-cwd()}
-  val process = ProcessBuilder(args)
-    $> in-dir{_, work-tree}
-    $> build
-  wait-process-throw-on-nonzero(process, "'%_' failed!" % [string-join(args, " ")])
-
-public defn run-git-command-in-dir (work-tree: String, args0: Tuple<String>) -> Int:
-  run-git-command-in-dir(One(work-tree), args0)
-
-public defn run-git-command (args0: Tuple<String>) -> Int:
-  run-git-command-in-dir(None(), args0)
-
-public defn shallow-clone-git-repo (
-  url: String,
-  directory: String
-) -> Int:
-  run-command-throw-on-error(["git", "clone", url, "--quiet", "--depth", "1", directory],
-                             "'git clone %_' failed!" % [url])
-
-public defn git-init (path: String) -> Int:
-  run-command-throw-on-error(["git", "init", "--quiet", path],
-                             "'git init %_' failed!" % [path])
+public defn delete-file? (path: String) -> False:
+  try:
+    delete-file("poet.lock")
+  catch (_: FileDeletionError):
+    false
 
 public defn delete-files-in-dir (path: String) -> False:
   val dir-path = parse-path(path)
@@ -192,15 +150,38 @@ public defn nth?<?T> (c: IndexedCollection<?T>, n: Int) -> Maybe<T>:
   else:
     None()
 
-public defn last?<?T> (c: IndexedCollection<?T>) -> Maybe<T>:
-  if length(c) == 0:
-    None()
-  else:
-    One(get(c, length(c) - 1))
+public defn last?<?T> (c: Seqable<?T>) -> Maybe<T>:
+  let loop (s = to-seq(c), last = None()):
+    if empty?(s):
+      last
+    else:
+      loop(s, One(next(s)))
+
+public defn max?<?T> (c: Seqable<?T>) -> Maybe<T>:
+  defn max* (a: Maybe<T>, b: Maybe<T>) -> Maybe<T>:
+    if a is None: (b)
+    if b is None: (a)
+    if a > b: (a) else: (b)
+  let loop (s = to-seq(c), max = None()):
+    if empty?(s):
+      max
+    else:
+      loop(s, max*(max, One(next(s))))
+
+public defn inspect<?T> (c: Seqable<?T>) -> Seq<T>:
+  println("debug: %s" % [c])
+  for e in c seq:
+    e
 
 public defn base-name? (path: String) -> Maybe<String>:
   path
     $> entries{parse-path(_)}
-    $> map{to-string, _}
-    $> to-vector<String>{_}
-    $> last?{_}
+    $> map{format{ParsedPath([_]), CURRENT-PLATFORM}, _}
+    $> last?
+    $> map{_, to-string}
+
+public defn remove-prefix? (path: String, prefix: String) -> String:
+  if prefix?(path, prefix):
+    path[length(prefix) to false]
+  else:
+    path
