@@ -17,7 +17,8 @@ public defn error (msg: Printable|String) -> Void:
 
 public defn info (msg: Printable|String) -> False:
   val program = command-line-arguments()[0]
-  println("%_: %_" % [program, msg])
+  println(STANDARD-OUTPUT-STREAM, "%_: %_" % [program, msg])
+  flush(STANDARD-OUTPUT-STREAM as FileOutputStream)
 
 defn error (msg: Printable|String, usage?: True|False) -> Void:
   val program = command-line-arguments()[0]
