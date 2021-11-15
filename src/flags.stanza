@@ -2,3 +2,4 @@ defpackage poet/flags:
   import core
 
 protected var verbose?: True|False = false
+protected var debug?: True|False = false
