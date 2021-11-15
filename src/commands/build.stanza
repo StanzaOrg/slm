@@ -178,6 +178,11 @@ defn write-poet-lock-file (
     $> spit{path, _}
 
 public defn build (args0: Tuple<String>) -> False:
+  if length(args0) > 0:
+    debug("build: with '%s'" % [args0])
+  else:
+    debug("build")
+
   ensure-poet-dir-structure-exists()
   fetch-and-sync-dependencies()
 
