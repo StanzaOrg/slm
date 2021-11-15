@@ -191,6 +191,12 @@ public defn delete-files-in-dir (path: String) -> False:
     else:
       delete-file(file-path)
 
+public defn delete-file-if-exists (path: String) -> False:
+  try:
+    delete-file(path)
+  catch (e: FileDeletionError):
+    false
+
 public defn nth?<?T> (c: IndexedCollection<?T>, n: Int) -> Maybe<T>:
   if n < length(c):
     One(get(c, n))
