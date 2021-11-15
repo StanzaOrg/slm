@@ -31,13 +31,7 @@ def version_to_tag(version):
         return f"v{version}"
 
 def package_to_url(package):
-    # Check for CI PAT for access to private repos
-    # (see .github/workflows/main.yml)
-    if 'CI_PAT' in os.environ:
-        return f"https://tylanphear:{os.environ['CI_PAT']}@github.com/{package}"
-    # Otherwise assume user has SSH access to our dependencies
-    else:
-        return "git@github.com:" + package
+    return f"https://github.com/{package}"
 
 def fetch_package_into(path, package, version):
     rev = version_to_tag(version)

@@ -27,11 +27,16 @@ jobs:
         run: ci/download-stanza.sh
         working-directory: ${{ github.workspace }}
 
+      - name: Set up authentication
+        run: ci/setup-askpass.sh
+
       - name: Bootstrap and build
         working-directory: ${{ github.workspace }}
         run: |
+          cat ${{ github.workspace }}/.git-env
+          source ${{ github.workspace }}/.git-env
           cat ${{ github.workspace }}/stanza.env
           source ${{ github.workspace }}/stanza.env
           ci/build.sh
         env:
-          CI_PAT: ${{ secrets.CI_PAT }}
+          CI_TOKEN: ${{ secrets.CI_PAT }}
