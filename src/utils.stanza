@@ -4,10 +4,17 @@ defpackage poet/utils:
     import collections
     import maybe-utils
 
+public defn program-name () -> String:
+  val program-path = command-line-arguments()[0]
+  program-path $> base-name? $> value-or{_, program-path}
+
 public defn debug (msg: Printable|String) -> False:
   if poet/flags/debug?:
-    val program = command-line-arguments()[0]
-    println(STANDARD-ERROR-STREAM, "%_: debug: %_" % [program, msg])
+    println(STANDARD-ERROR-STREAM, "%_: debug: %_" % [program-name(), msg])
+
+public defn info (msg: Printable|String) -> False:
+  println(STANDARD-OUTPUT-STREAM, "%_: %_" % [program-name(), msg])
+  flush(STANDARD-OUTPUT-STREAM as FileOutputStream)
 
 public defn error-with-usage (msg: Printable|String) -> Void:
   error(msg, true)
@@ -15,13 +22,8 @@ public defn error-with-usage (msg: Printable|String) -> Void:
 public defn error (msg: Printable|String) -> Void:
   error(msg, false)
 
-public defn info (msg: Printable|String) -> False:
-  val program = command-line-arguments()[0]
-  println(STANDARD-OUTPUT-STREAM, "%_: %_" % [program, msg])
-  flush(STANDARD-OUTPUT-STREAM as FileOutputStream)
-
 defn error (msg: Printable|String, usage?: True|False) -> Void:
-  val program = command-line-arguments()[0]
+  val program = program-name()
   println(STANDARD-ERROR-STREAM, "%_: %_" % [program, msg])
   if usage?:
     println(STANDARD-ERROR-STREAM, "usage: %_ [build|clean|init|publish]" % [program])
@@ -204,15 +206,17 @@ public defn nth?<?T> (c: IndexedCollection<?T>, n: Int) -> Maybe<T>:
   else:
     None()
 
-public defn last?<?T> (c: IndexedCollection<?T>) -> Maybe<T>:
-  if length(c) == 0:
-    None()
-  else:
-    One(get(c, length(c) - 1))
+public defn last?<?T> (c: Seqable<?T>) -> Maybe<T>:
+  let loop (s = to-seq(c), last = None()):
+    if empty?(s):
+      last
+    else:
+      loop(s, One(next(s)))
 
 public defn base-name? (path: String) -> Maybe<String>:
   path
     $> entries{parse-path(_)}
-    $> map{to-string, _}
-    $> to-vector<String>{_}
-    $> last?{_}
+    $> last?
+    $> map{_, {[_]}}
+    $> map{_, ParsedPath}
+    $> map{_, to-string}
