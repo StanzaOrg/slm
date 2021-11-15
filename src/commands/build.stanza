@@ -119,6 +119,8 @@ defn fetch-and-sync-dependencies () -> False:
     HashTable<String, String>()
 
   defn parse-config-and-fetch-dependencies (poet-toml-path: String) -> False:
+    debug("build: parsing %_" % [poet-toml-path])
+
     if not file-exists?(poet-toml-path):
       throw $ Exception $
         "tried to fetch dependencies from `%_`, but it doesn't exist!"

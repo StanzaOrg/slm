@@ -21,6 +21,9 @@ defn main ():
   if length(args) < 2:
     error-with-usage("Not enough arguments given.")
 
+  if get-env("POET_DEBUG") is String:
+    poet/flags/debug? = true
+
   try:
     val command = args[1]
     switch(command):

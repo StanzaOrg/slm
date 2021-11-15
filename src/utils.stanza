@@ -4,6 +4,11 @@ defpackage poet/utils:
     import collections
     import maybe-utils
 
+public defn debug (msg: Printable|String) -> False:
+  if poet/flags/debug?:
+    val program = command-line-arguments()[0]
+    println("%_: debug: %_" % [program, msg])
+
 public defn error-with-usage (msg: Printable|String) -> Void:
   error(msg, true)
 
