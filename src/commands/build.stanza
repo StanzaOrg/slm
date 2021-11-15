@@ -21,7 +21,6 @@ defn parse-poet-lock-file (path: String) -> HashTable<String, String>:
 defn sync-dependency (
   dep: Dependency,
   hash?: Maybe<String>,
-  ref?: Maybe<String>,
   force?: True|False,
 ) -> True|False:
 
@@ -41,7 +40,7 @@ defn sync-dependency (
       if force?:
         info("build: syncing '%_'" % [spec(dep)])
 
-        val ref = ref? $> value-or{_, "HEAD"}
+        val ref = ref(dep)
         val reset-ref = ref when ref != "HEAD" else "origin/HEAD"
 
         git(["fetch", "--quiet", "--force", "origin", ref])
@@ -87,8 +86,8 @@ defn clone-and-checkout-dependency (dep: Dependency) -> False:
   info("build: cloning %_" % [spec(dep)])
 
   shallow-clone-git-repo(uri(dep), path(dep))
-  val revision = version?(dep)
-    $> and-then{_, parse-version}
+  val revision = version(dep)
+    $> parse-version
     $> and-then{_, version-tag?}
     $> map{_, fn (tag):
       val refspec = to-string $ "+refs/tags/%_:refs/tags/%_" % [tag, tag]
@@ -144,7 +143,7 @@ defn fetch-and-sync-dependencies () -> False:
 
           val hash? = get?(dependency-hashes, name(dependency)) $> to-maybe
           val in-sync? = if file-exists?(path(dependency)):
-            sync-dependency(dependency, hash?, version?(dependency), false)
+            sync-dependency(dependency, hash?, false)
           else:
             clone-and-checkout-dependency(dependency)
 
