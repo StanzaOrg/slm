@@ -31,13 +31,11 @@ def version_to_tag(version):
         return f"v{version}"
 
 def package_to_url(package):
-    # Check for CI PAT for access to private repos
-    # (see .github/workflows/main.yml)
-    if 'GIT_ASKPASS' in os.environ:
-        return f"https://github.com/{package}"
-    # Otherwise assume user has SSH access to our dependencies
-    else:
-        return f"git@github.com:{package}"
+    def git_url(package): return f"git@github.com:{package}"
+    def https_url(package): return f"https://github.com/{package}"
+    PROTOCOLS = { "git": git_url, "https": https_url, None: git_url }
+
+    return PROTOCOLS[os.environ.get("POET_PROTOCOL")](package)
 
 def fetch_package_into(path, package, version):
     rev = version_to_tag(version)
