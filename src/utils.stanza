@@ -220,3 +220,12 @@ public defn base-name? (path: String) -> Maybe<String>:
     $> map{_, {[_]}}
     $> map{_, ParsedPath}
     $> map{_, to-string}
+
+public defn full-url-from-locator (locator: String) -> String:
+  defn git-locator (locator: String): (to-string("git@github.com:%_" % [locator]))
+  defn https-locator (locator: String): (to-string("https://github.com/%_" % [locator]))
+
+  switch(get-env("POET_PROTOCOL")):
+    "git": git-locator(locator)
+    "https": https-locator(locator)
+    false: git-locator(locator)

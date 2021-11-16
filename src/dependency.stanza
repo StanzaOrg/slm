@@ -1,6 +1,7 @@
 defpackage poet/dependency:
   import core
   import maybe-utils
+  import poet/utils
 
 public defstruct Dependency:
   name: String
@@ -20,10 +21,7 @@ public defn ref (dep: Dependency) -> String:
     version(dep)
 
 public defn uri (dep: Dependency) -> String:
-  if get-env("GIT_ASKPASS") is String:
-    to-string("https://github.com/%_" % [locator(dep)])
-  else:
-    to-string("git@github.com:%_" % [locator(dep)])
+  full-url-from-locator(locator(dep))
 
 public defn parse-dependency (name: String, locator: String) -> Maybe<Dependency>:
   val elements = to-tuple $ split(locator, "|")
