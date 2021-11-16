@@ -40,3 +40,4 @@ jobs:
           ci/build.sh
         env:
           CI_TOKEN: ${{ secrets.CI_PAT }}
+          POET_PROTOCOL: https
