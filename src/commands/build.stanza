@@ -84,6 +84,7 @@ defmethod version-tag? (version: LatestVersion) -> None:
 
 defn clone-and-checkout-dependency (dep: Dependency) -> False:
   info("build: cloning %_" % [spec(dep)])
+  debug("build: clone: %_" % [uri(dep)])
 
   shallow-clone-git-repo(uri(dep), path(dep))
   val revision = version(dep)
