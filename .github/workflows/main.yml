@@ -1,6 +1,10 @@
 name: CI
 
 on:
+  # Triggers on pushes to master
+  push:
+    branches: [ master ]
+
   pull_request:
 
   # Allows running manually from the Actions tab
