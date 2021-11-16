@@ -228,4 +228,4 @@ public defn full-url-from-locator (locator: String) -> String:
   switch(get-env("POET_PROTOCOL")):
     "git": git-locator(locator)
     "https": https-locator(locator)
-    false: git-locator(locator)
+    else: git-locator(locator)
