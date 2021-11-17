@@ -10,7 +10,7 @@ public defstruct ConfigFile:
   toml: TomlFile
 
 public defn parse-config (path: String) -> ConfigFile:
-  ConfigFile(parse-file(slurp(path)))
+  ConfigFile(parse-file(path))
 
 public defn get? (config-file: ConfigFile, key: String) -> Maybe<TomlValue>:
   get?(table(toml(config-file)), key) $> to-maybe

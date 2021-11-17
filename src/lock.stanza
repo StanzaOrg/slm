@@ -1,0 +1,29 @@
+defpackage poet/lock:
+  import core
+  import semver
+
+; What is a lock file?
+; A lock file replaces your poet.toml -- if it is present, your poet.toml is
+; functionally ignored when you run `poet build`
+;
+; That means it must encode each dependency's exact hash as well as its
+; version and name.
+;
+; The format of a poet.lock file is as follows:
+; <dependency-name> = { version = "<tag>", hash = "<hash>" }
+
+defstruct LockVersion:
+  name: String
+  version: SemanticVersion
+  hash: String
+
+defn parse-poet-lock-file (path: String) -> Tuple<LockVersion>:
+  val table = path $> parse-file $> table $> to-seq $> pairs
+  to-tuple $ for [name, dependency] in table seq:
+    if dependency is TomlTable:
+      val version = dependency["version"] $> parse-semver $> value!
+      val hash = dependency["hash"]
+      LockVersion(name, version, hash)
+    else:
+      error("TODO")
+
