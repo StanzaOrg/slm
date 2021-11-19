@@ -1,6 +1,6 @@
 # Overview
 
-`poet` is a package manager for Stanza.
+`poet` is a package manager for [Stanza](http://lbstanza.org/).
 
 # Requirements
 
