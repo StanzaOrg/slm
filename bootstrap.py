@@ -8,7 +8,7 @@ from subprocess import CalledProcessError
 
 # Keep in sync with `poet.toml`
 DEPENDENCIES = {
-        "stanza-toml": "tylanphear/stanza-toml|latest",
+        "stanza-toml": "tylanphear/stanza-toml|0.1.8",
         "maybe-utils": "tylanphear/maybe-utils|0.0.3",
 }
 
