@@ -29,8 +29,8 @@ defn error (msg: Printable|String, usage?: True|False) -> Void:
     println(STANDARD-ERROR-STREAM, "usage: %_ [build|clean|init|publish]" % [program])
   exit(1)
 
-public defn pairs<?K, ?V> (s: HashTable<?K, ?V>) -> Seq<[K, V]>:
-  s $> to-seq $> seq{fn (kv): [key(kv), value(kv)]}
+public defn pairs<?K, ?V> (s: Seqable<KeyValue<?K, ?V>>) -> Seq<[K, V]>:
+  s $> to-seq $> seq{fn (kv): [key(kv), value(kv)], _}
 
 public defn open (f: (FileOutputStream) -> False, path: String, append?: True|False) -> False:
   val file = FileOutputStream(path, append?)

@@ -4,97 +4,28 @@ defpackage poet/commands/build:
   import maybe-utils
   import poet/config
   import poet/utils
-  import poet/dependency
+  import poet/lock
   import semver
   import toml/parser
   import toml/file
   import toml/table
   import toml/value
 
-defn parse-package-specification (path: String) -> TomlTable:
-  path
-    $> parse-config
-    $> toml
-    $> table
+defstruct Dependency:
+  name: String
+  locator: String
+  version: SemanticVersion
+  hash: String
 
-defn sync-dependency (
-  dep: Dependency,
-  hash?: Maybe<String>,
-  force?: True|False,
-) -> True|False:
-
-  val head-hash = git-rev-parse!(path(dep), "HEAD")
-  defn repo-head-at-hash? () -> True|False:
-    hash?
-      $> map{_, {_ == head-hash}}
-      $> value-or{_, false}
-
-  defn git (args: Tuple<String>):
-    run-git-command-in-dir(path(dep), args)
-
-  val up-to-date? = repo-head-at-hash?()
-
-  if not up-to-date?:
-    if hash? is One:
-      if force?:
-        info("build: syncing '%_'" % [spec(dep)])
-
-        val ref = ref(dep)
-        val reset-ref = ref when ref != "HEAD" else "origin/HEAD"
-
-        git(["fetch", "--quiet", "--force", "origin", ref])
-        git(["reset", "--quiet", "--hard", reset-ref])
-      else:
-        error(\<>build: dependency '%_' version does not match version in poet.lock.
-Either remove poet.lock or run `poet clean`<> % [name(dep)])
-
-  up-to-date?
-
-deftype Version
-defstruct IntVersion <: Version:
-  major: Int
-  minor: Int
-  patch: Int
-
-defstruct LatestVersion <: Version
-
-defn parse-version (version: String) -> Maybe<Version>:
-  if version == "latest":
-    One(LatestVersion())
-  else:
-    defn parse-int! (s: String) -> Int:
-      s $> to-int $> to-maybe $> value!
-
-    val elements = to-tuple $ split(version, ".")
-    if length(elements) == 3:
-      val major = elements[0] $> parse-int!
-      val minor = elements[1] $> parse-int!
-      val patch = elements[2] $> parse-int!
-      One(IntVersion(major, minor, patch))
+defn parse-specifier (specifier: String) -> [String, SemanticVersion]:
+  val elements = to-tuple $ split(specifier, "|")
+  switch(length(elements)):
+    2:
+      val url = elements[0]
+      val version = elements[1] $> parse-semver $> expect{_, "couldn't parse '%_'" % [specifier]}
+      [url, version]
     else:
-      None()
-
-defmulti version-tag? (version: Version) -> Maybe<String>
-defmethod version-tag? (version: IntVersion) -> Maybe<String>:
-  One $ to-string("v%~.%~.%~" % [major(version), minor(version), patch(version)])
-
-defmethod version-tag? (version: LatestVersion) -> None:
-  None()
-
-defn clone-and-checkout-dependency (dep: Dependency) -> False:
-  info("build: cloning %_" % [spec(dep)])
-  debug("build: clone: %_" % [uri(dep)])
-
-  shallow-clone-git-repo(uri(dep), path(dep))
-  val revision = version(dep)
-    $> parse-version
-    $> and-then{_, version-tag?}
-    $> map{_, fn (tag):
-      val refspec = to-string $ "+refs/tags/%_:refs/tags/%_" % [tag, tag]
-      run-git-command-in-dir(path(dep), ["fetch", "--quiet", "origin", refspec])
-      run-git-command-in-dir(path(dep), ["checkout", "--quiet", "--force", tag])
-    }
-  false
+      error("build: malformed specifier '%_'" % [specifier])
 
 defn ensure-poet-dir-structure-exists () -> False:
   defn create-dir! (path: String) -> True|False:
@@ -108,97 +39,156 @@ defn ensure-poet-dir-structure-exists () -> False:
 
   false
 
-deftype DependencyResolver
-  
+defn sync-dependency (name: String, dir: String, hash: String) -> False:
+  if git-rev-parse!(dir, "HEAD") != hash:
+    error("build: can't sync '%_', out of sync with your poet.lock" % [name])
 
-defn DependencyResolver (lock-hashes: HashTable<String, String>):
-  val resolved-dependencies = HashSet<String>()
+defn fetch-dependency (
+  name: String,
+  dir: String,
+  locator: String,
+  hash: String,
+) -> False:
+  info("build: cloning '%_' @ %_" % [name, hash])
 
-  new DependencyResolver:
-    defmethod add (this, dependency: String) -> False:
-      add(resolved-dependencies, dependency)
+  val url = full-url-from-locator(locator)
+  shallow-clone-git-repo(url, dir)
 
-    defmethod set-lock-hash (this, dependency: String, hash: String) -> False:
-      lock-hashes[dependency] = hash
-
-    defmethod resolved-dependencies (this) -> HashSet<String>:
-      resolved-dependencies
-
-    defmethod resolved? (this, dependency: Dependency) -> True|False:
-      get(resolved-dependencies, name(dependency))
-
-    defmethod resolve (this, dependency: Dependency) -> False:
-      add(resolver, name(dependency))
-
-      val lock-hash? = to-maybe $ get?(lock-hashes(resolver), name(dependency))
-      val dep-was-already-in-sync? = if file-exists?(path(dependency)):
-        sync-dependency(dependency, lock-hash?, false)
-      else:
-        clone-and-checkout-dependency(dependency)
-
-      if not in-sync? and lock-hash? is None:
-        val lock-hash = git-rev-parse!(path(dependency), "HEAD")
-        set-lock-hash(resolver, name(dependency), lock-hash)
-
-defn fetch-and-sync-dependencies () -> False:
-  ; The overall procedure is to:
-  ;   1. Parse the `poet.lock` file, if it exists.
-  ;
-  ;   2. Parse the `poet.toml` file for a package specification.
-  ;
-  ;   3. From the specification, parse the list of dependencies
-  ;     a. For each dependency, check if it is resolved:
-  ;       - It is present on disk
-  ;       - If a lock hash exists for it, its hash matches
-  ;       - Its version is compatible with the version specified in `poet.toml`
-  ;
-  ;     b. For each dependency that is not resolved:
-  ;       - If it is not present on disk, clone it at the specified version.
-  ;       - If a lock hash is present and different than its hash, error
-  ;       - If its version is different than the requested version, check if it is compatible.
-  ;          - If it is compatible, advance the dependency to the greater of the two
-  ;          - Else, error
-  ;
-  ;   3. Repeat step 3 with the child package specifications, continuing until there are
-  ;      no more dependencies to resolve.
-  ;
-  ;   4. Return the total list of dependencies and their hashes
-
-  val lock-hashes = parse-poet-lock-file?("poet.lock") $>
-    value-or{_, HashTable<String, String>()}
-
-  val resolved-dependencies = HashTable<String, SemanticVersion>()
-
-  val package = parse-package-specification("poet.toml")
-  val dependencies = package["dependencies"]
-  for [name, locator] in pairs(dependencies) do:
-    val dependency = parse-dependency(name, locator as String)
-
-    if not file-exists?(path(dependency)):
-      clone-and-checkout-dependency(dependency)
-
-    match(get?(lock-hashes, name(dependency))):
-      (lock-hash: String):
-        if lock-hash != compute-hash(dependency):
-          error("TODO")
-      (_: False): false
+  run-git-command-in-dir(dir, ["fetch", "--quiet", "origin", hash])
+  run-git-command-in-dir(dir, ["checkout", "--quiet", "--force", hash])
 
   false
 
-defn write-build-stanza-proj (dependencies: HashSet<String>) -> False:
+defn fetch-dependency (
+  name: String,
+  dir: String,
+  locator: String,
+  version: SemanticVersion,
+) -> SemanticVersion:
+  info("build: cloning '%_|%~'" % [name, version])
+
+  val url = full-url-from-locator(locator)
+  shallow-clone-git-repo(url, dir)
+
+  val tag = to-string("v%~" % [version])
+  val refspec = to-string("+refs/tags/%_:refs/tags/%_" % [tag, tag])
+  run-git-command-in-dir(dir, ["fetch", "--quiet", "origin", refspec])
+  run-git-command-in-dir(dir, ["checkout", "--quiet", "--force", tag])
+
+  version
+
+defn fetch-or-sync-dependency (
+  name: String,
+  locator: String,
+  hash: String,
+) -> False:
+  val dep-dir = to-string(".poet/deps/%_" % [name])
+  if file-exists?(dep-dir):
+    sync-dependency(name, dep-dir, hash)
+  else:
+    fetch-dependency(name, dep-dir, locator, hash)
+
+defn parse-poet-lock-and-resolve-dependencies () -> HashTable<String, Dependency>:
+  to-hashtable<String, Dependency> $
+    for dependency in parse-poet-lock-file("poet.lock") seq:
+      fetch-or-sync-dependency(name(dependency), locator(dependency), hash(dependency))
+      name(dependency) => Dependency(
+        name(dependency),
+        locator(dependency),
+        version(dependency),
+        hash(dependency),
+      )
+
+defn sync-dependency (
+  name: String,
+  dir: String,
+  requested-version: SemanticVersion,
+  dependencies: HashTable<String, Dependency>
+) -> SemanticVersion:
+  val resolved-version = get?(dependencies, name)
+    $> to-maybe
+    $> map{_, version}
+    $> value-or{_, requested-version}
+
+  if requested-version == resolved-version:
+    requested-version
+  else if not compatible?(requested-version, resolved-version):
+    error("build: can't resolve dependencies: incompatible versions of `%_`\n\
+           resolved:  %~\n\
+           requested: %~" % [name, resolved-version, version])
+  else:
+    val new-version = max(requested-version, resolved-version)
+
+    info("build: syncing '%_' to '%~'" % [name, new-version])
+
+    val tag = to-string("v%~" % [new-version])
+    run-git-command-in-dir(dir, ["fetch", "origin", tag])
+    run-git-command-in-dir(dir, ["checkout", "--force", tag])
+    new-version
+
+defn parse-poet-toml-and-resolve-dependencies () -> HashTable<String, Dependency>:
+  val resolved-dependencies = HashTable<String, Dependency>()
+
+  defn parse-poet-toml (path: String) -> False:
+    debug("build: parsing '%_'" % [path])
+
+    val table = path $> parse-file $> table
+    val dependencies = table["dependencies"] as TomlTable
+    val newly-resolved = to-hashtable<String, Dependency> $ 
+      for [name, specifier] in pairs(dependencies) seq:
+        val [locator, version] = parse-specifier(specifier as String)
+
+        val dep-dir = to-string(".poet/deps/%_" % [name])
+        val resolved-version = if file-exists?(dep-dir):
+          sync-dependency(name, dep-dir, version, resolved-dependencies)
+        else:
+          fetch-dependency(name, dep-dir, locator, version)
+
+        name => Dependency(
+          name,
+          locator,
+          resolved-version,
+          git-rev-parse!(dep-dir, "HEAD")
+        )
+
+    for [name, dep] in pairs(newly-resolved) do:
+      resolved-dependencies[name] = dep
+
+    for dep in keys(newly-resolved) do:
+      parse-poet-toml(to-string(".poet/deps/%_/poet.toml" % [dep]))
+
+  parse-poet-toml("poet.toml")
+
+  resolved-dependencies
+
+defn fetch-and-sync-dependencies () -> HashTable<String, Dependency>:
+  ; There are two main strategies we'll use
+  ; 1. If there's a poet.lock, then we resolve all dependencies to that exact hash
+  ;    using only the lockfile.
+  ;
+  ; 2. Otherwise we use the poet.toml
+  if file-exists?("poet.lock"):
+    parse-poet-lock-and-resolve-dependencies()
+  else:
+    parse-poet-toml-and-resolve-dependencies()
+
+defn write-build-stanza-proj (dependencies: HashTable<String, Dependency>) -> False:
   within f = open(".poet/stanza.proj", false):
-    for dep in dependencies do:
+    for dep in keys(dependencies) do:
       println(f, to-string(\<>include "deps/%_/stanza.proj"<> % [dep]))
     println(f, \<>include "../stanza.proj"<>)
 
-defn write-poet-lock-file (
-  dependency-hashes: HashTable<String, String>,
-  path: String
-) -> False:
-  dependency-hashes
-    $> to-seq
-    $> TomlFile
-    $> spit{path, _}
+defn write-poet-lock-file (dependencies: HashTable<String, Dependency>) -> False:
+  val locked-dependencies = for [name, dep] in pairs(dependencies) seq:
+    name => TomlTable([
+      "locator" => locator(dep),
+      "version" => to-string(version(dep)),
+      "hash" => hash(dep),
+    ])
+
+  locked-dependencies
+  $> TomlFile
+  $> spit{"poet.lock", _}
 
 public defn build (args0: Tuple<String>) -> False:
   if length(args0) > 0:
@@ -207,9 +197,13 @@ public defn build (args0: Tuple<String>) -> False:
     debug("build")
 
   ensure-poet-dir-structure-exists()
-  fetch-and-sync-dependencies()
 
-  val poet-dir = to-string $ "%_/.poet" % [get-cwd()]
+  val dependencies = fetch-and-sync-dependencies()
+
+  write-build-stanza-proj(dependencies)
+  write-poet-lock-file(dependencies)
+
+  val poet-dir = to-string("%_/.poet" % [get-cwd()])
 
   val args = to-tuple $ cat-all([["stanza", "build"], args0, ["-pkg", "pkgs"]])
   ProcessBuilder(args)
