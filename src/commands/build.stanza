@@ -6,6 +6,7 @@ defpackage poet/commands/build:
   import poet/utils
   import poet/lock
   import semver
+  import term-colors
   import toml/parser
   import toml/file
   import toml/table
@@ -16,6 +17,16 @@ defstruct Dependency:
   locator: String
   version: SemanticVersion
   hash: String
+
+defn colored-version? (s: SemanticVersion) -> ColoredString:
+  ColoredString(to-string(s))
+    $> bold $> foreground{_, TerminalBrightGreen}
+    $> clear-color?
+
+defn colored-name? (name: String) -> ColoredString:
+  ColoredString(name)
+    $> bold $> foreground{_, TerminalBrightWhite}
+    $> clear-color?
 
 defn parse-specifier (specifier: String) -> [String, SemanticVersion]:
   val elements = to-tuple $ split(specifier, "|")
@@ -50,7 +61,7 @@ defn fetch-dependency (
   locator: String,
   hash: String,
 ) -> False:
-  info("build: cloning '%_' at %_" % [name, hash])
+  info("build: cloning %_ at %_" % [colored-name?(name), hash])
 
   val url = full-url-from-locator(locator)
   shallow-clone-git-repo(url, dir)
@@ -66,7 +77,7 @@ defn fetch-dependency (
   locator: String,
   version: SemanticVersion,
 ) -> False:
-  info("build: cloning '%_' at %~" % [name, version])
+  info("build: cloning %_ at %~" % [colored-name?(name), colored-version?(version)])
 
   val url = full-url-from-locator(locator)
   shallow-clone-git-repo(url, dir)
@@ -117,7 +128,7 @@ defn sync-dependency (
   debug("build: tag-hash: %_" % [tag-hash])
 
   if tag-hash != head-hash:
-    info("build: syncing '%_' to '%~'" % [name, version])
+    info("build: syncing %_ to %~" % [colored-name?(name), colored-version?(version)])
     run-git-command-in-dir(dir, ["checkout", "--quiet", "--force", tag])
 
   false
@@ -134,15 +145,16 @@ defn parse-poet-toml-and-resolve-dependencies () -> HashTable<String, Dependency
       for [name, specifier] in pairs(dependencies) seq?:
         label<Maybe<KeyValue<String, Dependency>>> return:
           val [locator, requested-version] = parse-specifier(specifier as String)
-          debug("build: trying to resolve '%_' at %_" % [name, version])
+          debug("build: trying to resolve %_ at %_" % [colored-name?(name), version])
 
           val resolved-version = match(get?(resolved-dependencies, name)):
             (resolved-dependency: Dependency):
               val resolved-version = version(resolved-dependency)
               if not compatible?(requested-version, resolved-version):
-                error("build: can't resolve dependencies: incompatible versions of `%_`\n\
+                error("build: can't resolve dependencies: incompatible versions of %_\n\
                        resolved:  %~\n\
-                       requested: %~" % [name, resolved-version, requested-version])
+                       requested: %~"
+                       % [colored-name?(name), resolved-version, requested-version])
               else if resolved-version >= requested-version:
                 debug("build: re-using previously resolved version at %_"
                       % [resolved-version])
@@ -168,7 +180,7 @@ defn parse-poet-toml-and-resolve-dependencies () -> HashTable<String, Dependency
           ))
 
     for [name, dep] in pairs(newly-resolved) do:
-      debug("build: resolved '%_' at %_" % [name, version(dep)])
+      debug("build: resolved %_ at %_" % [colored-name?(name), version(dep)])
       resolved-dependencies[name] = dep
 
     for dep in keys(newly-resolved) do:
