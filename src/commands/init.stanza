@@ -55,12 +55,10 @@ public defn init (project-dir*: Maybe<String>) -> False:
     println(f, ".poet")
 
   ; Create poet.toml
-  spit{poet-toml-path, _} $
-    TomlFile $ to-seq $ [
-      "name"    => project-name,
-      "version" => "0.0.1",
-      "dependencies" => TomlTable(),
-    ]
+  within f = open(poet-toml-path, false):
+    println(f, "name = %~" % [project-name])
+    println(f, "version = \"0.1.0\"")
+    println(f, "[dependencies]")
 
   ; Create stanza.proj
   val main-package = to-string("%_/main" % [project-name])
