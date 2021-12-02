@@ -154,34 +154,25 @@ public defn run-command-throw-on-error (
 ) -> Int:
   wait-process-throw-on-nonzero(Process(args[0], args), error)
 
-public defn is-git-repo-dirty? (work-tree: String) -> True|False:
-  val proc = ProcessBuilder(["git", "status", "-z"])
-    $> with-output
-    $> in-dir{_, work-tree}
-    $> build
-  val status = proc $> get-output
-  wait-process-throw-on-nonzero(proc, "'git status -z' failed!")
-  not empty?(status)
-
 public defn command-output-in-dir (
-  args: Tuple<String>,
   dir: String,
-  fail?: True|False
+  args: Tuple<String>,
 ) -> String:
-  val proc = ProcessBuilder(args)
+  ProcessBuilder(args)
     $> in-dir{_, dir}
     $> with-output
     $> build
-  val ret = proc $> get-output $> trim
-  if fail?:
-    wait-process-throw-on-nonzero(proc, "'%s' failed!" % [args])
-  ret
+    $> get-output
+    $> trim
 
-public defn git-rev-parse (work-tree: String, rev: String, fail?: True|False) -> String:
-  command-output-in-dir(["git", "rev-parse", "--verify", "--quiet", rev], work-tree, fail?)
+public defn git-rev-parse (work-tree: String, rev: String) -> String:
+  command-output-in-dir(work-tree, ["git", "rev-parse", "--verify", "--quiet", rev])
 
 public defn git-rev-parse! (work-tree: String, rev: String) -> String:
-  git-rev-parse(work-tree, rev, true)
+  val ret = git-rev-parse(work-tree, rev)
+  if empty?(ret):
+    throw(Exception("git rev-parse failed!"))
+  ret
 
 public defn git-remote-tag-refs (remote: String) -> HashTable<String, String>:
   val output = call-system-and-get-output("git", ["git", "ls-remote", "-q", "--tags", remote])

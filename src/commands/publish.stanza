@@ -5,11 +5,32 @@ defpackage poet/commands/publish:
   import poet/utils
   import poet/config
 
-defn git-rev-parse (rev: String, fail?: True|False) -> String:
-  git-rev-parse(get-cwd(), rev, fail?)
+defn is-git-repo-dirty? (work-tree: String) -> True|False:
+  val proc = ProcessBuilder(["git", "status", "-z"])
+    $> with-output
+    $> in-dir{_, work-tree}
+    $> build
+  val status = proc $> get-output $> trim
+  wait-process-throw-on-nonzero(proc, "'git status -z' in '%_' failed!" % [work-tree])
+  not empty?(status)
+
+defn git-rev-parse (rev: String) -> String:
+  git-rev-parse(get-cwd(), rev)
 
 defn git-rev-parse! (rev: String) -> String:
   git-rev-parse!(get-cwd(), rev)
+
+defn git-get-current-branch? () -> Maybe<String>:
+  command-output-in-dir(get-cwd(),
+    ["git", "symbolic-ref", "--short", "--quiet", "HEAD"])
+  $> One
+  $> filter{_, {not empty?(_)}}
+
+defn git-get-branch-remote? (branch: String) -> Maybe<String>:
+  command-output-in-dir(get-cwd(),
+    ["git", "config", "--get", to-string("branch.%_.remote" % [branch])])
+  $> One
+  $> filter{_, {not empty?(_)}}
 
 public defn publish () -> False:
   ; What do we need to do?
@@ -28,30 +49,43 @@ public defn publish () -> False:
   ;    current HEAD, and fail if it doesn't, since we don't want to push the
   ;    wrong tag.
 
-  val version = get?(parse-config("poet.toml"), "version")
+  val version* = get?(parse-config("poet.toml"), "version")
     $> value-or-else{_, {error("publish: no `version` in your poet.toml")}}
+  val version = version* as String
 
   if is-git-repo-dirty?(get-cwd()):
     error("publish: can't publish with changes, stash or commit them.")
 
-  val version-tag = append("v", version as String)
+  val current-branch = git-get-current-branch?()
+    $> value-or-else{_, {error("publish: not currently on a branch")}}
+  debug("publish: on branch '%_'" % [current-branch])
+
+  val current-remote = git-get-branch-remote?(current-branch)
+    $> value-or-else{_, {error("publish: no remote currently set for current branch")}}
+  debug("publish: using remote '%_'" % [current-remote])
+
+  val version-tag = append("v", version)
   val version-ref = to-string $ "refs/tags/%_" % [version-tag]
 
-  val remote-tags = git-remote-tag-refs("origin")
+  val remote-tags = git-remote-tag-refs(current-remote)
   val remote-tag-rev = get?(remote-tags, version-ref)
   if remote-tag-rev is String:
     error("publish: can't publish %_, already tagged remotely at `%_`"
           % [version-tag, remote-tag-rev])
 
-  val version-tag-rev = git-rev-parse(version-tag, false)
+  val version-tag-rev = git-rev-parse(version-tag)
   if not empty?(version-tag-rev):
     if version-tag-rev != git-rev-parse!("HEAD"):
       error(\<>publish: can't publish %_, already tagged locally at `%_`
-Either retag it using `git tag --force %_`, or publish a different version.<>
+Hint: either retag with `git tag --force %_`, or publish a new version.<>
             % [version-tag, version-tag-rev, version-tag])
 
+  ; First try to push the current branch, in case the push fails. That way,
+  ; when we push the tag, we can be sure it references a valid commit on a branch
+  run-git-command(["push", current-remote, current-branch])
+
+  ; Now that we know it's safe to do so, tag the version and then push it.
   run-git-command(["tag", version-tag])
-  run-git-command(["push", "--tags"])
-  run-git-command(["push"])
+  run-git-command(["push", current-remote, version-tag])
 
   false
