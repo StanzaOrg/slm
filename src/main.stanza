@@ -30,11 +30,13 @@ defn main ():
       "build":
         poet/commands/build(to-tuple $ command-line-arguments()[2 to false])
       "clean":
-          poet/commands/clean()
+        poet/commands/clean()
       "init":
         poet/commands/init(nth?(args, 2))
       "publish":
         poet/commands/publish()
+      "repl":
+        poet/commands/repl(to-tuple $ command-line-arguments()[2 to false])
       else:
         error-with-usage("Invalid argument given: `%_`" % [command]) 
   catch (e: Exception):

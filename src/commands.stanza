@@ -1,14 +1,8 @@
 defpackage poet/commands:
   import core
 
-protected defn init (project-dir*: Maybe<String>) -> False:
-  poet/commands/init/init(project-dir*)
-
-protected defn build (args: Tuple<String>) -> False:
-  poet/commands/build/build(args)
-
-protected defn clean () -> False:
-  poet/commands/clean/clean()
-
-protected defn publish () -> False:
-  poet/commands/publish/publish()
+public val init = poet/commands/init/init
+public val build = poet/commands/build/build
+public val clean = poet/commands/clean/clean
+public val publish = poet/commands/publish/publish
+public val repl = poet/commands/repl/repl

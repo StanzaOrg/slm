@@ -1,0 +1,15 @@
+defpackage poet/commands/repl:
+  import core
+  import poet/utils
+
+public defn repl (args0: Tuple<String>) -> False:
+  val args = to-tuple $ cat-all([["stanza", "repl"], args0, ["-pkg", "pkgs"]])
+  val poet-dir = to-string("%_/.poet" % [get-cwd()])
+
+  ProcessBuilder(args)
+    $> in-dir{_, poet-dir}
+    $> build
+    $> run-and-get-exit-code
+    $> exit
+
+  false

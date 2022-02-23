@@ -253,3 +253,9 @@ public defn full-url-from-locator (locator: String) -> String:
     "git": git-locator(locator)
     "https": https-locator(locator)
     else: git-locator(locator)
+
+public defn run-and-get-exit-code (p: Process) -> Int:
+  match(wait(p)):
+    (s:ProcessDone): value(s)
+    (s:ProcessStopped|ProcessTerminated): signal(s)
+    (_): -1
