@@ -5,7 +5,7 @@
 # Requirements
 
 - Linux with glibc 2.31 or newer
-- Stanza 0.14.17 or newer
+- Stanza 0.16.3 or newer
 - Git 2.6.7 or newer
 
 # Installation
