@@ -40,13 +40,13 @@ defn parse-poet-lock-and-resolve-dependencies ():
                 error("'%_' (version %_) specified in 'poet.toml'.\n\
                        This conflicts with locked version ('%_') from 'poet.lock'\n\
                        If you wish to use the version from your 'poet.toml', \
-                       delete 'poet.lock', then re-run this command."
+                       delete 'poet clean', then re-run this command."
                        % [name(dep), version(poet-toml-dep), version(locked-dep)])
           else:
             error("'%_' is specified as a path dependency in 'poet.toml'.\n\
                    This conflicts with locked version ('%_') from 'poet.lock'\n\
                    If you wish to use the version from your 'poet.toml', \
-                   delete 'poet.lock', then re-run this command."
+                   delete 'poet clean', then re-run this command."
                    % [name(dep), version(locked-dep)])
           fetch-or-sync-at-hash(locked-dep)
           locked-dep
@@ -56,7 +56,7 @@ defn parse-poet-lock-and-resolve-dependencies ():
             error("'%_' is specified as a git dependency in 'poet.toml'.\n\
                    This conflicts with locked (path) version from 'poet.lock'\n\
                    If you wish to use the version from your 'poet.toml', \
-                   delete 'poet.lock', then re-run this command."
+                   delete 'poet clean', then re-run this command."
                    % [name(dep)])
           path-dep
 
@@ -64,7 +64,7 @@ defn parse-poet-lock-and-resolve-dependencies ():
     if get?(locked-dependencies, name) is False:
       error("'%_' (version '%_') specified in 'poet.toml' not found in 'poet.lock'.\n\
              If you wish to add a dependency to your 'poet.toml', \
-             delete 'poet.lock', then re-run this command."
+             delete 'poet clean', then re-run this command."
              % [name, version-string?(dep) $> value-or{_, path(dep)}])
 
   ; TODO warn user if `poet.toml` is newer than `poet.lock` so we can catch
