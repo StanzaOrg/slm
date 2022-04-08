@@ -2,11 +2,15 @@ defpackage poet/commands/init:
   import core
   import core/parsed-path
   import collections
+
   import maybe-utils
-  import poet/utils
   import toml/file
-  import toml/value
   import toml/table
+  import toml/value
+
+  import poet/file-utils
+  import poet/git-utils
+  import poet/logging
 
 public defn init (project-dir*: Maybe<String>) -> False:
   ; First get the fully-resolved path of the directory where we're initializing
@@ -17,7 +21,7 @@ public defn init (project-dir*: Maybe<String>) -> False:
     $> map{_, to-string}
     $> value-or{_, get-cwd()}
 
-  val project-name = dirname(project-dir)
+  val project-name = dir-name?(project-dir)
     $> value-or{_, project-dir}
 
   val poet-toml-path = to-string("%_/poet.toml" % [project-dir])
@@ -27,7 +31,7 @@ public defn init (project-dir*: Maybe<String>) -> False:
     ; Check that a package wasn't already initialized
     for path in [poet-toml-path, poet-dir-path] do:
       if file-exists?(path):
-        error("init: package already initialized (`%_` exists)" % [path])
+        error("package already initialized (`%_` exists)" % [path])
   else:
     create-dir(project-dir)
 

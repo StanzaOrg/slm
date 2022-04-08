@@ -1,35 +1,67 @@
 defpackage poet/dependency:
   import core
+
+  import semver
+  import term-colors
   import maybe-utils
+  
+  import poet/logging
   import poet/utils
 
-public defstruct Dependency:
-  name: String
+public deftype Dependency
+public defmulti name (d: Dependency) -> String
+public defmulti path (d: Dependency) -> String
+public defmulti version-string? (d: Dependency) -> Maybe<String>:
+  None()
+
+; Dependencies specified by path (e.g. `foo = { path = "../foo" }`)
+public defstruct PathDependency <: Dependency:
+  name: String with: (as-method => true)
+  path: String with: (as-method => true)
+
+; Dependencies specified by Git locator/version (e.g. `foo = "myorg/myuser|1.0.0"`)
+public defstruct GitDependency <: Dependency:
+  name: String with: (as-method => true)
   locator: String
-  version: String
+  version: SemanticVersion
+  hash: String with: (updater => sub-hash)
 
-public defn path (dep: Dependency) -> String:
-  to-string $ ".poet/deps/%_" % [name(dep)]
+defmethod path (d: GitDependency):
+  to-string(".poet/deps/%_" % [name(d)])
 
-public defn spec (dep: Dependency) -> String:
-  to-string $ "%_|%_" % [name(dep), version(dep)]
+defmethod version-string? (d: GitDependency) -> One<String>:
+  One(version-string(d))
 
-public defn ref (dep: Dependency) -> String:
-  if version(dep) == "latest":
-    "HEAD"
-  else:
-    version(dep)
+public defn version-string (d: GitDependency) -> String:
+  to-string(version(d))
 
-public defn uri (dep: Dependency) -> String:
-  full-url-from-locator(locator(dep))
+public defn colored-version? (d: GitDependency) -> ColoredString:
+  ColoredString(version-string(d))
+    $> bold $> foreground{_, TerminalBrightGreen}
+    $> clear-color?
 
-public defn parse-dependency (name: String, locator: String) -> Maybe<Dependency>:
-  val elements = to-tuple $ split(locator, "|")
+public defn colored-name? (d: Dependency) -> ColoredString:
+  ColoredString(name(d))
+    $> bold $> foreground{_, TerminalBrightWhite}
+    $> clear-color?
 
+public defn parse-git-dependency (name: String, specifier: String):
+  GitDependency(name, locator, requested-version, hash)
+where:
+  val [locator, requested-version] = parse-specifier(specifier)
+  val hash = ""
+
+defn parse-specifier (specifier: String) -> [String, SemanticVersion]:
+  val elements = to-tuple $ split(specifier, "|")
   switch(length(elements)):
     2:
-      val locator = elements[0]
+      val url = elements[0]
       val version = elements[1]
-      One(Dependency(name, locator, version))
+        $> parse-semver
+        $> expect{_, "couldn't parse '%_'" % [specifier]}
+      [url, version]
     else:
-      None()
+      error("malformed specifier '%_'" % [specifier])
+
+public defn parse-path-dependency (name: String, path: String) -> PathDependency:
+  PathDependency(name, path)

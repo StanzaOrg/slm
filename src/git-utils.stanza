@@ -1,0 +1,53 @@
+defpackage poet/git-utils:
+  import core
+  import collections
+
+  import maybe-utils
+
+  import poet/file-utils
+  import poet/process-utils
+
+public defn git-rev-parse (work-tree: String, rev: String) -> String:
+  command-output-in-dir(work-tree, ["git", "rev-parse", "--verify", "--quiet", rev])
+
+public defn git-rev-parse! (work-tree: String, rev: String) -> String:
+  val ret = git-rev-parse(work-tree, rev)
+  if empty?(ret):
+    throw(Exception("git rev-parse failed!"))
+  ret
+
+public defn git-remote-tag-refs (remote: String) -> HashTable<String, String>:
+  val output = call-system-and-get-output("git", ["git", "ls-remote", "-q", "--tags", remote])
+  val pairs = to-tuple $ split(output, "\n")
+  to-hashtable<String, String> $ seq?{_, pairs} $ fn (line):
+    val elements = to-tuple $ split(line, "\t")
+    if length(elements) == 2:
+      One(elements[1] => elements[0])
+    else:
+      None()
+
+public defn run-git-command-in-dir (work-tree?: Maybe<String>, args0: Tuple<String>) -> Int:
+  val args = to-tuple $ cat(["git"], args0)
+  val work-tree = work-tree? $> value-or{_, get-cwd()}
+  val process = ProcessBuilder(args)
+    $> in-dir{_, work-tree}
+    $> build
+  wait-process-throw-on-nonzero(process, "'%_' failed!" % [string-join(args, " ")])
+
+public defn run-git-command-in-dir (work-tree: String, args0: Tuple<String>) -> Int:
+  run-git-command-in-dir(One(work-tree), args0)
+
+public defn run-git-command (args0: Tuple<String>) -> Int:
+  run-git-command-in-dir(None(), args0)
+
+public defn shallow-clone-git-repo (
+  url: String,
+  directory: String
+) -> Int:
+  run-command-throw-on-error(["git", "clone", url, "--quiet", "--depth", "1", directory],
+                             "'git clone %_' failed!" % [url])
+
+public defn git-init (path: String) -> Int:
+  run-command-throw-on-error(["git", "init", "--quiet", path],
+                             "'git init %_' failed!" % [path])
+

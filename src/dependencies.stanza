@@ -1,0 +1,229 @@
+defpackage poet/dependencies:
+  import core
+  import collections
+
+  import maybe-utils
+  import semver
+  import term-colors
+  import toml/file
+  import toml/parser
+  import toml/table
+
+  import poet/dependency
+  import poet/git-utils
+  import poet/lock
+  import poet/logging
+  import poet/toml
+  import poet/utils
+
+public defn fetch-and-sync () -> Tuple<Dependency>:
+  ; There are two main strategies we'll use
+  ; 1. If there's a poet.lock, then we resolve all dependencies to that exact hash
+  ;    using only the lockfile.
+  ;
+  ; 2. Otherwise we use the poet.toml
+  if file-exists?("poet.lock"):
+    parse-poet-lock-and-resolve-dependencies()
+  else:
+    parse-poet-toml-and-resolve-dependencies()
+
+defn parse-poet-lock-and-resolve-dependencies ():
+  val poet-toml-dependencies = parse-poet-toml("poet.toml") $> dependencies
+  val locked-dependencies = to-hashtable<String, Dependency> $
+    for locked-dep in parse-poet-lock-file("poet.lock") seq:
+      name(locked-dep) => match(locked-dep):
+        (dep: LockedGitDependency):
+          val locked-dep = GitDependency(name(dep), locator(dep), version(dep), hash(dep))
+          val poet-toml-dep = poet-toml-dependencies[name(dep)]
+          match(poet-toml-dep: GitDependency):
+              if not compatible?(version(poet-toml-dep), version(locked-dep)):
+                error("'%_' (version %_) specified in 'poet.toml'.\n\
+                       This conflicts with locked version ('%_') from 'poet.lock'\n\
+                       If you wish to use the version from your 'poet.toml', \
+                       delete 'poet.lock', then re-run this command."
+                       % [name(dep), version(poet-toml-dep), version(locked-dep)])
+          else:
+            error("'%_' is specified as a path dependency in 'poet.toml'.\n\
+                   This conflicts with locked version ('%_') from 'poet.lock'\n\
+                   If you wish to use the version from your 'poet.toml', \
+                   delete 'poet.lock', then re-run this command."
+                   % [name(dep), version(locked-dep)])
+          fetch-or-sync-at-hash(locked-dep)
+          locked-dep
+        (dep: LockedPathDependency):
+          val path-dep = poet-toml-dependencies[name(dep)]
+          if path-dep is-not PathDependency:
+            error("'%_' is specified as a git dependency in 'poet.toml'.\n\
+                   This conflicts with locked (path) version from 'poet.lock'\n\
+                   If you wish to use the version from your 'poet.toml', \
+                   delete 'poet.lock', then re-run this command."
+                   % [name(dep)])
+          path-dep
+
+  for [name, dep] in pairs(poet-toml-dependencies) do:
+    if get?(locked-dependencies, name) is False:
+      error("'%_' (version '%_') specified in 'poet.toml' not found in 'poet.lock'.\n\
+             If you wish to add a dependency to your 'poet.toml', \
+             delete 'poet.lock', then re-run this command."
+             % [name, version-string?(dep) $> value-or{_, path(dep)}])
+
+  ; TODO warn user if `poet.toml` is newer than `poet.lock` so we can catch
+  ; any more inconsistencies that we don't yet detect (e.g. removing a dependency)
+
+  to-tuple $ values $ locked-dependencies
+
+defn fetch-or-sync-at-hash (d: GitDependency) -> False:
+  if file-exists?(path(d)):
+    sync-dependency-to-hash(d)
+  else:
+    fetch-dependency-at-hash(d)
+
+defn sync-dependency-to-hash (d: GitDependency) -> False:
+  debug("syncing '%_' at %_" % [name(d), hash(d)])
+
+  if empty?(hash(d)): fatal("internal error")
+
+  if git-rev-parse!(path(d), "HEAD") != hash(d):
+    error("syncing '%_': out of sync with your poet.lock" % [name(d)])
+
+defn fetch-dependency-at-hash (d: GitDependency) -> False:
+  info("cloning %_ at %_" % [colored-name?(d), hash(d)])
+
+  if empty?(hash(d)): fatal("internal error")
+
+  val url = full-url-from-locator(locator(d))
+  shallow-clone-git-repo(url, path(d))
+
+  run-git-command-in-dir(path(d), ["fetch", "--quiet", "origin", hash(d)])
+  run-git-command-in-dir(path(d), ["checkout", "--quiet", "--force", hash(d)])
+
+  false
+
+
+defn parse-poet-toml-and-resolve-dependencies () -> Tuple<Dependency>:
+  val resolved-dependencies = HashTable<String, Dependency>()
+
+  let loop (poet-toml-path: String = "poet.toml", top-level: True|False = true):
+    debug("parsing '%_'" % [poet-toml-path])
+
+    val poet-toml = parse-poet-toml(poet-toml-path)
+    val parent-name = poet-toml $> name
+    val resolved = to-tuple $ for dep in values(dependencies(poet-toml)) seq?:
+      match(dep):
+        (dep: GitDependency):
+          resolve-git-dependency?(dep, parent-name, resolved-dependencies)
+        (dep: PathDependency):
+          if top-level:
+            resolve-path-dependency?(dep, resolved-dependencies)
+          else:
+            error("found path dependency '%_' in dependency '%_'.\n\
+                   You can't have path dependencies in dependencies \
+                   (path dependencies can only be specified in a top-level poet.toml)"
+                   % [/name(dep), parent-name])
+        (_): fatal("unreachable")
+
+    debug("done parsing '%_'" % [poet-toml-path])
+    for dep in resolved do:
+      match(dep: GitDependency):
+        debug("resolved %_ at %_" % [colored-name?(dep), version-string(dep)])
+      resolved-dependencies[/name(dep)] = dep
+
+    for dep in resolved do:
+      loop(to-string("%_/poet.toml" % [path(dep)]), false)
+
+  debug("done parsing dependency graph")
+  for dep in values(resolved-dependencies) do:
+    match(dep: GitDependency):
+      debug("resolved %_ at %_" % [colored-name?(dep), to-string(version(dep))])
+
+  to-tuple $ values $ resolved-dependencies
+
+defn fetch-dependency-at-version (d: GitDependency) -> False:
+  info("cloning %_ at %~" % [colored-name?(d), colored-version?(d)])
+
+  val url = full-url-from-locator(locator(d))
+  shallow-clone-git-repo(url, path(d))
+
+  val tag = to-string("v%~" % [version(d)])
+  val refspec = to-string("+refs/tags/%_:refs/tags/%_" % [tag, tag])
+  run-git-command-in-dir(path(d), ["fetch", "--quiet", "origin", refspec])
+  run-git-command-in-dir(path(d), ["checkout", "--quiet", "--force", tag])
+
+  false
+
+defn sync-dependency-to-version (dep: GitDependency) -> False:
+  debug("checking if we need to sync")
+
+  val head-hash = git-rev-parse!(path(dep), "HEAD")
+  debug("head-hash: %_" % [head-hash])
+
+  val tag = to-string("v%~" % [version(dep)])
+  run-git-command-in-dir(path(dep), ["fetch", "--quiet", "origin", tag])
+  val tag-hash = git-rev-parse!(path(dep), tag)
+  debug("tag-hash: %_" % [tag-hash])
+
+  if tag-hash != head-hash:
+    info("syncing %_ to %~" % [colored-name?(dep), colored-version?(dep)])
+    run-git-command-in-dir(path(dep), ["checkout", "--quiet", "--force", tag])
+
+  false
+
+defn resolve-git-dependency? (
+  dep: GitDependency,
+  parent-name: String,
+  resolved-dependencies: HashTable<String, Dependency>,
+):
+  label<Maybe<GitDependency>> return:
+    val requested-version = version(dep)
+    debug("trying to resolve %_ at %_" % [colored-name?(dep), requested-version])
+
+    ; Get the resolved version of this dependency, checking first to see
+    ; if it has previously been resolved.
+    match(get?(resolved-dependencies, name(dep))):
+      ; If not, we just use the requested version.
+      (_: False):
+        debug("using requested version: %_" % [requested-version])
+      ; If we have, we need to:
+      ;   1. Check if the requested version is incompatible.
+      ;   2. Check if the already-resolved version is the same, or newer.
+      (resolved-dependency: GitDependency):
+        val resolved-version = version(resolved-dependency)
+        if not compatible?(requested-version, resolved-version):
+          error("can't resolve dependencies: incompatible versions of %_\n\
+                 resolved:  %~\n\
+                 requested: %~"
+                 % [colored-name?(dep), resolved-version, requested-version])
+        else if resolved-version >= requested-version:
+          debug("re-using previously resolved version %_ (>= %_) "
+                % [resolved-version, requested-version])
+          return(None())
+        else:
+          debug("using %_ > %_" % [requested-version, resolved-version])
+      (_: PathDependency):
+        error("resolving '%_' to '%_' (dependency of '%_'):\n\
+              %_ was specified as a path dependency at top-level.\n\
+              Currently poet cannot support mixed path and git dependencies."
+              % [colored-name?(dep), requested-version, parent-name,
+                 colored-name?(dep)])
+
+    val dep-dir = path(dep)
+    if file-exists?(dep-dir):
+      sync-dependency-to-version(dep)
+    else:
+      fetch-dependency-at-version(dep)
+
+    debug("computing hash for '%_' at '%_'" % [name(dep), path(dep)])
+    val hash = git-rev-parse!(path(dep), "HEAD")
+    One(dep $> sub-hash{_, hash})
+
+defn resolve-path-dependency? (
+  dep: PathDependency,
+  resolved-dependencies: HashTable<String, Dependency>,
+) -> One<PathDependency>:
+  if get?(resolved-dependencies, name(dep)) is-not False:
+    ; This scenario shouldn't occur, because we parse all top-level dependencies
+    ; first, and we only allow path dependencies at the top-level, hence path dependencies get
+    ; resolved first.
+    ; could occur is if 
+    fatal("internal inconsistency resolving path dependency '%_'" % [name(dep)])
+  One(dep)

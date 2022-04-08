@@ -2,7 +2,7 @@ defpackage poet/main:
   import core
   import maybe-utils
   import poet/utils
-  import poet/config
+  import poet/logging
   import poet/commands
   import poet/flags
 
@@ -28,7 +28,7 @@ defn main ():
     val command = args[1]
     switch(command):
       "build":
-        poet/commands/build(to-tuple $ command-line-arguments()[2 to false])
+        poet/commands/build(to-tuple $ args[2 to false])
       "clean":
         poet/commands/clean()
       "init":
@@ -36,7 +36,7 @@ defn main ():
       "publish":
         poet/commands/publish()
       "repl":
-        poet/commands/repl(to-tuple $ command-line-arguments()[2 to false])
+        poet/commands/repl(to-tuple $ args[2 to false])
       else:
         error-with-usage("Invalid argument given: `%_`" % [command]) 
   catch (e: Exception):

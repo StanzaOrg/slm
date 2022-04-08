@@ -2,28 +2,11 @@ defpackage poet/utils:
   import core
   import core/parsed-path
   import collections
+
   import maybe-utils
   import term-colors
 
-public defn program-name () -> String:
-  val program-path = command-line-arguments()[0]
-  program-path $> base-name? $> value-or{_, program-path}
-
-defn colored-program-prefix () -> ColoredString:
-  val prefix = to-string("%_:" % [program-name()])
-  ColoredString(prefix, ColorSpec() $> bold $> foreground{_, TerminalBrightWhite})
-
-defn supports-color? () -> True|False:
-  switch(get-env("POET_COLOR")):
-    "always": true
-    "never": false
-    else: true
-
-defn program-prefix () -> ColoredString|String:
-  if supports-color?():
-    colored-program-prefix()
-  else:
-    to-string("%_:" % [program-name()])
+  import poet/file-utils
 
 public defn clear-color? (c: ColoredString) -> ColoredString:
   if not supports-color?():
@@ -31,198 +14,16 @@ public defn clear-color? (c: ColoredString) -> ColoredString:
   else:
     c
 
-public defn debug (msg: Printable|String) -> False:
-  if poet/flags/debug?:
-    println(STANDARD-ERROR-STREAM, "%_ %_ %_" % [
-      program-prefix(),
-      ColoredString("debug:")
-        $> bold $> dim $> foreground{_, TerminalYellow}
-        $> clear-color?,
-      msg,
-    ])
-
-public defn info (msg: Printable|String) -> False:
-  println(STANDARD-OUTPUT-STREAM, "%_ %_" % [program-prefix(), msg])
-  flush(STANDARD-OUTPUT-STREAM as FileOutputStream)
-
-public defn error-with-usage (msg: Printable|String) -> Void:
-  error(msg, true)
-
-public defn error (msg: Printable|String) -> Void:
-  error(msg, false)
-
-defn error (msg: Printable|String, usage?: True|False) -> Void:
-  val program = program-name()
-  println(STANDARD-ERROR-STREAM, "%_ %_ %_" % [
-    program-prefix(),
-    ColoredString("error:")
-      $> bold $> foreground{_, TerminalBrightRed}
-      $> clear-color?,
-    msg,
-  ])
-  if usage?:
-    println(STANDARD-ERROR-STREAM, "usage: %_ [build|clean|init|publish]" % [program])
-  exit(1)
+public defn supports-color? () -> True|False:
+  switch(get-env("POET_COLOR")):
+    "always": true
+    "never": false
+    else:
+      ; TODO should check if output is to a TTY instead of assuming
+      true
 
 public defn pairs<?K, ?V> (s: Seqable<KeyValue<?K, ?V>>) -> Seq<[K, V]>:
   s $> to-seq $> seq{fn (kv): [key(kv), value(kv)], _}
-
-public defn open (f: (FileOutputStream) -> False, path: String, append?: True|False) -> False:
-  val file = FileOutputStream(path, append?)
-  try: f(file)
-  finally: close(file)
-
-lostanza val GET-CWD-BUFF-SIZE: long = 0x1000L
-extern getcwd: (ptr<byte>, long) -> ptr<byte>
-
-public lostanza defn get-cwd () -> ref<String>:
-  val buff = call-c clib/malloc(GET-CWD-BUFF-SIZE)
-  call-c getcwd(buff, GET-CWD-BUFF-SIZE)
-  val ret = String(buff)
-  call-c clib/free(buff)
-  return ret
-
-public defn strip-end (s: String, strip: String) -> String:
-  if s[(length(s) - length(strip)) to false] == strip:
-    s[0 to length(s) - length(strip)]
-  else:
-    s
-
-public defn split-last (s: String, delim: Char) -> Maybe<[String, String]>:
-  last-index-of-char(s, delim) $> to-maybe $> map{_, fn (i):
-    [s[0 to i], s[(i + 1) to false]]
-  }
-
-public defn dirname (path: String) -> Maybe<String>:
-  defn first<?T> (t: Tuple<?T>) -> T: (t[1])
-  split-last(path, '/') $> map{_, first}
-
-public defn create-empty-file (path: String) -> False:
-  spit(path, "")
-
-public defstruct ProcessBuilder:
-  args: Tuple<String>
-  working-dir?: Maybe<String> with: (default => None())
-  output?: True|False with: (default => false)
-
-public defn with-output (builder: ProcessBuilder) -> ProcessBuilder:
-  ProcessBuilder(args(builder), working-dir?(builder), true)
-
-public defn in-dir (builder: ProcessBuilder, dir: String) -> ProcessBuilder:
-  ProcessBuilder(args(builder), One(dir), output?(builder))
-
-public defn build (builder: ProcessBuilder) -> Process:
-  val args = args(builder)
-  val output-stream = if output?(builder): (PROCESS-OUT) else: (STANDARD-OUT)
-  val working-dir? = working-dir?(builder)
-  match(working-dir?: One<String>):
-    Process(args[0], args, STANDARD-IN, output-stream, STANDARD-ERR, value!(working-dir?))
-  else:
-    Process(args[0], args, STANDARD-IN, output-stream, STANDARD-ERR)
-
-public defn get-output (p: Process) -> String:
-  slurp-stream(output-stream(p))
-
-public defn wait-process-throw-on-nonzero (
-  process: Process
-  error: Exception|Printable|String
-) -> Int:
-  defn throw-if-non-zero (code: Int) -> Int:
-    if code != 0:
-      throw $ match(error):
-        (e: Exception): e
-        (e: Printable|String): Exception(to-string(e))
-    code
-  match(wait(process)):
-    (code:ProcessDone): throw-if-non-zero(value(code))
-    (_): throw-if-non-zero(-1)
-
-public defn slurp-stream (s: InputStream) -> String:
-  val buffer = StringBuffer()
-  defn* loop () :
-    match(get-char(s)) :
-      (c:Char) :
-        add(buffer, c)
-           loop()
-      (c:False) :
-        to-string(buffer)
-  loop()
-
-public defn run-command-throw-on-error (
-  args: Tuple<String>
-  error: Exception|Printable|String
-) -> Int:
-  wait-process-throw-on-nonzero(Process(args[0], args), error)
-
-public defn command-output-in-dir (
-  dir: String,
-  args: Tuple<String>,
-) -> String:
-  ProcessBuilder(args)
-    $> in-dir{_, dir}
-    $> with-output
-    $> build
-    $> get-output
-    $> trim
-
-public defn git-rev-parse (work-tree: String, rev: String) -> String:
-  command-output-in-dir(work-tree, ["git", "rev-parse", "--verify", "--quiet", rev])
-
-public defn git-rev-parse! (work-tree: String, rev: String) -> String:
-  val ret = git-rev-parse(work-tree, rev)
-  if empty?(ret):
-    throw(Exception("git rev-parse failed!"))
-  ret
-
-public defn git-remote-tag-refs (remote: String) -> HashTable<String, String>:
-  val output = call-system-and-get-output("git", ["git", "ls-remote", "-q", "--tags", remote])
-  val pairs = to-tuple $ split(output, "\n")
-  to-hashtable<String, String> $ seq?{_, pairs} $ fn (line):
-    val elements = to-tuple $ split(line, "\t")
-    if length(elements) == 2:
-      One(elements[1] => elements[0])
-    else:
-      None()
-
-public defn run-git-command-in-dir (work-tree?: Maybe<String>, args0: Tuple<String>) -> Int:
-  val args = to-tuple $ cat(["git"], args0)
-  val work-tree = work-tree? $> value-or{_, get-cwd()}
-  val process = ProcessBuilder(args)
-    $> in-dir{_, work-tree}
-    $> build
-  wait-process-throw-on-nonzero(process, "'%_' failed!" % [string-join(args, " ")])
-
-public defn run-git-command-in-dir (work-tree: String, args0: Tuple<String>) -> Int:
-  run-git-command-in-dir(One(work-tree), args0)
-
-public defn run-git-command (args0: Tuple<String>) -> Int:
-  run-git-command-in-dir(None(), args0)
-
-public defn shallow-clone-git-repo (
-  url: String,
-  directory: String
-) -> Int:
-  run-command-throw-on-error(["git", "clone", url, "--quiet", "--depth", "1", directory],
-                             "'git clone %_' failed!" % [url])
-
-public defn git-init (path: String) -> Int:
-  run-command-throw-on-error(["git", "init", "--quiet", path],
-                             "'git init %_' failed!" % [path])
-
-public defn delete-files-in-dir (path: String) -> False:
-  val dir-path = parse-path(path)
-  for file in dir-files(path) do:
-    val file-path = to-string $ relative-to-dir(dir-path, file)
-    if file-type(file-path, false) is DirectoryType:
-      delete-recursive(file-path)
-    else:
-      delete-file(file-path)
-
-public defn delete-file-if-exists (path: String) -> False:
-  try:
-    delete-file(path)
-  catch (e: FileDeletionError):
-    false
 
 public defn nth?<?T> (c: IndexedCollection<?T>, n: Int) -> Maybe<T>:
   if n < length(c):
@@ -237,13 +38,8 @@ public defn last?<?T> (c: Seqable<?T>) -> Maybe<T>:
     else:
       loop(s, One(next(s)))
 
-public defn base-name? (path: String) -> Maybe<String>:
-  path
-    $> entries{parse-path(_)}
-    $> last?
-    $> map{_, {[_]}}
-    $> map{_, ParsedPath}
-    $> map{_, to-string}
+public defn first<?T> (t: Tuple<?T>) -> T:
+  t[1]
 
 public defn full-url-from-locator (locator: String) -> String:
   defn git-locator (locator: String): (to-string("git@github.com:%_" % [locator]))
@@ -253,9 +49,3 @@ public defn full-url-from-locator (locator: String) -> String:
     "git": git-locator(locator)
     "https": https-locator(locator)
     else: git-locator(locator)
-
-public defn run-and-get-exit-code (p: Process) -> Int:
-  match(wait(p)):
-    (s:ProcessDone): value(s)
-    (s:ProcessStopped|ProcessTerminated): signal(s)
-    (_): -1

@@ -1,0 +1,35 @@
+defpackage poet/toml:
+  import core
+  import collections
+
+  import maybe-utils
+  import toml/file
+  import toml/parser
+  import toml/table
+  import toml/value
+
+  import poet/dependency
+  import poet/logging
+  import poet/utils
+
+public defstruct PoetToml:
+  name: String
+  version: String
+  dependencies: HashTable<String, Dependency>
+
+public defn parse-poet-toml (path: String) -> PoetToml:
+  val table = path $> parse-file $> table
+  val name = table["name"] as String
+  val version = table["version"] as String
+  val dependencies = to-hashtable<String, Dependency> $ 
+    for [name, specifier] in pairs(table["dependencies"] as TomlTable) seq:
+      name => match(specifier):
+        (specifier: String):
+          parse-git-dependency(name, specifier)
+        (table: TomlTable):
+          parse-path-dependency(name, table["path"] as String)
+        (_):
+          error("invalid poet.toml: '%_' is not a valid dependency specifier"
+                % [specifier])
+
+  PoetToml(name, version, dependencies)

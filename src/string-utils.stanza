@@ -1,0 +1,14 @@
+defpackage poet/string-utils:
+  import core
+  import maybe-utils
+
+public defn strip-end (s: String, strip: String) -> String:
+  if s[(length(s) - length(strip)) to false] == strip:
+    s[0 to length(s) - length(strip)]
+  else:
+    s
+
+public defn split-last (s: String, delim: Char) -> Maybe<[String, String]>:
+  last-index-of-char(s, delim) $> to-maybe $> map{_, fn (i):
+    [s[0 to i], s[(i + 1) to false]]
+  }

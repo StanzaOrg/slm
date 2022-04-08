@@ -1,0 +1,64 @@
+defpackage poet/process-utils:
+  import core
+
+  import poet/file-utils
+
+public defstruct ProcessBuilder:
+  args: Tuple<String>
+  working-dir?: Maybe<String> with: (default => None())
+  output?: True|False with: (default => false)
+
+public defn with-output (builder: ProcessBuilder) -> ProcessBuilder:
+  ProcessBuilder(args(builder), working-dir?(builder), true)
+
+public defn in-dir (builder: ProcessBuilder, dir: String) -> ProcessBuilder:
+  ProcessBuilder(args(builder), One(dir), output?(builder))
+
+public defn build (builder: ProcessBuilder) -> Process:
+  val args = args(builder)
+  val output-stream = if output?(builder): (PROCESS-OUT) else: (STANDARD-OUT)
+  val working-dir? = working-dir?(builder)
+  match(working-dir?: One<String>):
+    Process(args[0], args, STANDARD-IN, output-stream, STANDARD-ERR, value!(working-dir?))
+  else:
+    Process(args[0], args, STANDARD-IN, output-stream, STANDARD-ERR)
+
+public defn get-output (p: Process) -> String:
+  slurp-stream(output-stream(p))
+
+public defn wait-process-throw-on-nonzero (
+  process: Process
+  error: Exception|Printable|String
+) -> Int:
+  defn throw-if-non-zero (code: Int) -> Int:
+    if code != 0:
+      throw $ match(error):
+        (e: Exception): e
+        (e: Printable|String): Exception(to-string(e))
+    code
+  match(wait(process)):
+    (code:ProcessDone): throw-if-non-zero(value(code))
+    (_): throw-if-non-zero(-1)
+
+public defn run-command-throw-on-error (
+  args: Tuple<String>
+  error: Exception|Printable|String
+) -> Int:
+  wait-process-throw-on-nonzero(Process(args[0], args), error)
+
+public defn command-output-in-dir (
+  dir: String,
+  args: Tuple<String>,
+) -> String:
+  ProcessBuilder(args)
+    $> in-dir{_, dir}
+    $> with-output
+    $> build
+    $> get-output
+    $> trim
+
+public defn run-and-get-exit-code (p: Process) -> Int:
+  match(wait(p)):
+    (s:ProcessDone): value(s)
+    (s:ProcessStopped|ProcessTerminated): signal(s)
+    (_): -1

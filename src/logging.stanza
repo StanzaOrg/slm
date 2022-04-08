@@ -1,0 +1,60 @@
+defpackage poet/logging:
+  import core
+
+  import maybe-utils
+  import term-colors
+
+  import poet/utils
+  import poet/file-utils
+
+public defn program-name () -> String:
+  val program-path = command-line-arguments()[0]
+  program-path $> base-name? $> value-or{_, program-path}
+
+defn colored-program-prefix () -> ColoredString:
+  val prefix = to-string("%_:" % [program-name()])
+  ColoredString(prefix, ColorSpec() $> bold $> foreground{_, TerminalBrightWhite})
+
+defn program-prefix () -> ColoredString|String:
+  if supports-color?():
+    colored-program-prefix()
+  else:
+    to-string("%_:" % [program-name()])
+
+public defn debug (msg: Printable|String) -> False:
+  if poet/flags/debug?:
+    println(STANDARD-ERROR-STREAM, "%_ %_%_%_" % [
+      program-prefix(),
+      ColoredString("debug: ")
+        $> bold $> dim $> foreground{_, TerminalYellow}
+        $> clear-color?,
+      command-line-arguments()
+        $> get{_, 1} $> to-maybe
+        $> map{_, fn (cmd): "%_: " % [cmd]}
+        $> value-or{_, ""},
+      msg,
+    ])
+
+public defn info (msg: Printable|String) -> False:
+  println(STANDARD-OUTPUT-STREAM, "%_ %_" % [program-prefix(), msg])
+  flush(STANDARD-OUTPUT-STREAM as FileOutputStream)
+
+public defn error-with-usage (msg: Printable|String) -> Void:
+  error(msg, true)
+
+public defn error (msg: Printable|String) -> Void:
+  error(msg, false)
+
+defn error (msg: Printable|String, usage?: True|False) -> Void:
+  val program = program-name()
+  println(STANDARD-ERROR-STREAM, "%_ %_ %_" % [
+    program-prefix(),
+    ColoredString("error:")
+      $> bold $> foreground{_, TerminalBrightRed}
+      $> clear-color?,
+    msg,
+  ])
+  if usage?:
+    println(STANDARD-ERROR-STREAM, "usage: %_ [build|clean|init|publish|repl]" % [program])
+  exit(1)
+

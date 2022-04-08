@@ -1,10 +1,14 @@
 defpackage poet/lock:
   import core
+
+  import maybe-utils
   import semver
-  import poet/utils
-  import toml/table
   import toml/file
   import toml/parser
+  import toml/table
+
+  import poet/logging
+  import poet/utils
 
 ; What is a lock file?
 ; A lock file replaces your poet.toml -- if it is present, your poet.toml is
@@ -14,22 +18,33 @@ defpackage poet/lock:
 ; version and name.
 ;
 ; The format of a poet.lock file is as follows:
-; <dependency-name> = { version = "<tag>", locator = "<url>" hash = "<hash>" }
+; <dependency-name> = { version = "<tag>", (locator = "<uri>")? hash = "<hash>" }
 
-public defstruct LockVersion:
-  name: String
+public deftype LockedDependency
+public defmulti name (d: LockedDependency) -> String
+
+public defstruct LockedPathDependency <: LockedDependency:
+  name: String with: (as-method => true)
+
+public defstruct LockedGitDependency <: LockedDependency:
+  name: String with: (as-method => true)
   locator: String
   version: SemanticVersion
   hash: String
 
-public defn parse-poet-lock-file (path: String) -> Tuple<LockVersion>:
+public defn parse-poet-lock-file (path: String) -> Tuple<LockedDependency>:
   val table = path $> parse-file $> table $> to-seq $> pairs
   to-tuple $ for [name, dependency] in table seq:
     match(dependency: TomlTable):
-      val locator = dependency["locator"] as String
-      val version = dependency["version"] as String $> parse-semver $> value!
-      val hash = dependency["hash"] as String
-      LockVersion(name, locator, version, hash)
+      match(get?(dependency, "locator"), get?(dependency, "version"), get?(dependency, "hash")):
+        (locator?: One, version?: One, hash?: One):
+          val locator = value!(locator?) as String
+          val version = value!(version?) $> parse-semver $> value!
+          val hash    = value!(hash?) as String
+          LockedGitDependency(name, locator, version, hash)
+        (locator: None, version: None, hash: None):
+          LockedPathDependency(name)
+        (locator, version, hash):
+          error("lock entry '%_' invalid: has it been corrupted?" % [name])
     else:
-      error("TODO")
-
+      error("lock format invalid: has it been corrupted?")

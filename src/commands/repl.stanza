@@ -1,6 +1,8 @@
 defpackage poet/commands/repl:
   import core
-  import poet/utils
+
+  import poet/file-utils
+  import poet/process-utils
 
 public defn repl (args0: Tuple<String>) -> False:
   val args = to-tuple $ cat-all([["stanza", "repl"], args0, ["-pkg", "pkgs"]])
