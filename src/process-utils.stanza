@@ -19,7 +19,7 @@ public defn build (builder: ProcessBuilder) -> Process:
   val output-stream = if output?(builder): (PROCESS-OUT) else: (STANDARD-OUT)
   val working-dir? = working-dir?(builder)
   match(working-dir?: One<String>):
-    Process(args[0], args, STANDARD-IN, output-stream, STANDARD-ERR, value!(working-dir?))
+    Process(args[0], args, STANDARD-IN, output-stream, STANDARD-ERR, value!(working-dir?), false)
   else:
     Process(args[0], args, STANDARD-IN, output-stream, STANDARD-ERR)
 
