@@ -6,7 +6,7 @@ STANZA_DIR="$(pwd)/.deps/stanza"
 mkdir -p "${STANZA_DIR}"
 
 # Download archive from lbstanza.org and unpack
-STANZA_VERSION=0_16_3
+STANZA_VERSION=0_17_52
 wget "http://lbstanza.org/resources/stanza/lstanza_${STANZA_VERSION}.zip" \
     -O stanza.zip
 unzip stanza.zip -d "${STANZA_DIR}"
