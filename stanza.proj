@@ -1,5 +1,5 @@
 include "src/stanza.proj"
 
 build main:
-    inputs: poet/main
-    o: "poet"
+    inputs: slm/main
+    o: "slm"

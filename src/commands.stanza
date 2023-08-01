@@ -1,8 +1,8 @@
-defpackage poet/commands:
+defpackage slm/commands:
   import core
 
-public val init = poet/commands/init/init
-public val build = poet/commands/build/build
-public val clean = poet/commands/clean/clean
-public val publish = poet/commands/publish/publish
-public val repl = poet/commands/repl/repl
+public val init = slm/commands/init/init
+public val build = slm/commands/build/build
+public val clean = slm/commands/clean/clean
+public val publish = slm/commands/publish/publish
+public val repl = slm/commands/repl/repl

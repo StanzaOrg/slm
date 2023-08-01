@@ -1,4 +1,4 @@
-defpackage poet/toml:
+defpackage slm/toml:
   import core
   import collections
 
@@ -8,16 +8,16 @@ defpackage poet/toml:
   import toml/table
   import toml/value
 
-  import poet/dependency
-  import poet/logging
-  import poet/utils
+  import slm/dependency
+  import slm/logging
+  import slm/utils
 
-public defstruct PoetToml:
+public defstruct SlmToml:
   name: String
   version: String
   dependencies: HashTable<String, Dependency>
 
-public defn parse-poet-toml (path: String) -> PoetToml:
+public defn parse-slm-toml (path: String) -> SlmToml:
   val table = path $> parse-file $> table
   val name = table["name"] as String
   val version = table["version"] as String
@@ -29,7 +29,7 @@ public defn parse-poet-toml (path: String) -> PoetToml:
         (table: TomlTable):
           parse-path-dependency(name, table["path"] as String)
         (_):
-          error("invalid poet.toml: '%_' is not a valid dependency specifier"
+          error("invalid slm.toml: '%_' is not a valid dependency specifier"
                 % [specifier])
 
-  PoetToml(name, version, dependencies)
+  SlmToml(name, version, dependencies)

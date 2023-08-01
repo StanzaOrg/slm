@@ -1,4 +1,4 @@
-defpackage poet/lock:
+defpackage slm/lock:
   import core
 
   import maybe-utils
@@ -7,17 +7,17 @@ defpackage poet/lock:
   import toml/parser
   import toml/table
 
-  import poet/logging
-  import poet/utils
+  import slm/logging
+  import slm/utils
 
 ; What is a lock file?
-; A lock file replaces your poet.toml -- if it is present, your poet.toml is
-; functionally ignored when you run `poet build`
+; A lock file replaces your slm.toml -- if it is present, your slm.toml is
+; functionally ignored when you run `slm build`
 ;
 ; That means it must encode each dependency's exact hash as well as its
 ; version and name.
 ;
-; The format of a poet.lock file is as follows:
+; The format of a slm.lock file is as follows:
 ; <dependency-name> = { version = "<tag>", (locator = "<uri>")? hash = "<hash>" }
 
 public deftype LockedDependency
@@ -32,7 +32,7 @@ public defstruct LockedGitDependency <: LockedDependency:
   version: SemanticVersion
   hash: String
 
-public defn parse-poet-lock-file (path: String) -> Tuple<LockedDependency>:
+public defn parse-slm-lock-file (path: String) -> Tuple<LockedDependency>:
   val table = path $> parse-file $> table $> to-seq $> pairs
   to-tuple $ for [name, dependency] in table seq:
     match(dependency: TomlTable):

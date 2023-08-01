@@ -4,5 +4,5 @@ set -eu
 
 ./bootstrap.py
 
-./poet clean
-./poet build
+./slm clean
+./slm build

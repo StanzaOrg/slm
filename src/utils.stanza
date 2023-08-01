@@ -1,4 +1,4 @@
-defpackage poet/utils:
+defpackage slm/utils:
   import core
   import core/parsed-path
   import collections
@@ -6,7 +6,7 @@ defpackage poet/utils:
   import maybe-utils
   import term-colors
 
-  import poet/file-utils
+  import slm/file-utils
 
 public defn clear-color? (c: ColoredString) -> ColoredString:
   if not supports-color?():
@@ -15,7 +15,7 @@ public defn clear-color? (c: ColoredString) -> ColoredString:
     c
 
 public defn supports-color? () -> True|False:
-  switch(get-env("POET_COLOR")):
+  switch(get-env("SLM_COLOR")):
     "always": true
     "never": false
     else:
@@ -45,7 +45,7 @@ public defn full-url-from-locator (locator: String) -> String:
   defn git-locator (locator: String): (to-string("git@github.com:%_" % [locator]))
   defn https-locator (locator: String): (to-string("https://github.com/%_" % [locator]))
 
-  switch(get-env("POET_PROTOCOL")):
+  switch(get-env("SLM_PROTOCOL")):
     "git": git-locator(locator)
     "https": https-locator(locator)
     else: git-locator(locator)

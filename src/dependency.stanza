@@ -1,12 +1,12 @@
-defpackage poet/dependency:
+defpackage slm/dependency:
   import core
 
   import semver
   import term-colors
   import maybe-utils
   
-  import poet/logging
-  import poet/utils
+  import slm/logging
+  import slm/utils
 
 public deftype Dependency
 public defmulti name (d: Dependency) -> String
@@ -27,7 +27,7 @@ public defstruct GitDependency <: Dependency:
   hash: String with: (updater => sub-hash)
 
 defmethod path (d: GitDependency):
-  to-string(".poet/deps/%_" % [name(d)])
+  to-string(".slm/deps/%_" % [name(d)])
 
 defmethod version-string? (d: GitDependency) -> One<String>:
   One(version-string(d))

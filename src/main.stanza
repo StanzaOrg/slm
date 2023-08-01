@@ -1,16 +1,16 @@
-defpackage poet/main:
+defpackage slm/main:
   import core
   import maybe-utils
-  import poet/utils
-  import poet/logging
-  import poet/commands
-  import poet/flags
+  import slm/utils
+  import slm/logging
+  import slm/commands
+  import slm/flags
 
 defn main ():
-  ; What operations do we want `poet` to perform?
+  ; What operations do we want `slm` to perform?
   ;
   ; 1. Initialize packages
-  ;   - Initialize poet.toml
+  ;   - Initialize slm.toml
   ;   - Initialize stanza.proj
   ;
   ; 2. Build packages
@@ -21,22 +21,22 @@ defn main ():
   if length(args) < 2:
     error-with-usage("Not enough arguments given.")
 
-  if get-env("POET_DEBUG") is String:
-    poet/flags/debug? = true
+  if get-env("SLM_DEBUG") is String:
+    slm/flags/debug? = true
 
   try:
     val command = args[1]
     switch(command):
       "build":
-        poet/commands/build(to-tuple $ args[2 to false])
+        slm/commands/build(to-tuple $ args[2 to false])
       "clean":
-        poet/commands/clean()
+        slm/commands/clean()
       "init":
-        poet/commands/init(nth?(args, 2))
+        slm/commands/init(nth?(args, 2))
       "publish":
-        poet/commands/publish()
+        slm/commands/publish()
       "repl":
-        poet/commands/repl(to-tuple $ args[2 to false])
+        slm/commands/repl(to-tuple $ args[2 to false])
       else:
         error-with-usage("Invalid argument given: `%_`" % [command]) 
   catch (e: Exception):

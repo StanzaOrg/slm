@@ -1,4 +1,4 @@
-defpackage poet/flags:
+defpackage slm/flags:
   import core
 
 protected var verbose?: True|False = false

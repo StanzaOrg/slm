@@ -6,17 +6,17 @@ import sys
 
 from subprocess import CalledProcessError
 
-# Keep in sync with `poet.toml`
+# Keep in sync with `slm.toml`
 DEPENDENCIES = {
-        "stanza-toml": "tylanphear/stanza-toml|0.3.2",
-        "maybe-utils": "tylanphear/maybe-utils|0.1.2",
-        "semver": "tylanphear/semver|0.1.3",
-        "term-colors": "tylanphear/term-colors|0.1.0",
+        "stanza-toml": "StanzaOrg/stanza-toml|0.3.2",
+        "maybe-utils": "StanzaOrg/maybe-utils|0.1.2",
+        "semver": "StanzaOrg/semver|0.1.3",
+        "term-colors": "StanzaOrg/term-colors|0.1.0",
 }
 
-POET_DIR = os.path.join(os.getcwd(), ".poet")
-POET_PKGS_DIR = os.path.join(POET_DIR, "pkgs")
-POET_DEPS_DIR = os.path.join(POET_DIR, "deps")
+SLM_DIR = os.path.join(os.getcwd(), ".slm")
+SLM_PKGS_DIR = os.path.join(SLM_DIR, "pkgs")
+SLM_DEPS_DIR = os.path.join(SLM_DIR, "deps")
 
 def error(msg):
     print(msg, file=sys.stderr)
@@ -37,7 +37,7 @@ def package_to_url(package):
     def https_url(package): return f"https://github.com/{package}"
     PROTOCOLS = { "git": git_url, "https": https_url, None: git_url }
 
-    return PROTOCOLS[os.environ.get("POET_PROTOCOL")](package)
+    return PROTOCOLS[os.environ.get("SLM_PROTOCOL")](package)
 
 def fetch_package_into(path, package, version):
     rev = version_to_tag(version)
@@ -52,24 +52,24 @@ def fetch_package_into(path, package, version):
 
 def generate_stanza_proj():
     dep_proj_files = [
-        f"{POET_DEPS_DIR}/{dep}/stanza.proj"
+        f"{SLM_DEPS_DIR}/{dep}/stanza.proj"
         for dep in DEPENDENCIES.keys()
     ]
 
-    with open(os.path.join(POET_DIR, "stanza.proj"), "w") as f:
+    with open(os.path.join(SLM_DIR, "stanza.proj"), "w") as f:
         f.writelines([f'include "{proj_file}"\n' for proj_file in dep_proj_files])
         f.write('include "../stanza.proj"\n')
 
 def bootstrap(args):
     # Create bootstrap dir structure
-    os.makedirs(POET_DIR)
-    os.makedirs(POET_PKGS_DIR)
-    os.makedirs(POET_DEPS_DIR)
+    os.makedirs(SLM_DIR)
+    os.makedirs(SLM_PKGS_DIR)
+    os.makedirs(SLM_DEPS_DIR)
 
     # Clone dependencies
     for dependency, identifier in DEPENDENCIES.items():
         package, version = tuple(identifier.split("|"))
-        path = os.path.join(POET_DEPS_DIR, dependency)
+        path = os.path.join(SLM_DEPS_DIR, dependency)
         fetch_package_into(path, package, version)
 
     # Generate stanza.proj for build
@@ -77,16 +77,16 @@ def bootstrap(args):
 
     # Attempt to build the project and packages
     try:
-        check_run(["stanza", "build"] + args, cwd=POET_DIR)
+        check_run(["stanza", "build"] + args, cwd=SLM_DIR)
     except CalledProcessError:
         error("Bootstrap failed trying to run `stanza build`")
 
-    poet_path = os.path.join(os.getcwd(), "build", "poet")
-    print(f"poet bootstrapped: run `{poet_path} build` to finish building.")
+    slm_path = os.path.join(os.getcwd(), "slm")
+    print(f"slm bootstrapped: run `{slm_path} build` to finish building.")
 
 def main(args):
-    if os.path.exists(POET_DIR):
-        error(f"'{POET_DIR}' exists, was `poet` already bootstrapped?")
+    if os.path.exists(SLM_DIR):
+        error(f"'{SLM_DIR}' exists, was `slm` already bootstrapped?")
 
     bootstrap(args)
 

@@ -1,11 +1,11 @@
-defpackage poet/git-utils:
+defpackage slm/git-utils:
   import core
   import collections
 
   import maybe-utils
 
-  import poet/file-utils
-  import poet/process-utils
+  import slm/file-utils
+  import slm/process-utils
 
 public defn git-rev-parse (work-tree: String, rev: String) -> String:
   command-output-in-dir(work-tree, ["git", "rev-parse", "--verify", "--quiet", rev])

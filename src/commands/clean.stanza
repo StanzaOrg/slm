@@ -1,13 +1,13 @@
-defpackage poet/commands/clean:
+defpackage slm/commands/clean:
   import core
 
-  import poet/file-utils
-  import poet/logging
+  import slm/file-utils
+  import slm/logging
 
 public defn clean () -> False:
-  debug("cleaning .poet")
-  delete-files-in-dir(".poet/pkgs/")
-  delete-files-in-dir(".poet/deps/")
-  create-empty-file(".poet/stanza.proj")
-  delete-file-if-exists("poet.lock")
+  debug("cleaning .slm")
+  delete-files-in-dir(".slm/pkgs/")
+  delete-files-in-dir(".slm/deps/")
+  create-empty-file(".slm/stanza.proj")
+  delete-file-if-exists("slm.lock")
   false
