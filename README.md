@@ -1,6 +1,6 @@
 # Overview
 
-`slm` is a package manager for [Stanza](http://lbstanza.org/).
+`slm` is a library manager for [Stanza](http://lbstanza.org/).
 
 # Requirements
 
