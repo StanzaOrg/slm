@@ -1,0 +1,4 @@
+semver={locator="StanzaOrg/semver",version="0.1.4",hash="5e4458fee73e812cd062b767018fa1d742b246aa"}
+term-colors={locator="StanzaOrg/term-colors",version="0.1.1",hash="a026e15708e9bc819426a37bc5093c00fba4d856"}
+stanza-toml={locator="StanzaOrg/stanza-toml",version="0.3.4",hash="2ac1135585cf96dc58037b553e3a066b0e65cd8e"}
+maybe-utils={locator="StanzaOrg/maybe-utils",version="0.1.3",hash="c9f042b8b67e2167134f6379c90fda70fa0c1b4d"}
