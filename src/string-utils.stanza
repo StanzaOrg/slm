@@ -1,4 +1,4 @@
-defpackage poet/string-utils:
+defpackage slm/string-utils:
   import core
   import maybe-utils
 

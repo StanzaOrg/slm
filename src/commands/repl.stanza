@@ -1,15 +1,15 @@
-defpackage poet/commands/repl:
+defpackage slm/commands/repl:
   import core
 
-  import poet/file-utils
-  import poet/process-utils
+  import slm/file-utils
+  import slm/process-utils
 
 public defn repl (args0: Tuple<String>) -> False:
   val args = to-tuple $ cat-all([["stanza", "repl"], args0, ["-pkg", "pkgs"]])
-  val poet-dir = to-string("%_/.poet" % [get-cwd()])
+  val slm-dir = to-string("%_/.slm" % [get-cwd()])
 
   ProcessBuilder(args)
-    $> in-dir{_, poet-dir}
+    $> in-dir{_, slm-dir}
     $> build
     $> run-and-get-exit-code
     $> exit

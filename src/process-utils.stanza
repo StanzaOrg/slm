@@ -1,7 +1,7 @@
-defpackage poet/process-utils:
+defpackage slm/process-utils:
   import core
 
-  import poet/file-utils
+  import slm/file-utils
 
 public defstruct ProcessBuilder:
   args: Tuple<String>

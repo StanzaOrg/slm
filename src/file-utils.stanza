@@ -1,11 +1,11 @@
-defpackage poet/file-utils:
+defpackage slm/file-utils:
   import core
   import core/parsed-path
 
   import maybe-utils
 
-  import poet/utils
-  import poet/string-utils
+  import slm/utils
+  import slm/string-utils
 
 public defn open (f: (FileOutputStream) -> False, path: String, append?: True|False) -> False:
   val file = FileOutputStream(path, append?)

@@ -1,4 +1,4 @@
-defpackage poet/commands/init:
+defpackage slm/commands/init:
   import core
   import core/parsed-path
   import collections
@@ -8,9 +8,9 @@ defpackage poet/commands/init:
   import toml/table
   import toml/value
 
-  import poet/file-utils
-  import poet/git-utils
-  import poet/logging
+  import slm/file-utils
+  import slm/git-utils
+  import slm/logging
 
 public defn init (project-dir*: Maybe<String>) -> False:
   ; First get the fully-resolved path of the directory where we're initializing
@@ -24,42 +24,42 @@ public defn init (project-dir*: Maybe<String>) -> False:
   val project-name = dir-name?(project-dir)
     $> value-or{_, project-dir}
 
-  val poet-toml-path = to-string("%_/poet.toml" % [project-dir])
-  val poet-dir-path = to-string("%_/.poet/" % [project-dir])
+  val slm-toml-path = to-string("%_/slm.toml" % [project-dir])
+  val slm-dir-path = to-string("%_/.slm/" % [project-dir])
 
   if file-exists?(project-dir):
     ; Check that a package wasn't already initialized
-    for path in [poet-toml-path, poet-dir-path] do:
+    for path in [slm-toml-path, slm-dir-path] do:
       if file-exists?(path):
         error("package already initialized (`%_` exists)" % [path])
   else:
     create-dir(project-dir)
 
   ; Create our initial package structure:
-  ;   - .poet/
+  ;   - .slm/
   ;     - pkgs/
   ;     - deps/
   ;     - stanza.proj
   ;   - .gitignore
-  ;   - poet.toml
+  ;   - slm.toml
   ;   - stanza.proj
   ;   - src
   ;     - stanza.proj
   ;     - main.stanza
 
-  ; Create empty .poet directory structure
-  create-dir(poet-dir-path)
-  create-dir(to-string("%_/pkgs/" % [poet-dir-path]))
-  create-dir(to-string("%_/deps/" % [poet-dir-path]))
-  create-empty-file(to-string("%_/stanza.proj" % [poet-dir-path]))
+  ; Create empty .slm directory structure
+  create-dir(slm-dir-path)
+  create-dir(to-string("%_/pkgs/" % [slm-dir-path]))
+  create-dir(to-string("%_/deps/" % [slm-dir-path]))
+  create-empty-file(to-string("%_/stanza.proj" % [slm-dir-path]))
 
   ; Create .gitignore
   val git-ignore = to-string("%_/.gitignore" % [project-dir])
   within f = open(git-ignore, file-exists?(git-ignore)):
-    println(f, ".poet")
+    println(f, ".slm")
 
-  ; Create poet.toml
-  within f = open(poet-toml-path, false):
+  ; Create slm.toml
+  within f = open(slm-toml-path, false):
     println(f, "name = %~" % [project-name])
     println(f, "version = \"0.1.0\"")
     println(f, "[dependencies]")
@@ -108,7 +108,7 @@ main()
   if not file-exists?(git-dir):
     git-init(project-dir)
 
-  println("poet: init: package `%_` initialized in `%_`"
+  println("slm: init: package `%_` initialized in `%_`"
           % [project-name, project-dir])
 
   false

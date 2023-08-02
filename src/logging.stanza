@@ -1,11 +1,11 @@
-defpackage poet/logging:
+defpackage slm/logging:
   import core
 
   import maybe-utils
   import term-colors
 
-  import poet/utils
-  import poet/file-utils
+  import slm/utils
+  import slm/file-utils
 
 public defn program-name () -> String:
   val program-path = command-line-arguments()[0]
@@ -22,7 +22,7 @@ defn program-prefix () -> ColoredString|String:
     to-string("%_:" % [program-name()])
 
 public defn debug (msg: Printable|String) -> False:
-  if poet/flags/debug?:
+  if slm/flags/debug?:
     println(STANDARD-ERROR-STREAM, "%_ %_%_%_" % [
       program-prefix(),
       ColoredString("debug: ")

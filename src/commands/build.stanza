@@ -1,4 +1,4 @@
-defpackage poet/commands/build:
+defpackage slm/commands/build:
   import core
   import core/parsed-path
   import collections
@@ -11,34 +11,34 @@ defpackage poet/commands/build:
   import toml/table
   import toml/value
 
-  import poet/dependency
-  import poet/dependencies
-  import poet/file-utils
-  import poet/lock
-  import poet/logging
-  import poet/process-utils
+  import slm/dependency
+  import slm/dependencies
+  import slm/file-utils
+  import slm/lock
+  import slm/logging
+  import slm/process-utils
 
-public defn ensure-poet-dir-structure-exists () -> False:
+public defn ensure-slm-dir-structure-exists () -> False:
   defn create-dir! (path: String) -> True|False:
     if not file-exists?(path):
       create-dir(path)
       true
 
-  if create-dir!(".poet/"):
-    create-dir!(".poet/deps/")
-    create-dir!(".poet/pkgs/")
+  if create-dir!(".slm/"):
+    create-dir!(".slm/deps/")
+    create-dir!(".slm/pkgs/")
   false
 
 defn write-build-stanza-proj (dependencies: Tuple<Dependency>) -> False:
-  within f = open(".poet/stanza.proj", false):
-    val deps-dir = to-string("%_/.poet/deps/" % [get-cwd()])
+  within f = open(".slm/stanza.proj", false):
+    val deps-dir = to-string("%_/.slm/deps/" % [get-cwd()])
     for dep in dependencies do:
       val dep-path = get-cwd() $> parse-path $> relative-to-dir{_, dep $> /path}
       println(f, to-string(\<>include "%_/stanza.proj"<> % [dep-path]))
     println(f, \<>include "../stanza.proj"<>)
 
-defn write-poet-lock-file (dependencies: Tuple<Dependency>) -> False:
-  within f = open("poet.lock", false):
+defn write-slm-lock-file (dependencies: Tuple<Dependency>) -> False:
+  within f = open("slm.lock", false):
     for dep in dependencies do:
       match(dep):
         (dep: GitDependency): 
@@ -50,18 +50,18 @@ defn write-poet-lock-file (dependencies: Tuple<Dependency>) -> False:
 public defn build (args0: Tuple<String>) -> False:
   debug("with args '%s'" % [args0])
 
-  ensure-poet-dir-structure-exists()
+  ensure-slm-dir-structure-exists()
 
-  val dependencies = poet/dependencies/fetch-and-sync()
+  val dependencies = slm/dependencies/fetch-and-sync()
 
   write-build-stanza-proj(dependencies)
-  write-poet-lock-file(dependencies)
+  write-slm-lock-file(dependencies)
 
-  val poet-dir = to-string("%_/.poet" % [get-cwd()])
+  val slm-dir = to-string("%_/.slm" % [get-cwd()])
 
   val args = to-tuple $ cat-all([["stanza", "build"], args0, ["-pkg", "pkgs"]])
   ProcessBuilder(args)
-    $> in-dir{_, poet-dir}
+    $> in-dir{_, slm-dir}
     $> build
     $> wait-process-throw-on-nonzero{_, "build failed!"}
     

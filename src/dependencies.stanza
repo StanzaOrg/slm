@@ -1,4 +1,4 @@
-defpackage poet/dependencies:
+defpackage slm/dependencies:
   import core
   import collections
 
@@ -9,65 +9,65 @@ defpackage poet/dependencies:
   import toml/parser
   import toml/table
 
-  import poet/dependency
-  import poet/git-utils
-  import poet/lock
-  import poet/logging
-  import poet/toml
-  import poet/utils
+  import slm/dependency
+  import slm/git-utils
+  import slm/lock
+  import slm/logging
+  import slm/toml
+  import slm/utils
 
 public defn fetch-and-sync () -> Tuple<Dependency>:
   ; There are two main strategies we'll use
-  ; 1. If there's a poet.lock, then we resolve all dependencies to that exact hash
+  ; 1. If there's a slm.lock, then we resolve all dependencies to that exact hash
   ;    using only the lockfile.
   ;
-  ; 2. Otherwise we use the poet.toml
-  if file-exists?("poet.lock"):
-    parse-poet-lock-and-resolve-dependencies()
+  ; 2. Otherwise we use the slm.toml
+  if file-exists?("slm.lock"):
+    parse-slm-lock-and-resolve-dependencies()
   else:
-    parse-poet-toml-and-resolve-dependencies()
+    parse-slm-toml-and-resolve-dependencies()
 
-defn parse-poet-lock-and-resolve-dependencies ():
-  val poet-toml-dependencies = parse-poet-toml("poet.toml") $> dependencies
+defn parse-slm-lock-and-resolve-dependencies ():
+  val slm-toml-dependencies = parse-slm-toml("slm.toml") $> dependencies
   val locked-dependencies = to-hashtable<String, Dependency> $
-    for locked-dep in parse-poet-lock-file("poet.lock") seq:
+    for locked-dep in parse-slm-lock-file("slm.lock") seq:
       name(locked-dep) => match(locked-dep):
         (dep: LockedGitDependency):
           val locked-dep = GitDependency(name(dep), locator(dep), version(dep), hash(dep))
-          val poet-toml-dep = poet-toml-dependencies[name(dep)]
-          match(poet-toml-dep: GitDependency):
-              if not compatible?(version(poet-toml-dep), version(locked-dep)):
-                error("'%_' (version %_) specified in 'poet.toml'.\n\
-                       This conflicts with locked version ('%_') from 'poet.lock'\n\
-                       If you wish to use the version from your 'poet.toml', \
-                       delete 'poet clean', then re-run this command."
-                       % [name(dep), version(poet-toml-dep), version(locked-dep)])
+          val slm-toml-dep = slm-toml-dependencies[name(dep)]
+          match(slm-toml-dep: GitDependency):
+              if not compatible?(version(slm-toml-dep), version(locked-dep)):
+                error("'%_' (version %_) specified in 'slm.toml'.\n\
+                       This conflicts with locked version ('%_') from 'slm.lock'\n\
+                       If you wish to use the version from your 'slm.toml', \
+                       delete 'slm clean', then re-run this command."
+                       % [name(dep), version(slm-toml-dep), version(locked-dep)])
           else:
-            error("'%_' is specified as a path dependency in 'poet.toml'.\n\
-                   This conflicts with locked version ('%_') from 'poet.lock'\n\
-                   If you wish to use the version from your 'poet.toml', \
-                   delete 'poet clean', then re-run this command."
+            error("'%_' is specified as a path dependency in 'slm.toml'.\n\
+                   This conflicts with locked version ('%_') from 'slm.lock'\n\
+                   If you wish to use the version from your 'slm.toml', \
+                   delete 'slm clean', then re-run this command."
                    % [name(dep), version(locked-dep)])
           fetch-or-sync-at-hash(locked-dep)
           locked-dep
         (dep: LockedPathDependency):
-          val path-dep = poet-toml-dependencies[name(dep)]
+          val path-dep = slm-toml-dependencies[name(dep)]
           if path-dep is-not PathDependency:
-            error("'%_' is specified as a git dependency in 'poet.toml'.\n\
-                   This conflicts with locked (path) version from 'poet.lock'\n\
-                   If you wish to use the version from your 'poet.toml', \
-                   delete 'poet clean', then re-run this command."
+            error("'%_' is specified as a git dependency in 'slm.toml'.\n\
+                   This conflicts with locked (path) version from 'slm.lock'\n\
+                   If you wish to use the version from your 'slm.toml', \
+                   delete 'slm clean', then re-run this command."
                    % [name(dep)])
           path-dep
 
-  for [name, dep] in pairs(poet-toml-dependencies) do:
+  for [name, dep] in pairs(slm-toml-dependencies) do:
     if get?(locked-dependencies, name) is False:
-      error("'%_' (version '%_') specified in 'poet.toml' not found in 'poet.lock'.\n\
-             If you wish to add a dependency to your 'poet.toml', \
-             delete 'poet clean', then re-run this command."
+      error("'%_' (version '%_') specified in 'slm.toml' not found in 'slm.lock'.\n\
+             If you wish to add a dependency to your 'slm.toml', \
+             delete 'slm clean', then re-run this command."
              % [name, version-string?(dep) $> value-or{_, path(dep)}])
 
-  ; TODO warn user if `poet.toml` is newer than `poet.lock` so we can catch
+  ; TODO warn user if `slm.toml` is newer than `slm.lock` so we can catch
   ; any more inconsistencies that we don't yet detect (e.g. removing a dependency)
 
   to-tuple $ values $ locked-dependencies
@@ -84,7 +84,7 @@ defn sync-dependency-to-hash (d: GitDependency) -> False:
   if empty?(hash(d)): fatal("internal error")
 
   if git-rev-parse!(path(d), "HEAD") != hash(d):
-    error("syncing '%_': out of sync with your poet.lock" % [name(d)])
+    error("syncing '%_': out of sync with your slm.lock" % [name(d)])
 
 defn fetch-dependency-at-hash (d: GitDependency) -> False:
   info("cloning %_ at %_" % [colored-name?(d), hash(d)])
@@ -100,15 +100,15 @@ defn fetch-dependency-at-hash (d: GitDependency) -> False:
   false
 
 
-defn parse-poet-toml-and-resolve-dependencies () -> Tuple<Dependency>:
+defn parse-slm-toml-and-resolve-dependencies () -> Tuple<Dependency>:
   val resolved-dependencies = HashTable<String, Dependency>()
 
-  let loop (poet-toml-path: String = "poet.toml", top-level: True|False = true):
-    debug("parsing '%_'" % [poet-toml-path])
+  let loop (slm-toml-path: String = "slm.toml", top-level: True|False = true):
+    debug("parsing '%_'" % [slm-toml-path])
 
-    val poet-toml = parse-poet-toml(poet-toml-path)
-    val parent-name = poet-toml $> name
-    val resolved = to-tuple $ for dep in values(dependencies(poet-toml)) seq?:
+    val slm-toml = parse-slm-toml(slm-toml-path)
+    val parent-name = slm-toml $> name
+    val resolved = to-tuple $ for dep in values(dependencies(slm-toml)) seq?:
       match(dep):
         (dep: GitDependency):
           resolve-git-dependency?(dep, parent-name, resolved-dependencies)
@@ -118,18 +118,18 @@ defn parse-poet-toml-and-resolve-dependencies () -> Tuple<Dependency>:
           else:
             error("found path dependency '%_' in dependency '%_'.\n\
                    You can't have path dependencies in dependencies \
-                   (path dependencies can only be specified in a top-level poet.toml)"
+                   (path dependencies can only be specified in a top-level slm.toml)"
                    % [/name(dep), parent-name])
         (_): fatal("unreachable")
 
-    debug("done parsing '%_'" % [poet-toml-path])
+    debug("done parsing '%_'" % [slm-toml-path])
     for dep in resolved do:
       match(dep: GitDependency):
         debug("resolved %_ at %_" % [colored-name?(dep), version-string(dep)])
       resolved-dependencies[/name(dep)] = dep
 
     for dep in resolved do:
-      loop(to-string("%_/poet.toml" % [path(dep)]), false)
+      loop(to-string("%_/slm.toml" % [path(dep)]), false)
 
   debug("done parsing dependency graph")
   for dep in values(resolved-dependencies) do:
@@ -202,7 +202,7 @@ defn resolve-git-dependency? (
       (_: PathDependency):
         error("resolving '%_' to '%_' (dependency of '%_'):\n\
               %_ was specified as a path dependency at top-level.\n\
-              Currently poet cannot support mixed path and git dependencies."
+              Currently slm cannot support mixed path and git dependencies."
               % [colored-name?(dep), requested-version, parent-name,
                  colored-name?(dep)])
 

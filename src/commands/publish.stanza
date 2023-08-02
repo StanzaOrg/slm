@@ -1,14 +1,14 @@
-defpackage poet/commands/publish:
+defpackage slm/commands/publish:
   import core
   import collections
 
   import maybe-utils
 
-  import poet/file-utils
-  import poet/git-utils
-  import poet/logging
-  import poet/process-utils
-  import poet/toml
+  import slm/file-utils
+  import slm/git-utils
+  import slm/logging
+  import slm/process-utils
+  import slm/toml
 
 defn is-git-repo-dirty? (work-tree: String) -> True|False:
   val proc = ProcessBuilder(["git", "status", "-z"])
@@ -40,7 +40,7 @@ defn git-get-branch-remote? (branch: String) -> Maybe<String>:
 public defn publish () -> False:
   ; What do we need to do?
   ;
-  ; 1. Grab the user's version from their `poet.toml`. If `poet.toml` doesn't
+  ; 1. Grab the user's version from their `slm.toml`. If `slm.toml` doesn't
   ;    exist, or it doesn't contain a `version`, fail.
   ;
   ; 2. Check if the repo is dirty. If it is, fail. We don't want users thinking
@@ -54,7 +54,7 @@ public defn publish () -> False:
   ;    current HEAD, and fail if it doesn't, since we don't want to push the
   ;    wrong tag.
 
-  val version = parse-poet-toml("poet.toml") $> /version
+  val version = parse-slm-toml("slm.toml") $> /version
 
   if is-git-repo-dirty?(get-cwd()):
     error("can't publish with changes, stash or commit them.")
