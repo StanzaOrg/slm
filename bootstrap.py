@@ -9,7 +9,7 @@ from subprocess import CalledProcessError
 # Keep in sync with `slm.toml`
 DEPENDENCIES = {
         "stanza-toml": "StanzaOrg/stanza-toml|0.3.4",
-        "maybe-utils": "StanzaOrg/maybe-utils|0.1.3",
+        "maybe-utils": "StanzaOrg/maybe-utils|0.1.4",
         "semver": "StanzaOrg/semver|0.1.4",
         "term-colors": "StanzaOrg/term-colors|0.1.1",
 }
