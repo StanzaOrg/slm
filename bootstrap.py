@@ -24,6 +24,7 @@ def error(msg):
 
 def check_run (*args, **kwargs):
     kwargs["check"] = True
+    kwargs["env"] = os.environ
     subprocess.run(*args, **kwargs)
 
 def version_to_tag(version):
