@@ -45,7 +45,10 @@ def fetch_package_into(path, package, version):
     url = package_to_url(package)
 
     try:
-        check_run(["git", "clone", "--depth", "1", "--quiet", url, path])
+        if not os.path.exists(path):
+          check_run(["git", "clone", "--depth", "1", "--quiet", url, path])
+        else:
+          print(f"Path '{path}' Already Exists - Assuming Clone Already Complete")
         check_run(["git", "fetch", "--tags", "--quiet"], cwd=path)
         check_run(["git", "checkout", "--quiet", "--force", rev], cwd=path)
     except CalledProcessError:
@@ -63,9 +66,9 @@ def generate_stanza_proj():
 
 def bootstrap(args):
     # Create bootstrap dir structure
-    os.makedirs(SLM_DIR)
-    os.makedirs(SLM_PKGS_DIR)
-    os.makedirs(SLM_DEPS_DIR)
+    os.makedirs(SLM_DIR, exist_ok=True)
+    os.makedirs(SLM_PKGS_DIR, exist_ok=True)
+    os.makedirs(SLM_DEPS_DIR, exist_ok=True)
 
     # Clone dependencies
     for dependency, identifier in DEPENDENCIES.items():
@@ -86,9 +89,6 @@ def bootstrap(args):
     print(f"slm bootstrapped: run `{slm_path} build` to finish building.")
 
 def main(args):
-    if os.path.exists(SLM_DIR):
-        error(f"'{SLM_DIR}' exists, was `slm` already bootstrapped?")
-
     bootstrap(args)
 
 if __name__ == "__main__":
