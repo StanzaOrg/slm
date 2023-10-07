@@ -16,6 +16,7 @@ defn setup-opts ():
   add(CMDS, setup-init-cmd())
   add(CMDS, setup-publish-cmd())
   add(CMDS, setup-repl-cmd())
+  add(CMDS, setup-version-cmd())
 
 val SLM-DESCR = \<MSG>
 slm - Stanza Library Manager

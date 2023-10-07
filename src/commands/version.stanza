@@ -1,0 +1,13 @@
+defpackage slm/commands/version:
+  import core
+  import arg-parser
+
+public defn version (cmd-args:CommandArgs) -> False:
+  println("0.2.3")
+
+val VERSION-MSG = \<MSG>
+Print the version information for this utility.
+<MSG>
+
+public defn setup-version-cmd () -> Command :
+  Command("version", ZeroArg, false, [], VERSION-MSG, version)
