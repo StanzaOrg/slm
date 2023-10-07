@@ -1,13 +1,25 @@
 defpackage slm/commands/clean:
   import core
-
+  import arg-parser
   import slm/file-utils
   import slm/logging
 
-public defn clean () -> False:
+public defn clean (cmd-args:CommandArgs) -> False:
   debug("cleaning .slm")
   delete-files-in-dir(".slm/pkgs/")
   delete-files-in-dir(".slm/deps/")
   create-empty-file(".slm/stanza.proj")
   delete-file-if-exists("slm.lock")
   false
+
+val CLEAN-MSG = \<MSG>
+The `clean` command will:
+
+1.  Purge the '.slm' directory of any downloaded dependencies and build packages
+2.  Remove the 'slm.lock' file.
+
+After this command, the package will be ready to rebuild from scratch.
+<MSG>
+
+public defn setup-clean-cmd () -> Command :
+  Command("clean", ZeroArg, false, [], CLEAN-MSG, clean)

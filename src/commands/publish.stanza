@@ -1,6 +1,7 @@
 defpackage slm/commands/publish:
   import core
   import collections
+  import arg-parser
 
   import maybe-utils
 
@@ -37,7 +38,7 @@ defn git-get-branch-remote? (branch: String) -> Maybe<String>:
   $> One
   $> filter{_, {not empty?(_)}}
 
-public defn publish () -> False:
+public defn publish (cmd-args:CommandArgs) -> False:
   ; What do we need to do?
   ;
   ; 1. Grab the user's version from their `slm.toml`. If `slm.toml` doesn't
@@ -92,3 +93,13 @@ Hint: either retag with `git tag --force %_`, or publish a new version.<>
   run-git-command(["push", current-remote, version-tag])
 
   false
+
+val PUBLISH-MSG = \<MSG>
+The 'publish' command will push and tag your current git branch to
+an already established upstream. This command assumes that upstream
+remote already has an established branch matching this branch.
+<MSG>
+
+
+public defn setup-publish-cmd () -> Command :
+  Command("publish", ZeroArg, false, [], PUBLISH-MSG, publish)

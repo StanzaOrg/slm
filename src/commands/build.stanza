@@ -1,7 +1,7 @@
 defpackage slm/commands/build:
   import core
+  import arg-parser
   import core/parsed-path
-  import collections
 
   import maybe-utils
   import semver
@@ -17,6 +17,8 @@ defpackage slm/commands/build:
   import slm/lock
   import slm/logging
   import slm/process-utils
+  import slm/flags
+
 
 public defn ensure-slm-dir-structure-exists () -> False:
   defn create-dir! (path: String) -> True|False:
@@ -47,8 +49,16 @@ defn write-slm-lock-file (dependencies: Tuple<Dependency>) -> False:
         (dep: PathDependency): 
           println(f, "%_={}" % [name(dep)])
 
-public defn build (args0: Tuple<String>) -> False:
-  debug("with args '%s'" % [args0])
+defn get-build-args () -> Tuple<String>:
+  val ret = get-env("SLM_BUILD_ARGS")
+  match(ret):
+    (x:String): [x]
+    (x:False): []
+
+public defn build (cmd-args:CommandArgs) -> False:
+  val verbose =  get?(cmd-args, "verbose", false)
+  if verbose:
+    slm/flags/debug? = true
 
   ensure-slm-dir-structure-exists()
 
@@ -59,10 +69,36 @@ public defn build (args0: Tuple<String>) -> False:
 
   val slm-dir = to-string("%_/.slm" % [get-cwd()])
 
-  val args = to-tuple $ cat-all([["stanza", "build"], args0, ["-pkg", "pkgs"]])
+  val build-args = get-build-args()
+  debug("with build args '%,'" % [build-args])
+
+  val args = to-tuple $ cat-all([["stanza", "build"], build-args, ["-pkg", "pkgs"]])
   ProcessBuilder(args)
     $> in-dir{_, slm-dir}
     $> build
     $> wait-process-throw-on-nonzero{_, "build failed!"}
     
   false
+
+val BUILD-MSG = \<MSG>
+The 'build' command will manage syncing dependencies and then
+building the project using the 'stanza build' process.
+
+The user can pass arguments to the 'stanza build' process
+by using the 'SLM_BUILD_ARGS' environment variable.
+
+Example:
+
+  SLM_BUILD_ARGS="-flag TESTING" slm build
+
+<MSG>
+
+val VERBOSE-FLAG = \<MSG>
+Generate verbose output from build.
+<MSG>
+
+public defn setup-build-cmd () -> Command :
+  val buildFlags = [
+    Flag("verbose", ZeroFlag, OptionalFlag, VERBOSE-FLAG)
+  ]
+  Command("build", ZeroArg, false, buildFlags, BUILD-MSG, build)

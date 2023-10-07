@@ -1,10 +1,46 @@
 defpackage slm/main:
   import core
+  import collections
+  import arg-parser
   import maybe-utils
   import slm/utils
   import slm/logging
   import slm/commands
   import slm/flags
+
+val CMDS = Vector<Command>()
+
+defn setup-opts ():
+  add(CMDS, setup-build-cmd())
+  add(CMDS, setup-clean-cmd())
+  add(CMDS, setup-init-cmd())
+  add(CMDS, setup-publish-cmd())
+  add(CMDS, setup-repl-cmd())
+
+val SLM-DESCR = \<MSG>
+slm - Stanza Library Manager
+
+Invocation:
+slm [build|clean|init|repl|publish]
+
+This tool provides a means of creating, buliding, and publishing
+stanza libraries and tools. Think of it as something similar to
+rust's 'cargo'.
+
+Environment Variables:
+
+- 'SLM_DEBUG' - If the user sets this variable, then verbose
+    debug logging will be created.
+- 'SLM_COLOR' - If the user sets this variable to 'never' then
+    terminal colors will be disabled. Terminal colors are
+    enabled by default.
+- 'SLM_PROTOCOL' - This variable can select the transport protocol
+    used to download dependencies from Github.
+    'https' -> HTTPS Protocol
+    'git' -> Git Protocol
+    The default is 'git'.
+
+<MSG>
 
 defn main ():
   ; What operations do we want `slm` to perform?
@@ -17,29 +53,17 @@ defn main ():
   ;   - Check that dependencies have been fetched
   ;   - Build the project
 
-  val args = command-line-arguments()
-  if length(args) < 2:
-    error-with-usage("Not enough arguments given.")
-
   if get-env("SLM_DEBUG") is String:
     slm/flags/debug? = true
 
-  try:
-    val command = args[1]
-    switch(command):
-      "build":
-        slm/commands/build(to-tuple $ args[2 to false])
-      "clean":
-        slm/commands/clean()
-      "init":
-        slm/commands/init(nth?(args, 2))
-      "publish":
-        slm/commands/publish()
-      "repl":
-        slm/commands/repl(to-tuple $ args[2 to false])
-      else:
-        error-with-usage("Invalid argument given: `%_`" % [command]) 
-  catch (e: Exception):
-    error("%_" % [e])
+  setup-opts()
+
+  simple-command-line-cli(
+    description = SLM-DESCR,
+    commands = to-tuple(CMDS),
+    default-command = false,
+    help? = true
+  )
+
 
 main()

@@ -1,8 +1,12 @@
 defpackage slm/commands:
-  import core
+  forward slm/commands/build with:
+    only => (setup-build-cmd)
+  forward slm/commands/clean with:
+    only => (setup-clean-cmd)
+  forward slm/commands/init with:
+    only => (setup-init-cmd)
+  forward slm/commands/publish with:
+    only => (setup-publish-cmd)
+  forward slm/commands/repl with:
+    only => (setup-repl-cmd)
 
-public val init = slm/commands/init/init
-public val build = slm/commands/build/build
-public val clean = slm/commands/clean/clean
-public val publish = slm/commands/publish/publish
-public val repl = slm/commands/repl/repl
