@@ -3,7 +3,7 @@ defpackage slm/commands/version:
   import arg-parser
 
 public defn version (cmd-args:CommandArgs) -> False:
-  println("0.2.3")
+  println("0.3.0")
 
 val VERSION-MSG = \<MSG>
 Print the version information for this utility.
