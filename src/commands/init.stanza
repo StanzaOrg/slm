@@ -1,5 +1,6 @@
 defpackage slm/commands/init:
   import core
+  import arg-parser
   import core/parsed-path
   import collections
 
@@ -12,7 +13,14 @@ defpackage slm/commands/init:
   import slm/git-utils
   import slm/logging
 
-public defn init (project-dir*: Maybe<String>) -> False:
+defn get-proj-dir (cmd-args:CommandArgs) -> Maybe<String> :
+  val arg = args(cmd-args)
+  if (length(arg) == 1 ): One(arg[0])
+  else: None()
+
+public defn init (cmd-args:CommandArgs) -> False:
+  val project-dir* = get-proj-dir(cmd-args)
+
   ; First get the fully-resolved path of the directory where we're initializing
   ; a package. If no path was given, use the current directory.
   val project-dir = project-dir*
@@ -112,3 +120,28 @@ main()
           % [project-name, project-dir])
 
   false
+
+val INIT-MSG = \<MSG>
+The 'init' command will initial a 'slm' package structure into
+the passed directory.
+
+If there are existing files present in the new project directory,
+those files _will not_ be overwritten.
+
+Content Created:
+- .slm directory & associated directories
+- slm.toml
+- Default Stanza Project:
+  - stanza.proj
+  - src directory and initial main.stanza
+<MSG>
+
+val INIT-ARG-MSG = \<MSG>
+Optional directory to setup a 'slm' package.
+
+If an argument is not provided, then the current working directory is where the new package
+files will be created.
+<MSG>
+
+public defn setup-init-cmd () -> Command :
+  Command("init", ZeroOrOneArg, INIT-ARG-MSG, [], INIT-MSG, init)
