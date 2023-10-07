@@ -9,4 +9,6 @@ defpackage slm/commands:
     only => (setup-publish-cmd)
   forward slm/commands/repl with:
     only => (setup-repl-cmd)
+  forward slm/commands/version with:
+    only => (setup-version-cmd)
 
