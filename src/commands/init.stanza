@@ -134,6 +134,19 @@ Content Created:
 - Default Stanza Project:
   - stanza.proj
   - src directory and initial main.stanza
+
+Example: 
+
+Initialize a brand new project:
+
+$> cd new_project
+$> slm init
+
+Initialize an existing project: 
+
+$> git clone ssh://git@github.com/user/existing
+$> slm init ./existing
+
 <MSG>
 
 val INIT-ARG-MSG = \<MSG>
