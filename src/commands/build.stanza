@@ -54,10 +54,22 @@ defn get-build-args () -> Tuple<String>:
     (x:String): [x]
     (x:False): []
 
+defn get-build-target (cmd-args:CommandArgs) -> Tuple<String> :
+  val arg = args(cmd-args)
+  switch(length(arg)):
+    1:
+      debug("Target: '%_'" % [arg[0]])
+      [arg[0]]
+    0: []
+    else:
+      error("Invalid Number of Targets: %_" % [length(arg)])
+
 public defn build (cmd-args:CommandArgs) -> False:
   val verbose =  get?(cmd-args, "verbose", false)
   if verbose:
     slm/flags/debug? = true
+
+  val targ? = get-build-target(cmd-args)
 
   ensure-slm-dir-structure-exists()
 
@@ -71,7 +83,7 @@ public defn build (cmd-args:CommandArgs) -> False:
   val build-args = get-build-args()
   debug("with build args '%,'" % [build-args])
 
-  val args = to-tuple $ cat-all([["stanza", "build"], build-args, ["-pkg", "pkgs"]])
+  val args = to-tuple $ cat-all([["stanza", "build"], targ?, build-args, ["-pkg", "pkgs"]])
   ProcessBuilder(args)
     $> in-dir{_, slm-dir}
     $> build
@@ -92,6 +104,28 @@ $> SLM_BUILD_ARGS="-flag TESTING" slm build
 
 <MSG>
 
+val BUILD-MSG-ARG = \<MSG>
+
+The build command takes an optional argument which is the target in the
+stanza.proj file to build. Without this optional argument, the command
+follows the `stanza build` command's logic and compiles the `main` target.
+
+Running:
+
+```
+$> slm build target
+```
+
+Is effectively the same as running:
+
+```
+$> stanza build target
+```
+
+But with all the dependencies handled.
+
+<MSG>
+
 val VERBOSE-FLAG = \<MSG>
 Generate verbose output from build.
 <MSG>
@@ -100,4 +134,4 @@ public defn setup-build-cmd () -> Command :
   val buildFlags = [
     Flag("verbose", ZeroFlag, OptionalFlag, VERBOSE-FLAG)
   ]
-  Command("build", ZeroArg, false, buildFlags, BUILD-MSG, build)
+  Command("build", ZeroOrOneArg, BUILD-MSG-ARG, buildFlags, BUILD-MSG, build)
