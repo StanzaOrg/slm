@@ -224,6 +224,6 @@ defn resolve-path-dependency? (
     ; This scenario shouldn't occur, because we parse all top-level dependencies
     ; first, and we only allow path dependencies at the top-level, hence path dependencies get
     ; resolved first.
-    ; could occur is if 
+    ; could occur is if
     fatal("internal inconsistency resolving path dependency '%_'" % [name(dep)])
   One(dep)

@@ -21,7 +21,7 @@ public defn parse-slm-toml (path: String) -> SlmToml:
   val table = path $> parse-file $> table
   val name = table["name"] as String
   val version = table["version"] as String
-  val dependencies = to-hashtable<String, Dependency> $ 
+  val dependencies = to-hashtable<String, Dependency> $
     for [name, specifier] in pairs(table["dependencies"] as TomlTable) seq:
       name => match(specifier):
         (specifier: String):

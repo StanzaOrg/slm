@@ -23,7 +23,7 @@ defn program-prefix () -> ColoredString|String:
 
 public defn debug (msg: Printable|String) -> False:
   if slm/flags/debug?:
-    println(STANDARD-ERROR-STREAM, "%_ %_%_%_" % [
+    println(current-error-stream(), "%_ %_%_%_" % [
       program-prefix(),
       ColoredString("debug: ")
         $> bold $> dim $> foreground{_, TerminalYellow}
@@ -36,25 +36,17 @@ public defn debug (msg: Printable|String) -> False:
     ])
 
 public defn info (msg: Printable|String) -> False:
-  println(STANDARD-OUTPUT-STREAM, "%_ %_" % [program-prefix(), msg])
-  flush(STANDARD-OUTPUT-STREAM as FileOutputStream)
-
-public defn error-with-usage (msg: Printable|String) -> Void:
-  error(msg, true)
+  println(current-output-stream(), "%_ %_" % [program-prefix(), msg])
+  flush(current-output-stream() as FileOutputStream)
 
 public defn error (msg: Printable|String) -> Void:
-  error(msg, false)
-
-defn error (msg: Printable|String, usage?: True|False) -> Void:
   val program = program-name()
-  println(STANDARD-ERROR-STREAM, "%_ %_ %_" % [
+  println(current-error-stream(), "%_ %_ %_" % [
     program-prefix(),
     ColoredString("error:")
       $> bold $> foreground{_, TerminalBrightRed}
       $> clear-color?,
     msg,
   ])
-  if usage?:
-    println(STANDARD-ERROR-STREAM, "usage: %_ [build|clean|init|publish|repl]" % [program])
   exit(1)
 
