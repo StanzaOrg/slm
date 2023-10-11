@@ -22,7 +22,7 @@ val SLM-DESCR = \<MSG>
 slm - Stanza Library Manager
 
 Invocation:
-slm [build|clean|init|repl|publish]
+slm [build|clean|init|repl|publish|version|help]
 
 This tool provides a means of creating, buliding, and publishing
 stanza libraries and tools. Think of it as something similar to

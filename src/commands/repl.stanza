@@ -33,7 +33,7 @@ by using the 'SLM_REPL_ARGS' environment variable.
 
 Example:
 
-  SLM_REPL_ARGS="-flag TESTING" slm repl
+$> SLM_REPL_ARGS="-flag TESTING" slm repl
 
 <MSG>
 

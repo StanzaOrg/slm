@@ -89,7 +89,7 @@ by using the 'SLM_BUILD_ARGS' environment variable.
 
 Example:
 
-  SLM_BUILD_ARGS="-flag TESTING" slm build
+$> SLM_BUILD_ARGS="-flag TESTING" slm build
 
 <MSG>
 
