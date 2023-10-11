@@ -19,7 +19,6 @@ defpackage slm/commands/build:
   import slm/process-utils
   import slm/flags
 
-
 public defn ensure-slm-dir-structure-exists () -> False:
   defn create-dir! (path: String) -> True|False:
     if not file-exists?(path):
@@ -43,10 +42,10 @@ defn write-slm-lock-file (dependencies: Tuple<Dependency>) -> False:
   within f = open("slm.lock", false):
     for dep in dependencies do:
       match(dep):
-        (dep: GitDependency): 
+        (dep: GitDependency):
           println(f, "%_={locator=%~,version=%~,hash=%~}"
                   % [name(dep), locator(dep), to-string(version(dep)), hash(dep)])
-        (dep: PathDependency): 
+        (dep: PathDependency):
           println(f, "%_={}" % [name(dep)])
 
 defn get-build-args () -> Tuple<String>:
@@ -77,7 +76,7 @@ public defn build (cmd-args:CommandArgs) -> False:
     $> in-dir{_, slm-dir}
     $> build
     $> wait-process-throw-on-nonzero{_, "build failed!"}
-    
+
   false
 
 val BUILD-MSG = \<MSG>

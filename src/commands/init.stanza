@@ -135,14 +135,14 @@ Content Created:
   - stanza.proj
   - src directory and initial main.stanza
 
-Example: 
+Example:
 
 Initialize a brand new project:
 
 $> cd new_project
 $> slm init
 
-Initialize an existing project: 
+Initialize an existing project:
 
 $> git clone ssh://git@github.com/user/existing
 $> slm init ./existing
