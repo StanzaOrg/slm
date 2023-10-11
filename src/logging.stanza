@@ -39,13 +39,7 @@ public defn info (msg: Printable|String) -> False:
   println(STANDARD-OUTPUT-STREAM, "%_ %_" % [program-prefix(), msg])
   flush(STANDARD-OUTPUT-STREAM as FileOutputStream)
 
-public defn error-with-usage (msg: Printable|String) -> Void:
-  error(msg, true)
-
 public defn error (msg: Printable|String) -> Void:
-  error(msg, false)
-
-defn error (msg: Printable|String, usage?: True|False) -> Void:
   val program = program-name()
   println(STANDARD-ERROR-STREAM, "%_ %_ %_" % [
     program-prefix(),
@@ -54,7 +48,5 @@ defn error (msg: Printable|String, usage?: True|False) -> Void:
       $> clear-color?,
     msg,
   ])
-  if usage?:
-    println(STANDARD-ERROR-STREAM, "usage: %_ [build|clean|init|publish|repl]" % [program])
   exit(1)
 
