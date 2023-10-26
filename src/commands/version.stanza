@@ -2,8 +2,22 @@ defpackage slm/commands/version:
   import core
   import arg-parser
 
+; This definition is extracted from the environment variables
+;   at build time only.
+val v:String|False = #env-var(SLM_BUILD_VERSION)
+
+defn get-version-from-build-env () -> String:
+  match(v):
+    (x:False): ""
+    (x:String): trim(x)
+
+val BIN-VERSION = get-version-from-build-env()
+
 public defn version (cmd-args:CommandArgs) -> False:
-  println("0.3.1")
+  if length(BIN-VERSION) == 0:
+    println("dev")
+  else:
+    println("%_" % [BIN-VERSION])
 
 val VERSION-MSG = \<MSG>
 Print the version information for this utility.
