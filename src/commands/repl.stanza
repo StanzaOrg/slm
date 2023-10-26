@@ -8,7 +8,7 @@ defpackage slm/commands/repl:
 defn get-repl-args () -> Tuple<String>:
   val ret = get-env("SLM_REPL_ARGS")
   match(ret):
-    (x:String): [x]
+    (x:String): to-tuple $ split(x, " ")
     (x:False): []
 
 public defn repl (cmd-args:CommandArgs) -> False:
