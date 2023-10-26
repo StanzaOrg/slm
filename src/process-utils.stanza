@@ -1,27 +1,39 @@
 defpackage slm/process-utils:
   import core
 
+  import maybe-utils
   import slm/file-utils
 
 public defstruct ProcessBuilder:
   args: Tuple<String>
-  working-dir?: Maybe<String> with: (default => None())
-  output?: True|False with: (default => false)
+  working-dir?: Maybe<String> with: (
+    default => None(),
+    updater => sub-working-dir?
+    )
+  output?: True|False with: (
+    default => false,
+    updater => sub-output?
+    )
+  env-vars: Tuple<KeyValue<String, String>> with: (
+    default => [],
+    updater => sub-env-vars
+    )
 
 public defn with-output (builder: ProcessBuilder) -> ProcessBuilder:
-  ProcessBuilder(args(builder), working-dir?(builder), true)
+  sub-output?(builder, true)
 
 public defn in-dir (builder: ProcessBuilder, dir: String) -> ProcessBuilder:
-  ProcessBuilder(args(builder), One(dir), output?(builder))
+  sub-working-dir?(builder, One(dir))
+
+public defn with-env-vars (builder:ProcessBuilder, env-vars:Tuple<KeyValue<String, String>>) -> ProcessBuilder :
+  sub-env-vars(builder, env-vars)
 
 public defn build (builder: ProcessBuilder) -> Process:
   val args = args(builder)
   val output-stream = if output?(builder): (PROCESS-OUT) else: (STANDARD-OUT)
-  val working-dir? = working-dir?(builder)
-  match(working-dir?: One<String>):
-    Process(args[0], args, STANDARD-IN, output-stream, STANDARD-ERR, value!(working-dir?), false)
-  else:
-    Process(args[0], args, STANDARD-IN, output-stream, STANDARD-ERR)
+  val workdir = value-or(working-dir?(builder), false)
+  val env-vars = env-vars(builder)
+  Process(args[0], args, STANDARD-IN, output-stream, STANDARD-ERR, workdir, env-vars)
 
 public defn get-output (p: Process) -> String:
   slurp-stream(output-stream(p))
