@@ -4,6 +4,9 @@ defpackage slm/commands/repl:
 
   import slm/file-utils
   import slm/process-utils
+  import slm/logging
+  import slm/toml
+
 
 defn get-repl-args () -> Tuple<String>:
   val ret = get-env("SLM_REPL_ARGS")
@@ -16,8 +19,14 @@ public defn repl (cmd-args:CommandArgs) -> False:
   val args = to-tuple $ cat-all([["stanza", "repl"], repl-args, ["-pkg", "pkgs"]])
   val slm-dir = to-string("%_/.slm" % [get-cwd()])
 
+  val vStr = parse-slm-toml("slm.toml") $> /version
+  debug("Build Version: %_" % [vStr])
+  val env-vars = ["SLM_BUILD_VERSION" => vStr]
+  debug("Stanza: %," % [args])
+
   ProcessBuilder(args)
     $> in-dir{_, slm-dir}
+    $> with-env-vars{_, env-vars}
     $> build
     $> run-and-get-exit-code
     $> exit

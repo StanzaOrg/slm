@@ -18,6 +18,7 @@ defpackage slm/commands/build:
   import slm/logging
   import slm/process-utils
   import slm/flags
+  import slm/toml
 
 public defn ensure-slm-dir-structure-exists () -> False:
   defn create-dir! (path: String) -> True|False:
@@ -84,8 +85,13 @@ public defn build (cmd-args:CommandArgs) -> False:
   debug("with build args '%,'" % [build-args])
 
   val args = to-tuple $ cat-all([["stanza", "build"], targ?, build-args, ["-pkg", "pkgs"]])
+  val vStr = parse-slm-toml("slm.toml") $> /version
+  debug("Build Version: %_" % [vStr])
+  val env-vars = ["SLM_BUILD_VERSION" => vStr]
+  debug("Stanza: %," % [args])
   ProcessBuilder(args)
     $> in-dir{_, slm-dir}
+    $> with-env-vars{_, env-vars}
     $> build
     $> wait-process-throw-on-nonzero{_, "build failed!"}
 
