@@ -44,6 +44,19 @@ Example:
 
 $> SLM_REPL_ARGS="-flag TESTING" slm repl
 
+---------------------------
+Package Version Propagation
+---------------------------
+
+In order for the package's source code to know what its current
+version number is, this tool defines 'SLM_BUILD_VERSION' with the
+'version' string value from the 'slm.toml' file. This environment
+variable is defined for the context of the `stanza repl` process.
+
+This allows the package's stanza code to use '#env-var(SLM_BUILD_VERSION)'
+or 'get-env("SLM_BUILD_VERSION")' to access this version string and
+compile it into the functions accessed by the repl.
+
 <MSG>
 
 public defn setup-repl-cmd () -> Command :
