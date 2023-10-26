@@ -51,7 +51,7 @@ defn write-slm-lock-file (dependencies: Tuple<Dependency>) -> False:
 defn get-build-args () -> Tuple<String>:
   val ret = get-env("SLM_BUILD_ARGS")
   match(ret):
-    (x:String): [x]
+    (x:String): to-tuple $ split(x, " ")
     (x:False): []
 
 defn get-build-target (cmd-args:CommandArgs) -> Tuple<String> :
