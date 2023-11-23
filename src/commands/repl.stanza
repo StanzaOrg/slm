@@ -6,7 +6,7 @@ defpackage slm/commands/repl:
   import slm/process-utils
   import slm/logging
   import slm/toml
-
+  import slm/utils
 
 defn get-repl-args () -> Tuple<String>:
   val ret = get-env("SLM_REPL_ARGS")
@@ -15,8 +15,9 @@ defn get-repl-args () -> Tuple<String>:
     (x:False): []
 
 public defn repl (cmd-args:CommandArgs) -> False:
+  val stanza-exe = get-stanza-exe()
   val repl-args = get-repl-args()
-  val args = to-tuple $ cat-all([["stanza", "repl"], repl-args, ["-pkg", "pkgs"]])
+  val args = to-tuple $ cat-all([[stanza-exe, "repl"], repl-args, ["-pkg", "pkgs"]])
   val slm-dir = to-string("%_/.slm" % [get-cwd()])
 
   val vStr = parse-slm-toml("slm.toml") $> /version
