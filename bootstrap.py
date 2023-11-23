@@ -58,7 +58,6 @@ def generate_stanza_proj():
 
     with open(os.path.join(SLM_DIR, "stanza.proj"), "w") as f:
         f.writelines([f'include "{proj_file}"\n' for proj_file in dep_proj_files])
-        f.write('include "../stanza.proj"\n')
 
 def bootstrap(args):
     # Create bootstrap dir structure
@@ -77,7 +76,7 @@ def bootstrap(args):
 
     # Attempt to build the project and packages
     try:
-        check_run(["stanza", "build"] + args, cwd=SLM_DIR)
+        check_run(["stanza", "build"] + args)
     except CalledProcessError:
         error("Bootstrap failed trying to run `stanza build`")
 
