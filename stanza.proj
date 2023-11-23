@@ -1,3 +1,4 @@
+include ".slm/stanza.proj"
 include "src/stanza.proj"
 
 build main:

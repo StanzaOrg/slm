@@ -18,7 +18,7 @@ public defn repl (cmd-args:CommandArgs) -> False:
   val cfg = parse-slm-toml("slm.toml")
   val stanza-exe = get-stanza-exe(compiler?(cfg))
   val repl-args = get-repl-args()
-  val args = to-tuple $ cat-all([[stanza-exe, "repl"], repl-args, ["-pkg", "pkgs"]])
+  val args = to-tuple $ cat-all([[stanza-exe, "repl"], repl-args])
   val slm-dir = to-string("%_/.slm" % [get-cwd()])
 
   val vStr =  version(cfg)
@@ -27,7 +27,6 @@ public defn repl (cmd-args:CommandArgs) -> False:
   debug("Stanza: %," % [args])
 
   ProcessBuilder(args)
-    $> in-dir{_, slm-dir}
     $> with-env-vars{_, env-vars}
     $> build
     $> run-and-get-exit-code
