@@ -38,7 +38,6 @@ defn write-build-stanza-proj (dependencies: Tuple<Dependency>) -> False:
     for dep in dependencies do:
       val dep-path = get-cwd() $> parse-path $> relative-to-dir{_, dep $> /path}
       println(f, to-string(\<>include "%_/stanza.proj"<> % [dep-path]))
-    println(f, \<>include "../stanza.proj"<>)
 
 defn write-slm-lock-file (dependencies: Tuple<Dependency>) -> False:
   within f = open("slm.lock", false):
@@ -89,13 +88,17 @@ public defn build (cmd-args:CommandArgs) -> False:
   val build-args = get-build-args()
   debug("with build args '%,'" % [build-args])
 
-  val args = to-tuple $ cat-all([[stanza-exe, "build"], targ?, build-args, ["-pkg", "pkgs"]])
+  ; In general - we want all of the options for the project to be
+  ;  captured in the `stanza.proj` file - not as options passed to this command.
+  ;  Otherwise, the user will have to remember to pass `-pkg pkgs` on the command
+  ;  line to the `stanza build` if they want to run the compiler directly instead
+  ;  of through `slm`
+  val args = to-tuple $ cat-all([[stanza-exe, "build"], targ?, build-args])
   val vStr =  version(cfg)
   debug("Build Version: %_" % [vStr])
   val env-vars = ["SLM_BUILD_VERSION" => vStr]
   debug("Stanza: %," % [args])
   ProcessBuilder(args)
-    $> in-dir{_, slm-dir}
     $> with-env-vars{_, env-vars}
     $> build
     $> wait-process-throw-on-nonzero{_, "build failed!"}

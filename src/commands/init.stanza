@@ -57,7 +57,8 @@ public defn init (cmd-args:CommandArgs) -> False:
 
   ; Create empty .slm directory structure
   create-dir(slm-dir-path)
-  create-dir(to-string("%_/pkgs/" % [slm-dir-path]))
+  val pkg-path = to-string("%_/pkgs/" % [slm-dir-path])
+  create-dir(pkg-path)
   create-dir(to-string("%_/deps/" % [slm-dir-path]))
   create-empty-file(to-string("%_/stanza.proj" % [slm-dir-path]))
 
@@ -76,13 +77,15 @@ public defn init (cmd-args:CommandArgs) -> False:
   val main-package = to-string("%_/main" % [project-name])
   val stanza-proj-path = to-string("%_/stanza.proj" % [project-dir])
   if not file-exists?(stanza-proj-path):
-    spit(stanza-proj-path, \<>include "src/stanza.proj"
+    spit(stanza-proj-path, \<>include ".slm/stanza.proj"  ; Dependencies
+include "src/stanza.proj"  ; Project Sources
 
 build main:
   inputs: %_
+  pkg: "%_"
   o: "%_"
 <>
-        % [main-package, project-name])
+        % [main-package, pkg-path, project-name])
 
   ; Create src/
   val project-src-dir = to-string("%_/src/" % [project-dir])
