@@ -15,12 +15,16 @@ defpackage slm/toml:
 public defstruct SlmToml:
   name: String
   version: String
+  compiler?: Maybe<String>
   dependencies: HashTable<String, Dependency>
 
 public defn parse-slm-toml (path: String) -> SlmToml:
   val table = path $> parse-file $> table
   val name = table["name"] as String
   val version = table["version"] as String
+  val compiler? = match(get?(table, "compiler")):
+    (x:None): x
+    (x:One<TomlValue>):  One(value(x) as String)
   val dependencies = to-hashtable<String, Dependency> $
     for [name, specifier] in pairs(table["dependencies"] as TomlTable) seq:
       name => match(specifier):
@@ -32,4 +36,4 @@ public defn parse-slm-toml (path: String) -> SlmToml:
           error("invalid slm.toml: '%_' is not a valid dependency specifier"
                 % [specifier])
 
-  SlmToml(name, version, dependencies)
+  SlmToml(name, version, compiler?, dependencies)
