@@ -40,6 +40,9 @@ Environment Variables:
     'https' -> HTTPS Protocol
     'git' -> Git Protocol
     The default is 'git'.
+- 'SLM_STANZA' = This variable can select the name and/or path to
+    the stanza executable. This allows for usage with macro extended
+    compilers.
 
 <MSG>
 
