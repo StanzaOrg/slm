@@ -24,7 +24,7 @@ slm - Stanza Library Manager
 Invocation:
 slm [build|clean|init|repl|publish|version|help]
 
-This tool provides a means of creating, buliding, and publishing
+This tool provides a means of creating, building, and publishing
 stanza libraries and tools. Think of it as something similar to
 rust's 'cargo'.
 
@@ -42,7 +42,72 @@ Environment Variables:
     The default is 'git'.
 - 'SLM_STANZA' = This variable can select the name and/or path to
     the stanza executable. This allows for usage with macro extended
-    compilers.
+    compilers. If set, this value will override the 'compiler'
+    setting in the `slm.toml` file.
+
+Configuration File:
+
+The 'slm.toml' file is the main configuration file for a project
+managed by 'slm'. This file should be found in the root directory
+of the project. It is a formatted with "Tom's Obvious Minimal Language"
+which is a minimal configuration format. See https://toml.io/ for more
+info.
+
+Configuration Keys:
+
+- name         :  Name of the project. This should match the
+                  top-level namespace of the packages defined in
+                  this project. This string should be a valid stanza
+                  identifier.
+- version      :  Current Version of the Project. This string should
+                  be a semantic version format. It will be passed to
+                  the project at build time via environment variable.
+                  See the 'build' command for more info.
+- compiler     :  Optional compiler executable name/filepath to override
+                  the default of 'stanza'.
+- dependencies :  Table with key-value pairs that indicate the dependencies
+                  for this project. See more info below.
+
+Example Configuration File:
+
+"""
+name = "slm"
+version = "0.3.2"
+
+[dependencies]
+stanza-toml = "StanzaOrg/stanza-toml|0.3.4"
+semver      = "StanzaOrg/semver|0.1.4"
+maybe-utils = "StanzaOrg/maybe-utils|0.1.4"
+term-colors = "StanzaOrg/term-colors|0.1.1"
+"""
+
+Dependency Declarations:
+
+The dependency declarations include a project name followed by a
+resolution object for that project. The resolution paths come in two
+forms:
+
+1.  Github Resolution
+
+The github resolution is a String formatted as:
+
+dep-projet = "ORG/PROJECT|SEMVER"
+
+ - dep-project = Name of the dependency we are resolving.
+ - ORG = The Github Organization where the project can be found.
+ - PROJECT = Name of the project under the github org.
+ - SEMVER = Semantic version for the project. This semantic version
+    must match a tag on the 'https://github.com/ORG/PROJECT' repository.
+
+2.  File Path Resolution
+
+The File Path resolution is an "Inline Table" object in the form:
+
+dep-project = { path = "/Full/Path/Here" }
+
+The 'path' attribute of this object makes reference to a file path
+on the local computer that is accessible through the filesystem.
+
 
 <MSG>
 
