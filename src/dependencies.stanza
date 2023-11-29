@@ -34,37 +34,59 @@ defn parse-slm-lock-and-resolve-dependencies ():
       name(locked-dep) => match(locked-dep):
         (dep: LockedGitDependency):
           val locked-dep = GitDependency(name(dep), locator(dep), version(dep), hash(dep))
-          val slm-toml-dep = slm-toml-dependencies[name(dep)]
-          match(slm-toml-dep: GitDependency):
+          val slm-toml-dep? = get?(slm-toml-dependencies, name(dep))
+          match(slm-toml-dep?):
+            (slm-toml-dep:GitDependency):
               if not compatible?(version(slm-toml-dep), version(locked-dep)):
                 error("'%_' (version %_) specified in 'slm.toml'.\n\
                        This conflicts with locked version ('%_') from 'slm.lock'\n\
                        If you wish to use the version from your 'slm.toml', \
                        delete 'slm clean', then re-run this command."
                        % [name(dep), version(slm-toml-dep), version(locked-dep)])
-          else:
-            error("'%_' is specified as a path dependency in 'slm.toml'.\n\
-                   This conflicts with locked version ('%_') from 'slm.lock'\n\
-                   If you wish to use the version from your 'slm.toml', \
-                   delete 'slm clean', then re-run this command."
-                   % [name(dep), version(locked-dep)])
-          fetch-or-sync-at-hash(locked-dep)
-          locked-dep
+              else:
+                fetch-or-sync-at-hash(locked-dep)
+                locked-dep
+            (slm-toml-dep:PathDependency):
+              error("'%_' is specified as a path dependency in 'slm.toml'.\n\
+                    This conflicts with locked version ('%_') from 'slm.lock'\n\
+                    If you wish to use the version from your 'slm.toml', \
+                    delete 'slm clean', then re-run this command."
+                    % [name(dep), version(locked-dep)])
+            (x:False):
+              ; This dependency was found in the lock file but not in our slm.toml file.
+              ;  This likely means it is a "grand-child" or further decendent
+              ;  dependency. We just want to let it ride
+              ; TODO - It may also be a removed dependency. There is no way for me to
+              ;  distinguish between the two
+              locked-dep
         (dep: LockedPathDependency):
-          val path-dep = slm-toml-dependencies[name(dep)]
-          if path-dep is-not PathDependency:
-            error("'%_' is specified as a git dependency in 'slm.toml'.\n\
-                   This conflicts with locked (path) version from 'slm.lock'\n\
-                   If you wish to use the version from your 'slm.toml', \
-                   delete 'slm clean', then re-run this command."
-                   % [name(dep)])
-          path-dep
+          val slm-toml-dep = get?(slm-toml-dependencies, name(dep))
+          match(slm-toml-dep):
+            (git-dep:GitDependency):
+              error("'%_' is specified as a git dependency in 'slm.toml'.\n\
+                    This conflicts with locked (path) version from 'slm.lock'\n\
+                    If you wish to use the version from your 'slm.toml', \
+                    delete 'slm clean', then re-run this command."
+                    % [name(dep)])
+            (path-dep:PathDependency):
+              path-dep
+            (x:False):
+              ; This dependency was found in the lock file but was not found
+              ;  in our slm.toml file. This likely means it is a "grand-child"
+              ;  or further descendent dependency. This isn't a common case - but
+              ;  might happen during development.
+              ; TODO Current Code Structure makes it impossible to handle this case
+              error("'%_' is found in the 'slm.lock' file but not in 'slm.toml'. \
+                    It is likely a grandchild dependency that is included as a path.\
+                    We don't currently handle this case. Consider adding the\
+                    necessary path dependency to the local project's 'slm.toml'\
+                    to work around this short-coming.")
 
   for [name, dep] in pairs(slm-toml-dependencies) do:
     if get?(locked-dependencies, name) is False:
       error("'%_' (version '%_') specified in 'slm.toml' not found in 'slm.lock'.\n\
              If you wish to add a dependency to your 'slm.toml', \
-             delete 'slm clean', then re-run this command."
+             run 'slm clean', then re-run this command."
              % [name, version-string?(dep) $> value-or{_, path(dep)}])
 
   ; TODO warn user if `slm.toml` is newer than `slm.lock` so we can catch
