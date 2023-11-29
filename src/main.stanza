@@ -91,7 +91,7 @@ forms:
 
 The github resolution is a String formatted as:
 
-dep-projet = "ORG/PROJECT|SEMVER"
+dep-project = "ORG/PROJECT|SEMVER"
 
  - dep-project = Name of the dependency we are resolving.
  - ORG = The Github Organization where the project can be found.
@@ -108,6 +108,15 @@ dep-project = { path = "/Full/Path/Here" }
 The 'path' attribute of this object makes reference to a file path
 on the local computer that is accessible through the filesystem.
 
+The string value of the 'path' attribute supports environment
+variable substitution with the following syntax:
+
+dep-project = { path = "{HOME}/src/path/here" }
+
+Where 'slm' will check the environment for the 'HOME' environment
+variable and directly substitute that string if found. If no environment
+variable by that name is found, this is an error and will cause the `slm`
+build to fail.
 
 <MSG>
 
