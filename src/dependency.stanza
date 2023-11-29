@@ -63,5 +63,46 @@ defn parse-specifier (specifier: String) -> [String, SemanticVersion]:
     else:
       error("malformed specifier '%_'" % [specifier])
 
+
+; This function was shamelessly stolen from lbstanza:compiler/config.stanza
+; https://github.com/StanzaOrg/lbstanza/blob/0cbcd2ce7d8b1794e82624170a0a09d3053d0fb1/compiler/config.stanza#L298
+; Sadly - it is not public so I can't just invoke it directly.
+defn sub-curly (f:String -> String, s:String) -> String :
+  if index-of-char(s, '{') is False :
+    s
+  else :
+    val buffer = StringBuffer()
+
+    ;Iterate through the curlies
+    let loop (start:Int = 0) :
+      ;Determine curly bounds
+      val [i, j] = let :
+        val i = index-of-char(s, start to false, '{')
+        match(i:Int) :
+          [i, index-of-char(s, (i + 1) to false, '}')]
+        else : [i, false]
+      ;If there is a curly
+      match(i:Int, j:Int) :
+        ;Add string up to curly
+        if start < i :
+          add-all(buffer, s[start to i])
+        ;Add replacement
+        val replacement = f(s[(i + 1) through (j - 1)])
+        add-all(buffer, replacement)
+        ;Continue past } char
+        loop(j + 1)
+      else :
+        ;End of string, add the rest
+        if start < length(s) :
+          add-all(buffer, s[start to false])
+
+    ;Return spliced string
+    to-string(buffer)
+
+defn env-var-substitute (path:String) -> String:
+  within name = sub-curly(path):
+    get-env!(name)
+
 public defn parse-path-dependency (name: String, path: String) -> PathDependency:
-  PathDependency(name, path)
+  val path* = env-var-substitute(path)
+  PathDependency(name, path*)
