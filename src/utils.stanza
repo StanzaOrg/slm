@@ -56,3 +56,13 @@ public defn full-url-from-locator (locator: String) -> String:
     "git": git-locator(locator)
     "https": https-locator(locator)
     else: git-locator(locator)
+
+doc: \<DOC>
+Join Strings to form a file system path.
+
+This also works for joining strings to form
+stanza full-qualified package paths.
+<DOC>
+public defn path-join (parts:String ...) -> String :
+  string-join(parts, "/")
+
