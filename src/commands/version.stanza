@@ -11,7 +11,7 @@ defn get-version-from-build-env () -> String:
     (x:False): ""
     (x:String): trim(x)
 
-val BIN-VERSION = get-version-from-build-env()
+public val BIN-VERSION = get-version-from-build-env()
 
 public defn version (cmd-args:CommandArgs) -> False:
   if length(BIN-VERSION) == 0:
