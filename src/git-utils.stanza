@@ -3,9 +3,47 @@ defpackage slm/git-utils:
   import collections
 
   import maybe-utils
+  import semver
 
   import slm/file-utils
   import slm/process-utils
+
+defn parse-git-version (msg:String) -> Maybe<SemanticVersion> :
+  val comps = split(msg, " ")
+  for comp in comps first:
+    parse-semver(comp)
+
+defn run-git-version () -> Maybe<SemanticVersion> :
+  try:
+    val p = ProcessBuilder(["git", "version"])
+      $> with-output
+      $> build
+
+    ; Evidently - you have to call `get-output` before `run` here
+    ;   Otherwise, it will throw an "Bad file descriptor" error.
+    val msg = get-output(p) $> trim
+    val code = run-and-get-exit-code(p)
+    if code == 0:
+      parse-git-version(msg)
+    else if code == 127:
+      ; This indicates that there is no `git` on the path:
+      None()
+    else:
+      println("Error checking 'git version': code = %_ \n %_" % [code, msg])
+      None()
+  catch (e:ProcessLaunchError):
+    ; Launch failure is synonymous with executable not found.
+    None()
+
+var git-vers:Maybe<SemanticVersion> = run-git-version()
+
+public defn git-version? () -> Maybe<SemanticVersion> :
+  git-vers
+
+public defn has-git? () -> True|False :
+  match(git-version?()):
+    (x:One<SemanticVersion>): true
+    (_:None): false
 
 public defn git-rev-parse (work-tree: String, rev: String) -> String:
   command-output-in-dir(work-tree, ["git", "rev-parse", "--verify", "--quiet", rev])
