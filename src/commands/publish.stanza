@@ -39,6 +39,9 @@ defn git-get-branch-remote? (branch: String) -> Maybe<String>:
   $> filter{_, {not empty?(_)}}
 
 public defn publish (cmd-args:CommandArgs) -> False:
+  if not has-git?() :
+    error("No `git` executable found on the path")
+
   ; What do we need to do?
   ;
   ; 1. Grab the user's version from their `slm.toml`. If `slm.toml` doesn't
