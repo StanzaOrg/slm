@@ -95,6 +95,9 @@ defn parse-slm-lock-and-resolve-dependencies ():
   to-tuple $ values $ locked-dependencies
 
 defn fetch-or-sync-at-hash (d: GitDependency) -> False:
+  if not has-git?() :
+    error("No `git` executable found on the path")
+
   if file-exists?(path(d)):
     sync-dependency-to-hash(d)
   else:

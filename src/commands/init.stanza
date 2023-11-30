@@ -116,7 +116,7 @@ main()
 
   ; Initialize Git repo in .git
   val git-dir = to-string("%_/.git/" % [project-dir])
-  if not file-exists?(git-dir):
+  if has-git?() and not file-exists?(git-dir):
     git-init(project-dir)
 
   println("slm: init: package `%_` initialized in `%_`"
