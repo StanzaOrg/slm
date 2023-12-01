@@ -9,6 +9,7 @@ defpackage slm/dependencies:
   import toml/parser
   import toml/table
 
+  import slm/flags
   import slm/dependency
   import slm/git-utils
   import slm/lock
@@ -22,15 +23,15 @@ public defn fetch-and-sync () -> Tuple<Dependency>:
   ;    using only the lockfile.
   ;
   ; 2. Otherwise we use the slm.toml
-  if file-exists?("slm.lock"):
+  if file-exists?(SLM_LOCK_NAME):
     parse-slm-lock-and-resolve-dependencies()
   else:
     parse-slm-toml-and-resolve-dependencies()
 
 defn parse-slm-lock-and-resolve-dependencies ():
-  val slm-toml-dependencies = parse-slm-toml("slm.toml") $> dependencies
+  val slm-toml-dependencies = parse-slm-toml(SLM_TOML_NAME) $> dependencies
   val locked-dependencies = to-hashtable<String, Dependency> $
-    for locked-dep in parse-slm-lock-file("slm.lock") seq:
+    for locked-dep in parse-slm-lock-file(SLM_LOCK_NAME) seq:
       name(locked-dep) => match(locked-dep):
         (dep: LockedGitDependency):
           val locked-dep = GitDependency(name(dep), locator(dep), version(dep), hash(dep))
@@ -128,7 +129,7 @@ defn fetch-dependency-at-hash (d: GitDependency) -> False:
 defn parse-slm-toml-and-resolve-dependencies () -> Tuple<Dependency>:
   val resolved-dependencies = HashTable<String, Dependency>()
 
-  let loop (slm-toml-path: String = "slm.toml", top-level: True|False = true):
+  let loop (slm-toml-path: String = SLM_TOML_NAME, top-level: True|False = true):
     debug("parsing '%_'" % [slm-toml-path])
 
     val slm-toml = parse-slm-toml(slm-toml-path)
@@ -154,7 +155,7 @@ defn parse-slm-toml-and-resolve-dependencies () -> Tuple<Dependency>:
       resolved-dependencies[/name(dep)] = dep
 
     for dep in resolved do:
-      loop(to-string("%_/slm.toml" % [path(dep)]), false)
+      loop(to-string("%_/%_" % [path(dep), SLM_TOML_NAME]), false)
 
   debug("done parsing dependency graph")
   for dep in values(resolved-dependencies) do:

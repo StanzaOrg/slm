@@ -9,6 +9,7 @@ defpackage slm/commands/init:
   import toml/table
   import toml/value
 
+  import slm/flags
   import slm/file-utils
   import slm/git-utils
   import slm/logging
@@ -32,8 +33,8 @@ public defn init (cmd-args:CommandArgs) -> False:
   val project-name = dir-name?(project-dir)
     $> value-or{_, project-dir}
 
-  val slm-toml-path = to-string("%_/slm.toml" % [project-dir])
-  val slm-dir-path = to-string("%_/.slm/" % [project-dir])
+  val slm-toml-path = to-string("%_/%_" % [project-dir, SLM_TOML_NAME])
+  val slm-dir-path = to-string("%_/%_" % [project-dir, SLM_DIR])
 
   if file-exists?(project-dir):
     ; Check that a package wasn't already initialized
@@ -65,7 +66,7 @@ public defn init (cmd-args:CommandArgs) -> False:
   ; Create .gitignore
   val git-ignore = to-string("%_/.gitignore" % [project-dir])
   within f = open(git-ignore, file-exists?(git-ignore)):
-    println(f, ".slm")
+    println(f, SLM_DIR)
 
   ; Create slm.toml
   within f = open(slm-toml-path, false):
