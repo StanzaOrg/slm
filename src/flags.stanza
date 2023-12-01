@@ -3,3 +3,7 @@ defpackage slm/flags:
 
 protected var verbose?: True|False = false
 protected var debug?: True|False = false
+
+public val SLM_TOML_NAME:String = "slm.toml"
+public val SLM_LOCK_NAME:String = "slm.lock"
+public val SLM_DIR:String = ".slm"
