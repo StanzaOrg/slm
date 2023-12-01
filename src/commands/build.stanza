@@ -40,7 +40,7 @@ defn write-build-stanza-proj (dependencies: Tuple<Dependency>) -> False:
       println(f, to-string(\<>include "%_/stanza.proj"<> % [dep-path]))
 
 defn write-slm-lock-file (dependencies: Tuple<Dependency>) -> False:
-  within f = open("slm.lock", false):
+  within f = open(SLM_LOCK_NAME, false):
     for dep in dependencies do:
       match(dep):
         (dep: GitDependency):
@@ -81,7 +81,7 @@ public defn build (cmd-args:CommandArgs) -> False:
 
   val slm-dir = to-string("%_/.slm" % [get-cwd()])
 
-  val cfg = parse-slm-toml("slm.toml")
+  val cfg = parse-slm-toml(SLM_TOML_NAME)
   val stanza-exe = get-stanza-exe(compiler?(cfg))
   debug("with stanza='%_'" % [stanza-exe])
 

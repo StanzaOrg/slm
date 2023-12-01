@@ -5,6 +5,7 @@ defpackage slm/commands/publish:
 
   import maybe-utils
 
+  import slm/flags
   import slm/file-utils
   import slm/git-utils
   import slm/logging
@@ -58,7 +59,7 @@ public defn publish (cmd-args:CommandArgs) -> False:
   ;    current HEAD, and fail if it doesn't, since we don't want to push the
   ;    wrong tag.
 
-  val version = parse-slm-toml("slm.toml") $> /version
+  val version = parse-slm-toml(SLM_TOML_NAME) $> /version
 
   if is-git-repo-dirty?(get-cwd()):
     error("can't publish with changes, stash or commit them.")

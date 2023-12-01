@@ -1,6 +1,8 @@
 defpackage slm/commands/clean:
   import core
   import arg-parser
+
+  import slm/flags
   import slm/file-utils
   import slm/logging
 
@@ -9,7 +11,7 @@ public defn clean (cmd-args:CommandArgs) -> False:
   delete-files-in-dir(".slm/pkgs/")
   delete-files-in-dir(".slm/deps/")
   create-empty-file(".slm/stanza.proj")
-  delete-file-if-exists("slm.lock")
+  delete-file-if-exists(SLM_LOCK_NAME)
   false
 
 val CLEAN-MSG = \<MSG>
