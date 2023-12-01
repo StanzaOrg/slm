@@ -1,5 +1,6 @@
 include ".slm/stanza.proj"
-include "src/stanza.proj"
+
+packages slm/* defined-in "src/"
 
 build main:
     inputs: slm/main
