@@ -1,6 +1,0 @@
-package slm/commands/init defined-in "init.stanza"
-package slm/commands/build defined-in "build.stanza"
-package slm/commands/clean defined-in "clean.stanza"
-package slm/commands/publish defined-in "publish.stanza"
-package slm/commands/repl defined-in "repl.stanza"
-package slm/commands/version defined-in "version.stanza"
