@@ -1,4 +1,4 @@
-include ".slm/stanza.proj"
+include? ".slm/stanza.proj"
 
 packages slm/* defined-in "src/"
 
