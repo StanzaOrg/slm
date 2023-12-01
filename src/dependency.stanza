@@ -7,6 +7,7 @@ defpackage slm/dependency:
 
   import slm/logging
   import slm/utils
+  import slm/flags
 
 public deftype Dependency
 public defmulti name (d: Dependency) -> String
@@ -27,7 +28,7 @@ public defstruct GitDependency <: Dependency:
   hash: String with: (updater => sub-hash)
 
 defmethod path (d: GitDependency):
-  to-string(".slm/deps/%_" % [name(d)])
+  path-join(SLM_DEPS_DIR, name(d))
 
 defmethod version-string? (d: GitDependency) -> One<String>:
   One(version-string(d))

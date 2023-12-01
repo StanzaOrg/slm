@@ -3,14 +3,15 @@ defpackage slm/commands/clean:
   import arg-parser
 
   import slm/flags
+  import slm/utils
   import slm/file-utils
   import slm/logging
 
 public defn clean (cmd-args:CommandArgs) -> False:
   debug("cleaning .slm")
-  delete-files-in-dir(".slm/pkgs/")
-  delete-files-in-dir(".slm/deps/")
-  create-empty-file(".slm/stanza.proj")
+  for build-dir in [SLM_DEPS_DIR, SLM_PKGS_DIR] do:
+    delete-files-in-dir(build-dir)
+  create-empty-file(SLM_STANZA_PROJ)
   delete-file-if-exists(SLM_LOCK_NAME)
   false
 

@@ -27,17 +27,18 @@ public defn ensure-slm-dir-structure-exists () -> False:
       create-dir(path)
       true
 
-  if create-dir!(".slm/"):
-    create-dir!(".slm/deps/")
-    create-dir!(".slm/pkgs/")
+  if create-dir!(SLM_DIR):
+    for build-dir in [SLM_DEPS_DIR, SLM_PKGS_DIR] do:
+      create-dir!(build-dir)
   false
 
 defn write-build-stanza-proj (dependencies: Tuple<Dependency>) -> False:
-  within f = open(".slm/stanza.proj", false):
-    val deps-dir = to-string("%_/.slm/deps/" % [get-cwd()])
+  within f = open(SLM_STANZA_PROJ, false):
+    val deps-dir = path-join(get-cwd(), SLM_DEPS_DIR)
     for dep in dependencies do:
       val dep-path = get-cwd() $> parse-path $> relative-to-dir{_, dep $> /path}
-      println(f, to-string(\<>include "%_/stanza.proj"<> % [dep-path]))
+      val dep-stanza-proj = path-join(to-string(dep-path), "stanza.proj")
+      println(f, to-string(\<>include "%_"<> % [dep-stanza-proj]))
 
 defn write-slm-lock-file (dependencies: Tuple<Dependency>) -> False:
   within f = open(SLM_LOCK_NAME, false):
@@ -79,7 +80,7 @@ public defn build (cmd-args:CommandArgs) -> False:
   write-build-stanza-proj(dependencies)
   write-slm-lock-file(dependencies)
 
-  val slm-dir = to-string("%_/.slm" % [get-cwd()])
+  val slm-dir = path-join(get-cwd(), SLM_DIR)
 
   val cfg = parse-slm-toml(SLM_TOML_NAME)
   val stanza-exe = get-stanza-exe(compiler?(cfg))

@@ -20,7 +20,7 @@ public defn repl (cmd-args:CommandArgs) -> False:
   val stanza-exe = get-stanza-exe(compiler?(cfg))
   val repl-args = get-repl-args()
   val args = to-tuple $ cat-all([[stanza-exe, "repl"], repl-args])
-  val slm-dir = to-string("%_/.slm" % [get-cwd()])
+  val slm-dir = path-join(get-cwd(), SLM_DIR)
 
   val vStr =  version(cfg)
   debug("Build Version: %_" % [vStr])
