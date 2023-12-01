@@ -1,9 +1,14 @@
 defpackage slm/flags:
   import core
 
+  import slm/utils
+
 protected var verbose?: True|False = false
 protected var debug?: True|False = false
 
 public val SLM_TOML_NAME:String = "slm.toml"
 public val SLM_LOCK_NAME:String = "slm.lock"
 public val SLM_DIR:String = ".slm"
+public val SLM_DEPS_DIR:String = path-join(SLM_DIR, "deps")
+public val SLM_PKGS_DIR:String = path-join(SLM_DIR, "pkgs")
+public val SLM_STANZA_PROJ:String = path-join(SLM_DIR, "stanza.proj")

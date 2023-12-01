@@ -155,7 +155,8 @@ defn parse-slm-toml-and-resolve-dependencies () -> Tuple<Dependency>:
       resolved-dependencies[/name(dep)] = dep
 
     for dep in resolved do:
-      loop(to-string("%_/%_" % [path(dep), SLM_TOML_NAME]), false)
+      val next-slm-toml = path-join(path(dep), SLM_TOML_NAME)
+      loop(next-slm-toml, false)
 
   debug("done parsing dependency graph")
   for dep in values(resolved-dependencies) do:
