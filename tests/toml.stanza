@@ -1,0 +1,82 @@
+#use-added-syntax(tests)
+defpackage slm/tests/toml:
+  import core
+  import collections
+
+  import semver
+
+  import slm/toml
+  import slm/dependency
+
+val exp-write = \<>name = "basic"
+version = "0.2.1"
+[dependencies]
+git-dep = "StanzaOrg/stanza-toml|1.2.3"
+path-dep = { path = "/home/john/src/sqlite" }
+<>
+
+
+deftest(toml) test-write-basic:
+
+  val uut = SlmToml(
+    "basic", "0.2.1", None(),
+    to-hashtable<String, Dependency>([
+      "git-dep" => GitDependency("git-dep", "StanzaOrg/stanza-toml", SemanticVersion(1, 2, 3), "")
+      "path-dep" => PathDependency("path-dep", "/home/john/src/sqlite")
+    ]))
+
+  val output = StringBuffer()
+
+  write(output, uut)
+
+  val obs-write = to-string(output)
+  #EXPECT( obs-write == exp-write)
+
+deftest(toml) test-find-dependency:
+  val uut = SlmToml(
+  "basic", "0.2.1", None(),
+  to-hashtable<String, Dependency>([
+    "git-dep" => GitDependency("git-dep", "StanzaOrg/stanza-toml", SemanticVersion(1, 2, 3), "")
+    "path-dep" => PathDependency("path-dep", "/home/john/src/sqlite")
+    "find-me" => GitDependency("find-me", "sqlite/sqlite", SemanticVersion(2, 0, 2), "")
+  ]))
+
+  val ret-pos = find-dependency(uut, "find-me")
+  #EXPECT(ret-pos is-not None)
+
+  val ret = value!(ret-pos)
+  #EXPECT(name(ret) == "find-me")
+
+  val ret-neg = find-dependency(uut, "not-present")
+  #EXPECT(ret-neg is None)
+
+deftest(toml) test-parse-slm-toml:
+  set-env("TEST_VAR", "/home/charles")
+  val uut = parse-slm-toml("./tests/data/test.toml")
+  unset-env("TEST_VAR")
+
+  #EXPECT(name(uut) == "test-slm")
+  #EXPECT(version(uut) == "0.2.1")
+  #EXPECT(compiler?(uut) == One("jstanza"))
+
+  val deps = dependencies(uut)
+  #EXPECT(length(to-tuple(deps)) ==  3)
+
+  val dep1 = deps["stanza-toml"]
+  match(dep1):
+    (git-dep:GitDependency):
+      #EXPECT(name(git-dep) == "stanza-toml")
+      #EXPECT(locator(git-dep) == "StanzaOrg/stanza-toml")
+      #EXPECT(version(git-dep) == SemanticVersion(1,2,3))
+
+  val dep2 = deps["sqlite"]
+  match(dep2):
+    (path-dep:PathDependency):
+      #EXPECT(name(path-dep) == "sqlite")
+      #EXPECT(path(path-dep) == "/home/john/src/sqlite")
+
+  val dep3 = deps["test-env"]
+  match(dep3):
+    (path-dep:PathDependency):
+      #EXPECT(name(path-dep) == "test-env")
+      #EXPECT(path(path-dep) == "/home/charles/asdf")

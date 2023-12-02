@@ -1,3 +1,6 @@
 .slm/
 build/
 slm
+test-pkgs/
+slm-tests
+.vscode/

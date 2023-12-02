@@ -1,0 +1,29 @@
+#use-added-syntax(tests)
+defpackage slm/tests/utils:
+  import core
+  import slm/utils
+
+deftest(utils) test-path-join:
+
+  #EXPECT(path-join("asdf", "qwer") == "asdf/qwer")
+  #EXPECT(path-join("/Users/john", "zxcv") == "/Users/john/zxcv")
+  #EXPECT(path-join("fdsa") == "fdsa")
+
+deftest(utils) test-split-any:
+
+  val testvecs = [
+    [["asdf", "^:~"], ["asdf"]],
+    [["asdf:qwer", "^:~"], ["asdf", "qwer"]],
+    [["asdf#qwer", "^:~"], ["asdf#qwer"]],
+    [["asdf~qwer", "^:~"], ["asdf", "qwer"]],
+    [["asdf^qwer~", "^:~"], ["asdf", "qwer~"]],
+    [["asdf:qwer:", "^:~"], ["asdf", "qwer:"]],
+  ]
+
+  for testvec in testvecs do:
+
+    val [inputvec, exp] = testvec
+    val [s, splitters] = inputvec
+
+    val obs = split-any(s, splitters)
+    #EXPECT(obs == exp)
