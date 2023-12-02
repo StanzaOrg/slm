@@ -1,0 +1,41 @@
+defpackage slm/errors:
+  import core
+  import semver
+
+public defstruct GitNotFoundError <: Exception :
+  PATH:Maybe<String>
+
+public defmethod print (o:OutputStream, e:GitNotFoundError):
+  val msg = \<MSG>The 'git' binary was not found on $PATH:
+  %_
+  <MSG>
+  print(o, msg % [PATH(e)])
+
+public defstruct GitVersionError <: Exception:
+  git-version:Maybe<SemanticVersion>
+  required-version:SemanticVersion
+
+public defmethod print (o:OutputStream, e:GitVersionError):
+  val msg = "The 'git' binary reports version '%_' but this command requires at least version '%_'" % [git-version(e), required-version(e)]
+  print(o, msg)
+
+public defstruct InvalidVersionError <: Exception:
+  raw-str:String
+
+public defmethod print (o:OutputStream, e:InvalidVersionError):
+  val msg = "Invalid Version: Failed to convert '%_' to Semantic Version" % [raw-str(e)]
+  print(o, msg)
+
+public defstruct NoTaggedVersionsError <: Exception :
+  name:String
+
+public defmethod print (o:OutputStream, e:NoTaggedVersionsError):
+  val msg = "No Tagged Versions found in dependency '%_' repository." % [name(e)]
+  print(o, msg)
+
+public defstruct DependencyAlreadyExistsError <: Exception:
+  name:String
+
+public defmethod print (o:OutputStream, e:DependencyAlreadyExistsError):
+  val msg = "Attempting add dependency '%_' but a pre-existing dependency with this name already exists!" % [name(e)]
+  print(o, msg)

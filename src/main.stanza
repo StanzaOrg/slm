@@ -11,6 +11,7 @@ defpackage slm/main:
 val CMDS = Vector<Command>()
 
 defn setup-opts ():
+  add(CMDS, setup-add-cmd())
   add(CMDS, setup-build-cmd())
   add(CMDS, setup-clean-cmd())
   add(CMDS, setup-init-cmd())
