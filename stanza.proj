@@ -1,7 +1,17 @@
 include? ".slm/stanza.proj"
 
 packages slm/* defined-in "src/"
+packages slm/tests/* defined-in "tests/"
 
 build main:
-    inputs: slm/main
-    o: "slm"
+  inputs: slm/main
+  pkg: ".slm/pkgs"
+  o: "slm"
+
+build-test tests:
+  inputs:
+    slm/tests/git-utils
+    slm/tests/utils
+    slm/tests/toml
+  pkg: "test-pkgs"
+  o: "slm-tests"
