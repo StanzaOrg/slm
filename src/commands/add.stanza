@@ -1,0 +1,264 @@
+defpackage slm/commands/add:
+  import core
+  import collections
+  import arg-parser
+
+  import semver
+  import maybe-utils
+
+  import slm/flags
+  import slm/toml
+  import slm/dependency
+  import slm/errors
+  import slm/file-utils
+  import slm/git-utils
+  import slm/utils
+  import slm/logging
+
+defn convert-version-spec (arg:String|False) -> Maybe<SemanticVersion> :
+  match(arg):
+    (x:String):
+      ; If the user doesn't pass a valid version string - I want to
+      ;  catch it here before proceeding further. I don't want it
+      ;  treated the same as "No '-version' provided in the command line args"
+      One $ value-or-throw{_, InvalidVersionError(x)} $ parse-semver(x)
+    (_): None()
+
+defn cli-add-dependency (cmd-args:CommandArgs) -> False :
+  val git-path = get?(cmd-args, "git", false)
+  val fs-path = get?(cmd-args, "path", false)
+
+  val name? = to-maybe $ get?(cmd-args, "name", false)
+  val version-spec? =  convert-version-spec $ get?(cmd-args, "version", false)
+  val force = get?(cmd-args, "force", false)
+  val dry-run? = get?(cmd-args, "dry-run", false)
+
+  debug("Add Parameters:")
+  val paramTable = [
+    ["git", git-path]
+    ["path", git-path]
+    ["name", name?]
+    ["version", version-spec?]
+    ["force", force]
+    ["dry-run", dry-run?]
+  ]
+  for kvp in paramTable do:
+    debug("\t%_ = %_" % kvp)
+
+  val cfg = parse-slm-toml(SLM_TOML_NAME)
+
+  val cfg* = match(git-path, fs-path):
+    (x:String, y:String):
+      error("Flags '-git' and '-path' are mutually exclusive!")
+    (x:String, y:False):
+      add-git-dependency(cfg, x, version-spec?, name-override = name?, force = force )
+    (x:False, y:String):
+      add-path-dependency(cfg, y, name-override = name?, force = force)
+    (x:False, y:False):
+      error("The 'add' command expects either a '-path' or '-git' argument. Neither were provided.")
+
+  debug("-- Start New File Write --")
+
+  if dry-run?:
+    val o = current-output-stream()
+    write(o, cfg*)
+  else:
+    within f = open(SLM_TOML_NAME, false):
+      write(f, cfg*)
+
+  debug("-- New File Write Complete --")
+
+defn extract-name (path:String, name-override:Maybe<String>) -> String :
+  match(name-override):
+    (override:One<String>): value(override)
+    (_:None):
+      val [org, repo-name] = split-filepath(path)
+      repo-name
+
+defn remove-dependency (existing:Maybe<Dependency>, deps:HashTable<String, Dependency>, force:True|False) -> False:
+  match(existing:One):
+    val dep = value(existing)
+    if not force:
+      throw $ DependencyAlreadyExistsError(name(dep))
+    else:
+      if remove(deps, name(dep)):
+        debug("Removed Existing Dep: %_" % [dep])
+
+public defn add-git-dependency (
+  cfg:SlmToml,
+  path:String,
+  version-spec?:Maybe<SemanticVersion>
+  --
+  name-override:Maybe<String> = None(),
+  force:True|False = false
+  ) -> SlmToml :
+
+  debug("Adding new git dependency")
+
+  val name = extract-name(path, name-override)
+
+  ; Check if a dependency by this name already exists in the
+  ;   repo configs.
+  val existing = find-dependency(cfg, name)
+
+  val deps = to-hashtable<String, Dependency>( dependencies(cfg) )
+  remove-dependency(existing, deps, force)
+
+  val version-spec = match(version-spec?):
+    (_:None):
+      ; we need to query the repo for the lastest tag
+      ;   in the repository.
+      if not has-git?():
+        val PATH = to-maybe $ get-env("PATH")
+        throw $ GitNotFoundError(PATH)
+
+      ; We need at least this version to use `ls-remote`.
+      val exp-git = SemanticVersion(2, 28, 0)
+      if not check-git-version(exp-git) :
+        throw $ GitVersionError(git-version?(), exp-git)
+
+      val url = full-url-from-locator(path)
+      val tags = git-remote-tag-refs(url)
+      debug("Retrieved Tags:")
+      debug( string-join(keys(tags), "\n") )
+      val v-table = to-version-table(tags)
+      ; We want to find the latest tagged version of this package
+      ;  and add that version to the dependency list.
+      val versions = to-vector<SemanticVersion> $ keys(v-table)
+      qsort!(versions)
+      debug("Retrieved Versions:")
+      debug( string-join(versions, "\n") )
+      val latest-version? = last?(versions)
+      value-or-throw{_, NoTaggedVersionsError(name)} $ last?(versions)
+    (x:One<SemanticVersion>): value(x)
+
+  deps[name] = GitDependency(name, path, version-spec, "")
+
+  sub-deps(cfg, deps)
+
+
+public defn add-path-dependency (
+  cfg:SlmToml,
+  path:String
+  --
+  name-override:Maybe<String> = None(),
+  force:True|False = false
+  ) -> SlmToml:
+
+  debug("Adding new path dependency")
+
+  val name = extract-name(path, name-override)
+
+  val existing = find-dependency(cfg, name)
+
+  val deps = to-hashtable<String, Dependency>( dependencies(cfg) )
+  remove-dependency(existing, deps, force)
+
+  deps[name] = PathDependency(name, path)
+
+  sub-deps(cfg, deps)
+
+val ADD-MSG = \<MSG>
+The 'add' command will append a new dependency to the 'slm.toml' file
+of the current project.
+
+If the project already contains a reference to this dependency, then
+the 'add' command will do nothing.
+
+Examples:
+
+Add a new Github dependency at the latest tag:
+
+  $> slm add -git StanzaOrg/stanza-toml
+
+  Resolves to:
+
+  """
+  [dependencies]
+  stanza-toml = "StanzaOrg/stanza-toml|0.3.5"
+  """
+
+Add a new Github dependency at a particular version
+
+  $> slm add -git StanzaOrg/stanza-toml -version 0.3.4
+
+  Resolves to:
+
+  """
+  [dependencies]
+  stanza-toml = "StanzaOrg/stanza-toml|0.3.4"
+  """
+
+Add a new Path Dependency
+
+  $> slm add -path ~/src/semver
+
+  Resolves to:
+
+  """
+  [dependencies]
+  semver = { path= "/home/john/src/semver" }
+  """
+
+Add a new Path Dependency with name override
+
+  $> slm add -name stanza-toml -path ~/src/stanza-toml-v2
+
+  Resolves to:
+
+  """
+  [dependencies]
+  stanza-toml = { path= "/home/john/src/stanza-toml-v2" }
+  """
+
+<MSG>
+
+val GIT-FLAG = \<MSG>
+Set the org/name path for a new 'GitDependency' to be added to the 'slm.toml' file
+of this project. By default, the basename is extracted as the dependency name. Use
+the '-name' flag to override this behavior.
+<MSG>
+
+val PATH-FLAG = \<MSG>
+Set the path for a new 'PathDependency' to be added to the 'slm.toml' file of this project.
+This path can be relative or absolute path to a project directory. By default, the basename
+is extracted as the dependency name. Use the '-name' flag to override this behavior.
+<MSG>
+
+val NAME-FLAG = \<MSG>
+This flag sets the name for the added dependency. This can be used to override the
+name extracted from the basename of the specified path or Github project.
+<MSG>
+
+; TODO - Updated here to add behavior for `PathDependency' objects
+;  when we get the version spec for path deps implemented.
+val VERSION-FLAG = \<MSG>
+This flag sets the desired version for the added dependency. If the '-version'
+flag is not provided, then the latest tagged version of that dependency will
+be used by default.
+<MSG>
+
+val FORCE-FLAG = \<MSG>
+This flag will force 'slm' to add a dependency to the 'slm.toml'. This is useful
+for cases where you want to add a 'PathDependency' that overrides an existing
+'GitDependency'. If an existing dependency with a matching 'name' is found, then
+that dependency will be dropped from the 'slm.toml' before the new overriding
+dependency is added.
+<MSG>
+
+val DRY-RUN-FLAG = \<MSG>
+This flag will cause 'slm' to do all of the checks and operations to perform
+an 'add' operation - but it won't actually change the 'slm.toml' file of the
+project. It will output the resultant changes to std-out for inspection.
+<MSG>
+
+public defn setup-add-cmd () -> Command :
+  val addFlags = [
+    Flag("git", OneFlag, OptionalFlag, GIT-FLAG)
+    Flag("path", OneFlag, OptionalFlag, PATH-FLAG)
+    Flag("name", OneFlag, OptionalFlag, NAME-FLAG)
+    Flag("version", OneFlag, OptionalFlag, VERSION-FLAG)
+    Flag("force", ZeroFlag, OptionalFlag, FORCE-FLAG)
+    Flag("dry-run", ZeroFlag, OptionalFlag, DRY-RUN-FLAG)
+  ]
+  Command("add", ZeroArg, false, addFlags, ADD-MSG, cli-add-dependency)
