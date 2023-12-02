@@ -66,3 +66,25 @@ stanza full-qualified package paths.
 public defn path-join (parts:String ...) -> String :
   string-join(parts, "/")
 
+doc: \<DOC>
+Given a string - split it on any of the passed characters.
+
+The characters in the `splitters` are ordered. The first
+one that succeeds will be returned
+
+Example:
+
+val ret = split-any("asdf#qwer", "^#")
+#EXPECT(ret == ["asdf", "qwer"])
+
+val ret = split-any("asdf:qwer", "^#")
+#EXPECT(ret == ["asdf:qwer"])
+
+<DOC>
+public defn split-any (s:String, splitters:String) -> Tuple<String> :
+  label<Tuple<String>> return:
+    for splitter in splitters do:
+      val comps = to-tuple $ split(s, to-string(splitter), 2)
+      if length(comps) > 1 :
+        return(comps)
+    return([s])
