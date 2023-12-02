@@ -140,7 +140,7 @@ public defn init (cmd-args:CommandArgs) -> False:
   false
 
 val INIT-MSG = \<MSG>
-The 'init' command will initial a 'slm' package structure into
+The 'init' command will initialize a 'slm' package structure into
 the passed directory.
 
 If there are existing files present in the new project directory,
