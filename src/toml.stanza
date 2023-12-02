@@ -16,7 +16,7 @@ public defstruct SlmToml:
   name: String
   version: String
   compiler?: Maybe<String>
-  dependencies: HashTable<String, Dependency>
+  dependencies: HashTable<String, Dependency> with: (updater => sub-deps)
 
 public defn parse-slm-toml (path: String) -> SlmToml:
   val table = path $> parse-file $> table
@@ -37,3 +37,21 @@ public defn parse-slm-toml (path: String) -> SlmToml:
                 % [specifier])
 
   SlmToml(name, version, compiler?, dependencies)
+
+doc: \<DOC>
+Output the SlmToml config as a valid TOML file.
+<DOC>
+public defmethod write (o:OutputStream, cfg:SlmToml) :
+  println(o, "name = \"%_\"" % [name(cfg)])
+  println(o, "version = \"%_\"" % [version(cfg)])
+  match(compiler?(cfg)):
+    (x:One<String>): println(o, "compiler = \"%_\"" % [x] )
+    (_:None): false
+  println(o, "[dependencies]")
+  for dep in values(dependencies(cfg)) do:
+    println(o, dep)
+
+public defn find-dependency (cfg:SlmToml, name:String) -> Maybe<Dependency> :
+  val deps = dependencies(cfg)
+  for dep-name in keys(deps) first :
+    One(deps[name]) when name == dep-name else None()
