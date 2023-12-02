@@ -5,6 +5,7 @@ defpackage slm/git-utils:
   import maybe-utils
   import semver
 
+  import slm/utils
   import slm/file-utils
   import slm/process-utils
 
@@ -45,6 +46,11 @@ public defn has-git? () -> True|False :
     (x:One<SemanticVersion>): true
     (_:None): false
 
+public defn check-git-version (required:SemanticVersion) -> True|False :
+  match(git-version?()):
+    (_:None): false
+    (curr:One<SemanticVersion>): value(curr) >= required
+
 public defn git-rev-parse (work-tree: String, rev: String) -> String:
   command-output-in-dir(work-tree, ["git", "rev-parse", "--verify", "--quiet", rev])
 
@@ -63,6 +69,27 @@ public defn git-remote-tag-refs (remote: String) -> HashTable<String, String>:
       One(elements[1] => elements[0])
     else:
       None()
+
+
+doc: \<DOC>
+Convert the `Tag` => Git Hash table to a SemVer => Hash table.
+
+This takes the output of `git-remote-tag-refs` and converts it into
+a more useable format for querying the versions.
+<DOC>
+public defn to-version-table (tag-hash:HashTable<String,String>) -> HashTable<SemanticVersion, String> :
+  to-hashtable<SemanticVersion, String> $ for kvp in tag-hash seq? :
+    val [tag, hash-str] = [key(kvp), value(kvp)]
+    val comps = split-any(tag, "^~:")
+    val tagPath = comps[0]
+    val [root, tagName] = split-filepath(tagPath)
+    ; We expect tagName to be in the form `v0.3.2` or something similar.
+    val tagName* = tagName[1 to false]
+    val version? = parse-semver(tagName*)
+    match(version?):
+      (x:None): x
+      (x:One<SemanticVersion>):
+        One(value(x) => hash-str)
 
 public defn run-git-command-in-dir (work-tree?: Maybe<String>, args0: Tuple<String>) -> Int:
   val args = to-tuple $ cat(["git"], args0)
