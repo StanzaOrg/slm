@@ -1,0 +1,14 @@
+#use-added-syntax(tests)
+defpackage slm/tests/test-tools:
+  import core
+
+#if-defined(TESTING) :
+  public defn expect-throw (f) -> Maybe<String>:
+    val res = try :
+      val unexpected = f()
+      None()
+    catch (e:Exception) :
+      val msg = to-string("%~" % [e])
+      One(msg)
+    #EXPECT(res is-not None)
+    res
