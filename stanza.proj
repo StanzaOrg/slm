@@ -13,5 +13,6 @@ build-test tests:
     slm/tests/git-utils
     slm/tests/utils
     slm/tests/toml
+    slm/tests/commands/add
   pkg: "test-pkgs"
   o: "slm-tests"
