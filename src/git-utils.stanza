@@ -61,7 +61,15 @@ public defn git-rev-parse! (work-tree: String, rev: String) -> String:
   ret
 
 public defn git-remote-tag-refs (remote: String) -> HashTable<String, String>:
-  val output = call-system-and-get-output("git", ["git", "ls-remote", "-q", "--tags", remote])
+  val p = ProcessBuilder(["git", "ls-remote", "-q", "--tags", remote])
+    $> with-output
+    $> build
+
+  val output = get-output(p) $> trim
+  val code = run-and-get-exit-code(p)
+  if code != 0:
+    throw $ Exception("Failed to list tags from remote")
+
   val pairs = to-tuple $ split(output, "\n")
   to-hashtable<String, String> $ seq?{_, pairs} $ fn (line):
     val elements = to-tuple $ split(line, "\t")
@@ -69,7 +77,6 @@ public defn git-remote-tag-refs (remote: String) -> HashTable<String, String>:
       One(elements[1] => elements[0])
     else:
       None()
-
 
 doc: \<DOC>
 Convert the `Tag` => Git Hash table to a SemVer => Hash table.
