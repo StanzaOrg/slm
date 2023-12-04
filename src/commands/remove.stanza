@@ -1,0 +1,80 @@
+defpackage slm/commands/remove:
+  import core
+  import collections
+  import arg-parser
+
+  import slm/flags
+  import slm/toml
+  import slm/dependency
+  import slm/logging
+  import slm/errors
+  import slm/file-utils
+
+public defn cli-remove-dependency (cmd-args:CommandArgs) -> False :
+  val targets = args(cmd-args)
+  val dry-run? = get?(cmd-args, "dry-run", false)
+
+  val cfg = parse-slm-toml(SLM_TOML_NAME)
+
+  val cfg* = remove-dependency(cfg, targets)
+
+  debug("-- Start New File Write --")
+
+  if dry-run?:
+    val o = current-output-stream()
+    write(o, cfg*)
+  else:
+    within f = open(SLM_TOML_NAME, false):
+      write(f, cfg*)
+
+  debug("-- New File Write Complete --")
+
+
+public defn remove-dependency (
+  cfg:SlmToml,
+  targets:Tuple<String>
+  ) -> SlmToml:
+
+  val deps = to-hashtable<String, Dependency> $ dependencies(cfg)
+
+  val dep-names = to-tuple $ keys(deps)
+
+  ; Check that all of the deps we want to remove actually exist
+  val not-found = to-tuple $ for target in targets seq? :
+    if not contains?(dep-names, target): One(target)
+    else: None()
+
+  if length(not-found) > 0:
+    throw $ DependencyNotFoundError(not-found)
+
+  for target in targets do:
+    remove(deps, target)
+
+  sub-deps(cfg, deps)
+
+val RM-MSG = \<MSG>
+Remove one or more dependencies from the 'slm.toml' file. The names
+must match explicitly to one of the dependencies in the `[dependencies]`
+table in the `slm.toml`. If any name does not match, this command will
+fail.
+
+It is a good idea to run 'slm clean' after this operation to remove any
+trailing dependencies.
+<MSG>
+
+val RM-ARG-MSG = \<MSG>
+The remove command accepts one or more target dependency names for removal.
+<MSG>
+
+val DRY-RUN-FLAG = \<MSG>
+This flag will cause 'slm' to do all of the checks and operations to perform
+an 'remove' operation - but it won't actually change the 'slm.toml' file of the
+project. It will output the resultant changes to std-out for inspection.
+<MSG>
+
+public defn setup-remove-cmd () -> Command :
+  val rmFlags = [
+    Flag("dry-run", ZeroFlag, OptionalFlag, DRY-RUN-FLAG)
+  ]
+
+  Command("remove", AtLeastOneArg, RM-ARG-MSG, rmFlags, RM-MSG, cli-remove-dependency)

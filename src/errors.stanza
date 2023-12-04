@@ -39,3 +39,10 @@ public defstruct DependencyAlreadyExistsError <: Exception:
 public defmethod print (o:OutputStream, e:DependencyAlreadyExistsError):
   val msg = "Attempting add dependency '%_' but a pre-existing dependency with this name already exists!" % [name(e)]
   print(o, msg)
+
+public defstruct DependencyNotFoundError <: Exception :
+  targets:Tuple<String>
+
+public defmethod print (o:OutputStream, e:DependencyNotFoundError):
+  val msg = "The following dependencies were not found in the dependency table: %," % [targets(e)]
+  print(o, msg)
