@@ -94,3 +94,24 @@ To clean a `slm` package, use `slm clean`. This removes any fetched dependencies
 
 You can also call `stanza build` or `stanza repl` directly once you have
 resolved dependencies once using `slm build` or `slm repl`.
+
+# Building a Conan2 Package
+
+To build the Conan2 package for binary distribution of `slm`:
+
+1.  Build the `slm` utility as described above.
+1.  Setup the Python Environment
+    1.  Use python 3.11 or higher
+    2.  `python3 -m venv venv`
+    3.  `source venv/bin/activate`
+    4.  `pip install -r requirements.txt`
+2.  Run the conan build:
+    1.  `conan create . -s os="Macos" -s arch="x86_64"`
+    2.  You can replace os with `Windows` or `Linux`
+    3.  No Promises on `Windows` build working yet.
+3.  Publish the package:
+    1.  `conan remote add <NAME> <URL>`
+        1.  You should only have to do this once.
+    2.  `conan remote login <NAME> <USER> -p <PASSWD>`
+    3.  `conan upload -r <NAME> slm/<VERSION>`
+
