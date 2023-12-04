@@ -16,6 +16,7 @@ defn setup-opts ():
   add(CMDS, setup-clean-cmd())
   add(CMDS, setup-init-cmd())
   add(CMDS, setup-publish-cmd())
+  add(CMDS, setup-remove-cmd())
   add(CMDS, setup-repl-cmd())
   add(CMDS, setup-version-cmd())
 
