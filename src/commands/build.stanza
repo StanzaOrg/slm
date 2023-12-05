@@ -50,12 +50,6 @@ defn write-slm-lock-file (dependencies: Tuple<Dependency>) -> False:
         (dep: PathDependency):
           println(f, "%_={}" % [name(dep)])
 
-defn get-build-args () -> Tuple<String>:
-  val ret = get-env("SLM_BUILD_ARGS")
-  match(ret):
-    (x:String): to-tuple $ split(x, " ")
-    (x:False): []
-
 defn get-build-target (cmd-args:CommandArgs) -> Tuple<String> :
   val arg = args(cmd-args)
   switch(length(arg)):
@@ -71,6 +65,7 @@ public defn build (cmd-args:CommandArgs) -> False:
   if verbose:
     slm/flags/debug? = true
 
+  val build-args = get?(cmd-args, "-", [])
   val targ? = get-build-target(cmd-args)
 
   ensure-slm-dir-structure-exists()
@@ -85,8 +80,6 @@ public defn build (cmd-args:CommandArgs) -> False:
   val cfg = parse-slm-toml(SLM_TOML_NAME)
   val stanza-exe = get-stanza-exe(compiler?(cfg))
   debug("with stanza='%_'" % [stanza-exe])
-
-  val build-args = get-build-args()
   debug("with build args '%,'" % [build-args])
 
   ; In general - we want all of the options for the project to be
@@ -111,11 +104,11 @@ The 'build' command will manage syncing dependencies and then
 building the project using the 'stanza build' process.
 
 The user can pass arguments to the 'stanza build' process
-by using the 'SLM_BUILD_ARGS' environment variable.
+by using the '-' flag argument.
 
 Example:
 
-$> SLM_BUILD_ARGS="-flag TESTING" slm build
+$> slm build -- -flags TESTING
 
 ---------------------------
 Package Version Propagation
@@ -158,8 +151,17 @@ val VERBOSE-FLAG = \<MSG>
 Generate verbose output from build.
 <MSG>
 
+val BUILD-ARGS-FLAG = \<MSG>
+To pass additional build arguments directly to the
+stanza build invokation, the user can use the '--'
+sequence. All arguments after the '--' will be
+passed directly to the build.
+<MSG>
+
 public defn setup-build-cmd () -> Command :
   val buildFlags = [
     Flag("verbose", ZeroFlag, OptionalFlag, VERBOSE-FLAG)
+    Flag("-", AllRemainingFlag, OptionalFlag, BUILD-ARGS-FLAG)
+
   ]
   Command("build", ZeroOrOneArg, BUILD-MSG-ARG, buildFlags, BUILD-MSG, build)
