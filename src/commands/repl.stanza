@@ -9,16 +9,11 @@ defpackage slm/commands/repl:
   import slm/toml
   import slm/utils
 
-defn get-repl-args () -> Tuple<String>:
-  val ret = get-env("SLM_REPL_ARGS")
-  match(ret):
-    (x:String): to-tuple $ split(x, " ")
-    (x:False): []
-
 public defn repl (cmd-args:CommandArgs) -> False:
   val cfg = parse-slm-toml(SLM_TOML_NAME)
   val stanza-exe = get-stanza-exe(compiler?(cfg))
-  val repl-args = get-repl-args()
+  val repl-args = get?(cmd-args, "-", [])
+
   val args = to-tuple $ cat-all([[stanza-exe, "repl"], repl-args])
   val slm-dir = path-join(get-cwd(), SLM_DIR)
 
@@ -39,12 +34,11 @@ val REPL-MSG = \<MSG>
 The 'repl' command will manage syncing dependencies and then
 run the project using the 'stanza repl' process.
 
-The user can pass arguments to the 'stanza repl' process
-by using the 'SLM_REPL_ARGS' environment variable.
+The user can pass arguments to the 'stanza repl' process.
 
 Example:
 
-$> SLM_REPL_ARGS="-flag TESTING" slm repl
+  $> slm repl -- file-to-run.stanza -flags TESTING
 
 ---------------------------
 Package Version Propagation
@@ -53,7 +47,7 @@ Package Version Propagation
 In order for the package's source code to know what its current
 version number is, this tool defines 'SLM_BUILD_VERSION' with the
 'version' string value from the 'slm.toml' file. This environment
-variable is defined for the context of the `stanza repl` process.
+variable is defined for the context of the 'stanza repl' process.
 
 This allows the package's stanza code to use '#env-var(SLM_BUILD_VERSION)'
 or 'get-env("SLM_BUILD_VERSION")' to access this version string and
@@ -61,5 +55,22 @@ compile it into the functions accessed by the repl.
 
 <MSG>
 
+val REPL-CMDLINE-ARGS = \<MSG>
+All command line arguments after the 'repl' command passed directly
+to the 'stanza repl' instance.
+<MSG>
+
+val REPL-ARGS-FLAG = \<MSG>
+To pass additional build arguments directly to the
+stanza repl invokation, the user can use the '--'
+sequence. All arguments after the '--' will be
+passed directly to the repl.
+<MSG>
+
+
 public defn setup-repl-cmd () -> Command :
-  Command("repl", ZeroArg, false, [], REPL-MSG, repl)
+  val replFlags = [
+    Flag("-", AllRemainingFlag, OptionalFlag, REPL-ARGS-FLAG)
+  ]
+
+  Command("repl", ZeroArg, false, replFlags, REPL-MSG, repl)

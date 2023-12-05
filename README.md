@@ -42,6 +42,16 @@ To build a `slm` package, use `slm build`. This will create the `.slm` directory
 `slm` will define the `SLM_BUILD_VERSION` environment variable in the context of the `stanza build` process. This environment variable will be populated with the value of the `version` key from the `slm.toml` file for the project being built. This allows the project being built to incorporate this version number in any library or executable that it generates. See
 the `slm/commands/version` package for an example of how to use this in your project.
 
+## Repl
+
+You can use slm to handle dependency resolution before launching the repl as well:
+
+```
+$> slm repl src/main.stanza
+REPL environment is now inside package basic/main.
+stanza>
+```
+
 ## Publish
 
 To publish a `slm` package, use `slm publish`. For now, you must also have set an upstream (for example, by using `git branch -u <upstream-repo-url>`) for the branch you are on. You must also be in a clean state (no outstanding changes). `slm` will `git tag` the current version (as specified in your `slm.toml`) and then push it to your upstream.
