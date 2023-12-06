@@ -12,3 +12,8 @@ public val SLM_DIR:String = ".slm"
 public val SLM_DEPS_DIR:String = path-join(SLM_DIR, "deps")
 public val SLM_PKGS_DIR:String = path-join(SLM_DIR, "pkgs")
 public val SLM_STANZA_PROJ:String = path-join(SLM_DIR, "stanza.proj")
+
+;;;;;;;;;;;;;;;;;;;;
+; Exit Codes
+
+public val SLM_INCOMPATIBLE_PATH_VERSION:Int = 240

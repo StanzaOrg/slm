@@ -120,6 +120,14 @@ variable and directly substitute that string if found. If no environment
 variable by that name is found, this is an error and will cause the `slm`
 build to fail.
 
+Path Resolution can also have an optional 'version' key that specifies a
+semantic version requirement for the referenced path dependency:
+
+dep-project = { path = "{HOME}/proj", version="1.2.0" }
+
+This will enforce a compatibility requirement for the referenced path
+dependency. The path dependency will need to be in the 'v1.x.y' series
+where x >= 2.
 <MSG>
 
 defn main ():

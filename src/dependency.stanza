@@ -19,9 +19,21 @@ public defmulti version-string? (d: Dependency) -> Maybe<String>:
 public defstruct PathDependency <: Dependency:
   name: String with: (as-method => true)
   path: String with: (as-method => true)
+  version?: Maybe<SemanticVersion> with: ( default => None() )
+
+defmethod version-string? (d:PathDependency) -> Maybe<String>:
+  match(version?(d)):
+    (x:None): x
+    (x:One<SemanticVersion>): One $ to-string(x)
+
+public defn version-string! (d:PathDependency) -> String:
+  to-string $ value-or(version?(d), "UNSPECIFIED")
 
 defmethod print (o:OutputStream, d:PathDependency) :
-  print(o, "%_ = { path = \"%_\" }" % [name(d), path(d)])
+  print(o, "%_ = { path = \"%_\"" % [name(d), path(d)])
+  match(version?(d)):
+    (x:None): print(o, " }")
+    (x:One<SemanticVersion>): print(o, ", version = \"%_\" }" % [to-string $ value(x)])
 
 ; Dependencies specified by Git locator/version (e.g. `foo = "myorg/myuser|1.0.0"`)
 public defstruct GitDependency <: Dependency:
@@ -110,9 +122,14 @@ defn env-var-substitute (path:String) -> String:
   within name = sub-curly(path):
     get-env!(name)
 
-public defn parse-path-dependency (name: String, path: String, env-sub-enable:True|False) -> PathDependency:
+public defn parse-path-dependency (name: String, path: String, version?:Maybe<String>, env-sub-enable:True|False) -> PathDependency:
   val path* = if env-sub-enable:
     env-var-substitute(path)
   else:
     path
-  PathDependency(name, path*)
+  val version = match(version?):
+    (x:None): x
+    (x:One<String>):
+      val sver = parse-semver(value(x)) $> expect{_, "SemanticVersion: couldn't parse  '%_'" % [x]}
+      One(sver)
+  PathDependency(name, path*, version)

@@ -54,7 +54,7 @@ defn cli-add-dependency (cmd-args:CommandArgs) -> False :
     (x:String, y:False):
       add-git-dependency(cfg, x, version-spec?, name-override = name?, force = force )
     (x:False, y:String):
-      add-path-dependency(cfg, y, name-override = name?, force = force)
+      add-path-dependency(cfg, y, version-spec?, name-override = name?, force = force)
     (x:False, y:False):
       error("The 'add' command expects either a '-path' or '-git' argument. Neither were provided.")
 
@@ -140,7 +140,8 @@ public defn add-git-dependency (
 
 public defn add-path-dependency (
   cfg:SlmToml,
-  path:String
+  path:String,
+  version-spec?:Maybe<SemanticVersion>
   --
   name-override:Maybe<String> = None(),
   force:True|False = false
@@ -155,7 +156,7 @@ public defn add-path-dependency (
   val deps = to-hashtable<String, Dependency>( dependencies(cfg) )
   remove-dependency(existing, deps, force)
 
-  deps[name] = PathDependency(name, path)
+  deps[name] = PathDependency(name, path, version-spec?)
 
   sub-deps(cfg, deps)
 
