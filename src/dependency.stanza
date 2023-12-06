@@ -110,6 +110,9 @@ defn env-var-substitute (path:String) -> String:
   within name = sub-curly(path):
     get-env!(name)
 
-public defn parse-path-dependency (name: String, path: String) -> PathDependency:
-  val path* = env-var-substitute(path)
+public defn parse-path-dependency (name: String, path: String, env-sub-enable:True|False) -> PathDependency:
+  val path* = if env-sub-enable:
+    env-var-substitute(path)
+  else:
+    path
   PathDependency(name, path*)

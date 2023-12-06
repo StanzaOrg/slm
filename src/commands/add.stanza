@@ -46,7 +46,7 @@ defn cli-add-dependency (cmd-args:CommandArgs) -> False :
   for kvp in paramTable do:
     debug("\t%_ = %_" % kvp)
 
-  val cfg = parse-slm-toml(cfg-path)
+  val cfg = parse-slm-toml(cfg-path, env-sub-enable = false)
 
   val cfg* = match(git-path, fs-path):
     (x:String, y:String):
