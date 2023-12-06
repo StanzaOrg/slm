@@ -18,7 +18,15 @@ public defstruct SlmToml:
   compiler?: Maybe<String>
   dependencies: HashTable<String, Dependency> with: (updater => sub-deps)
 
-public defn parse-slm-toml (path: String) -> SlmToml:
+doc: \<DOC>
+Parse the SLM TOML configuration file
+
+@param path Path to the file to parse.
+@param env-sub-enable Allow environment variable substitutions.
+This will replace strings like `{HOME}` with environment variable
+values if they exist.
+<DOC>
+public defn parse-slm-toml (path: String -- env-sub-enable:True|False = true) -> SlmToml:
   val table = path $> parse-file $> table
   val name = table["name"] as String
   val version = table["version"] as String
@@ -31,7 +39,7 @@ public defn parse-slm-toml (path: String) -> SlmToml:
         (specifier: String):
           parse-git-dependency(name, specifier)
         (table: TomlTable):
-          parse-path-dependency(name, table["path"] as String)
+          parse-path-dependency(name, table["path"] as String, env-sub-enable)
         (_):
           error("invalid slm.toml: '%_' is not a valid dependency specifier"
                 % [specifier])
