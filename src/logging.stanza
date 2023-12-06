@@ -39,7 +39,7 @@ public defn info (msg: Printable|String) -> False:
   println(current-output-stream(), "%_ %_" % [program-prefix(), msg])
   flush(current-output-stream() as FileOutputStream)
 
-public defn error (msg: Printable|String) -> Void:
+public defn error (msg: Printable|String -- code:Int = 1) -> Void:
   val program = program-name()
   println(current-error-stream(), "%_ %_ %_" % [
     program-prefix(),
@@ -48,5 +48,5 @@ public defn error (msg: Printable|String) -> Void:
       $> clear-color?,
     msg,
   ])
-  exit(1)
+  exit(code)
 

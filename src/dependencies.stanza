@@ -70,6 +70,9 @@ defn parse-slm-lock-and-resolve-dependencies ():
                     delete 'slm clean', then re-run this command."
                     % [name(dep)])
             (path-dep:PathDependency):
+              val [is-compat, obs-version] = check-path-compatible(path-dep)
+              if not is-compat:
+                error-incompatible-path-version(path-dep, obs-version)
               path-dep
             (x:False):
               ; This dependency was found in the lock file but was not found
@@ -81,7 +84,7 @@ defn parse-slm-lock-and-resolve-dependencies ():
                     It is likely a grandchild dependency that is included as a path.\
                     We don't currently handle this case. Consider adding the\
                     necessary path dependency to the local project's 'slm.toml'\
-                    to work around this short-coming.")
+                    to work around this short-coming." % [name(dep)])
 
   for [name, dep] in pairs(slm-toml-dependencies) do:
     if get?(locked-dependencies, name) is False:
@@ -94,6 +97,32 @@ defn parse-slm-lock-and-resolve-dependencies ():
   ; any more inconsistencies that we don't yet detect (e.g. removing a dependency)
 
   to-tuple $ values $ locked-dependencies
+
+
+doc: \<DOC>
+Check if the version located at the desired path is compatible.
+
+Path Dependencies have an optional version that we can use to
+check the specified path. We're looking for compatibility
+with a particular version to head off issues where the API
+doesn't work.
+
+@return [Compatible?, Observed-Version]
+Compatable? - True if the versions are compatible or their is no
+expected version. False otherwise.
+Observed-Version - String indicating the version found in the
+<DOC>
+defn check-path-compatible (d:PathDependency) -> [True|False, String] :
+  val dep-path = path(d)
+  val cfg-path = path-join(dep-path, SLM_TOML_NAME)
+  val cfg = parse-slm-toml(cfg-path, env-sub-enable = false)
+  val obs-version-str = version(cfg)
+  val obs-version? = parse-semver(obs-version-str)
+  val is-compat = match(obs-version?, version?(d)):
+    (obs:One<SemanticVersion>, exp:One<SemanticVersion>):
+      compatible?(value!(obs), value!(exp))
+    (obs, exp:None): true
+  [is-compat, obs-version-str]
 
 defn fetch-or-sync-at-hash (d: GitDependency) -> False:
   if not has-git?() :
@@ -243,6 +272,13 @@ defn resolve-git-dependency? (
     val hash = git-rev-parse!(path(dep), "HEAD")
     One(dep $> sub-hash{_, hash})
 
+defn error-incompatible-path-version (dep:PathDependency, obs-version:String):
+  val msg = "The Path Dependency for '%_', found in '%_', has an incompatible version. \
+        The 'slm.toml' file expects version '%_'. The version found at that path is \
+        '%_'." % [name(dep), path(dep), version-string!(dep), obs-version]
+  error(msg, code = 240)
+
+
 defn resolve-path-dependency? (
   dep: PathDependency,
   resolved-dependencies: HashTable<String, Dependency>,
@@ -253,4 +289,9 @@ defn resolve-path-dependency? (
     ; resolved first.
     ; could occur is if
     fatal("internal inconsistency resolving path dependency '%_'" % [name(dep)])
+
+  val [is-compat, obs-version] = check-path-compatible(dep)
+  if not is-compat:
+    error-incompatible-path-version(dep, obs-version)
+
   One(dep)

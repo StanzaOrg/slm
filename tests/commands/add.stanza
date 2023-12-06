@@ -121,7 +121,7 @@ deftest(add-cmd) test-add-path-basic:
     to-hashtable<String, Dependency>([])
   )
 
-  val uut = add-path-dependency(input, "/Users/ted/src/stanza-toml")
+  val uut = add-path-dependency(input, "/Users/ted/src/stanza-toml", None())
 
   #EXPECT( name(uut) == "my-pkg" )
   #EXPECT( version(uut) == "0.1.2" )
@@ -135,6 +135,7 @@ deftest(add-cmd) test-add-path-basic:
   val dep = deps["stanza-toml"] as PathDependency
   #EXPECT(name(dep) == "stanza-toml")
   #EXPECT(path(dep) == "/Users/ted/src/stanza-toml")
+  #EXPECT(version?(dep) == None())
 
 deftest(add-cmd) test-add-path-name-override:
 
@@ -148,7 +149,7 @@ deftest(add-cmd) test-add-path-name-override:
     ])
   )
 
-  val uut = add-path-dependency(input, "/Users/ted/src/stanza-toml", name-override = One("toml-extreme"))
+  val uut = add-path-dependency(input, "/Users/ted/src/stanza-toml", None(), name-override = One("toml-extreme"))
 
   #EXPECT( name(uut) == "my-pkg" )
   #EXPECT( version(uut) == "0.1.2" )
@@ -161,6 +162,45 @@ deftest(add-cmd) test-add-path-name-override:
   val dep = deps["toml-extreme"] as PathDependency
   #EXPECT(name(dep) == "toml-extreme")
   #EXPECT(path(dep) == "/Users/ted/src/stanza-toml")
+  #EXPECT(version?(dep) == None())
+
+  var gdep = deps["maybe-utils"] as GitDependency
+  #EXPECT(name(gdep) == "maybe-utils")
+  #EXPECT(locator(gdep) == "StanzaOrg/maybe-utils")
+  #EXPECT(version(gdep) == SemanticVersion(0,1,4))
+
+  gdep = deps["semver"] as GitDependency
+  #EXPECT(name(gdep) == "semver")
+  #EXPECT(locator(gdep) == "StanzaOrg/semver")
+  #EXPECT(version(gdep) == SemanticVersion(0,1,2))
+
+
+deftest(add-cmd) test-add-path-with-version:
+
+  val input = SlmToml(
+    "my-pkg",
+    "0.1.2",
+    None(),
+    to-hashtable<String, Dependency>([
+      "maybe-utils" => GitDependency("maybe-utils", "StanzaOrg/maybe-utils", SemanticVersion(0,1,4), "")
+      "semver" => GitDependency("semver", "StanzaOrg/semver", SemanticVersion(0,1,2), "")
+    ])
+  )
+
+  val uut = add-path-dependency(input, "/Users/ted/src/stanza-toml", One $ SemanticVersion(1, 0, 3))
+
+  #EXPECT( name(uut) == "my-pkg" )
+  #EXPECT( version(uut) == "0.1.2" )
+  #EXPECT( compiler?(uut) == None() )
+
+  val deps = dependencies(uut)
+  val names = to-tuple $ keys(deps)
+  #EXPECT( length(names) == 3 )
+
+  val dep = deps["stanza-toml"] as PathDependency
+  #EXPECT(name(dep) == "stanza-toml")
+  #EXPECT(path(dep) == "/Users/ted/src/stanza-toml")
+  #EXPECT(version?(dep) == One $ SemanticVersion(1, 0, 3))
 
   var gdep = deps["maybe-utils"] as GitDependency
   #EXPECT(name(gdep) == "maybe-utils")
