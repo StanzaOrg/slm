@@ -25,6 +25,7 @@ defn convert-version-spec (arg:String|False) -> Maybe<SemanticVersion> :
     (_): None()
 
 defn cli-add-dependency (cmd-args:CommandArgs) -> False :
+  val cfg-path = get?(cmd-args, "cfg", SLM_TOML_NAME)
   val git-path = get?(cmd-args, "git", false)
   val fs-path = get?(cmd-args, "path", false)
 
@@ -45,7 +46,7 @@ defn cli-add-dependency (cmd-args:CommandArgs) -> False :
   for kvp in paramTable do:
     debug("\t%_ = %_" % kvp)
 
-  val cfg = parse-slm-toml(SLM_TOML_NAME)
+  val cfg = parse-slm-toml(cfg-path)
 
   val cfg* = match(git-path, fs-path):
     (x:String, y:String):
@@ -63,7 +64,7 @@ defn cli-add-dependency (cmd-args:CommandArgs) -> False :
     val o = current-output-stream()
     write(o, cfg*)
   else:
-    within f = open(SLM_TOML_NAME, false):
+    within f = open(cfg-path, false):
       write(f, cfg*)
 
   debug("-- New File Write Complete --")
@@ -213,6 +214,12 @@ Add a new Path Dependency with name override
 
 <MSG>
 
+val CFG-FLAG = \<MSG>
+Select the configuration file to conduct the add operation on. The default
+value is the 'slm.toml' file in the current working directory.
+<MSG>
+
+
 val GIT-FLAG = \<MSG>
 Set the org/name path for a new 'GitDependency' to be added to the 'slm.toml' file
 of this project. By default, the basename is extracted as the dependency name. Use
@@ -254,6 +261,7 @@ project. It will output the resultant changes to std-out for inspection.
 
 public defn setup-add-cmd () -> Command :
   val addFlags = [
+    Flag("cfg", OneFlag, OptionalFlag, CFG-FLAG)
     Flag("git", OneFlag, OptionalFlag, GIT-FLAG)
     Flag("path", OneFlag, OptionalFlag, PATH-FLAG)
     Flag("name", OneFlag, OptionalFlag, NAME-FLAG)

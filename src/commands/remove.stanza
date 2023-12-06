@@ -12,9 +12,10 @@ defpackage slm/commands/remove:
 
 public defn cli-remove-dependency (cmd-args:CommandArgs) -> False :
   val targets = args(cmd-args)
+  val cfg-path = get?(cmd-args, "cfg", SLM_TOML_NAME)
   val dry-run? = get?(cmd-args, "dry-run", false)
 
-  val cfg = parse-slm-toml(SLM_TOML_NAME)
+  val cfg = parse-slm-toml(cfg-path)
 
   val cfg* = remove-dependency(cfg, targets)
 
@@ -24,7 +25,7 @@ public defn cli-remove-dependency (cmd-args:CommandArgs) -> False :
     val o = current-output-stream()
     write(o, cfg*)
   else:
-    within f = open(SLM_TOML_NAME, false):
+    within f = open(cfg-path, false):
       write(f, cfg*)
 
   debug("-- New File Write Complete --")
@@ -66,6 +67,11 @@ val RM-ARG-MSG = \<MSG>
 The remove command accepts one or more target dependency names for removal.
 <MSG>
 
+val CFG-FLAG = \<MSG>
+Select the configuration file to conduct the add operation on. The default
+value is the 'slm.toml' file in the current working directory.
+<MSG>
+
 val DRY-RUN-FLAG = \<MSG>
 This flag will cause 'slm' to do all of the checks and operations to perform
 an 'remove' operation - but it won't actually change the 'slm.toml' file of the
@@ -74,6 +80,7 @@ project. It will output the resultant changes to std-out for inspection.
 
 public defn setup-remove-cmd () -> Command :
   val rmFlags = [
+    Flag("cfg", OneFlag, OptionalFlag, CFG-FLAG)
     Flag("dry-run", ZeroFlag, OptionalFlag, DRY-RUN-FLAG)
   ]
 
