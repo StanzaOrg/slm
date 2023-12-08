@@ -11,6 +11,7 @@ defpackage slm/dependencies:
 
   import slm/flags
   import slm/dependency
+  import slm/file-utils
   import slm/git-utils
   import slm/lock
   import slm/logging
@@ -18,15 +19,56 @@ defpackage slm/dependencies:
   import slm/utils
 
 public defn fetch-and-sync () -> Tuple<Dependency>:
+
+  ensure-slm-dir-structure-exists()
+
   ; There are two main strategies we'll use
   ; 1. If there's a slm.lock, then we resolve all dependencies to that exact hash
   ;    using only the lockfile.
   ;
   ; 2. Otherwise we use the slm.toml
-  if file-exists?(SLM_LOCK_NAME):
+  val deps = if file-exists?(SLM_LOCK_NAME):
     parse-slm-lock-and-resolve-dependencies()
   else:
     parse-slm-toml-and-resolve-dependencies()
+
+  write-build-stanza-proj(deps)
+  write-slm-lock-file(deps)
+
+  deps
+
+
+defn ensure-slm-dir-structure-exists () -> False:
+  defn create-dir! (path: String) -> True|False:
+    if not file-exists?(path):
+      create-dir(path)
+      true
+
+  if create-dir!(SLM_DIR):
+    for build-dir in [SLM_DEPS_DIR, SLM_PKGS_DIR] do:
+      create-dir!(build-dir)
+  false
+
+defn write-build-stanza-proj (dependencies: Tuple<Dependency>) -> False:
+  within f = open(SLM_STANZA_PROJ, false):
+    for dep in dependencies do:
+      val dep-path = path-join(path(dep), "stanza.proj")
+      val stanza-proj? = resolve-path(dep-path)
+      val dep-stanza-proj = un-norm-path $ match(stanza-proj?):
+        (x:False): throw $ Exception("Failed to Resolve Path %_. Make double check path dependencies and confirm expected git repos in '.slm/deps'" % [dep-path])
+        (x:String): x
+      println(f, to-string(\<>include "%_"<> % [dep-stanza-proj]))
+
+defn write-slm-lock-file (dependencies: Tuple<Dependency>) -> False:
+  within f = open(SLM_LOCK_NAME, false):
+    for dep in dependencies do:
+      match(dep):
+        (dep: GitDependency):
+          println(f, "%_={locator=%~,version=%~,hash=%~}"
+                  % [name(dep), locator(dep), to-string(version(dep)), hash(dep)])
+        (dep: PathDependency):
+          println(f, "%_={}" % [name(dep)])
+
 
 defn parse-slm-lock-and-resolve-dependencies ():
   val slm-toml-dependencies = parse-slm-toml(SLM_TOML_NAME) $> dependencies

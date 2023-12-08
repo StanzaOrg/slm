@@ -21,37 +21,6 @@ defpackage slm/commands/build:
   import slm/toml
   import slm/utils
 
-public defn ensure-slm-dir-structure-exists () -> False:
-  defn create-dir! (path: String) -> True|False:
-    if not file-exists?(path):
-      create-dir(path)
-      true
-
-  if create-dir!(SLM_DIR):
-    for build-dir in [SLM_DEPS_DIR, SLM_PKGS_DIR] do:
-      create-dir!(build-dir)
-  false
-
-defn write-build-stanza-proj (dependencies: Tuple<Dependency>) -> False:
-  within f = open(SLM_STANZA_PROJ, false):
-    for dep in dependencies do:
-      val dep-path = path-join(path(dep), "stanza.proj")
-      val stanza-proj? = resolve-path(dep-path)
-      val dep-stanza-proj = un-norm-path $ match(stanza-proj?):
-        (x:False): throw $ Exception("Failed to Resolve Path %_. Make double check path dependencies and confirm expected git repos in '.slm/deps'" % [dep-path])
-        (x:String): x
-      println(f, to-string(\<>include "%_"<> % [dep-stanza-proj]))
-
-defn write-slm-lock-file (dependencies: Tuple<Dependency>) -> False:
-  within f = open(SLM_LOCK_NAME, false):
-    for dep in dependencies do:
-      match(dep):
-        (dep: GitDependency):
-          println(f, "%_={locator=%~,version=%~,hash=%~}"
-                  % [name(dep), locator(dep), to-string(version(dep)), hash(dep)])
-        (dep: PathDependency):
-          println(f, "%_={}" % [name(dep)])
-
 defn get-build-target (cmd-args:CommandArgs) -> Tuple<String> :
   val arg = args(cmd-args)
   switch(length(arg)):
@@ -70,12 +39,7 @@ public defn build (cmd-args:CommandArgs) -> False:
   val build-args = get?(cmd-args, "-", [])
   val targ? = get-build-target(cmd-args)
 
-  ensure-slm-dir-structure-exists()
-
   val dependencies = slm/dependencies/fetch-and-sync()
-
-  write-build-stanza-proj(dependencies)
-  write-slm-lock-file(dependencies)
 
   val slm-dir = path-join(get-cwd(), SLM_DIR)
 

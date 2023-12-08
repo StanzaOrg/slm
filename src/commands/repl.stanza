@@ -2,6 +2,7 @@ defpackage slm/commands/repl:
   import core
   import arg-parser
 
+  import slm/dependencies
   import slm/flags
   import slm/file-utils
   import slm/process-utils
@@ -13,6 +14,8 @@ public defn repl (cmd-args:CommandArgs) -> False:
   val cfg = parse-slm-toml(SLM_TOML_NAME)
   val stanza-exe = get-stanza-exe(compiler?(cfg))
   val repl-args = get?(cmd-args, "-", [])
+
+  val dependencies = slm/dependencies/fetch-and-sync()
 
   val args = to-tuple $ cat-all([[stanza-exe, "repl"], repl-args])
   val slm-dir = path-join(get-cwd(), SLM_DIR)
