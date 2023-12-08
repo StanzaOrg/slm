@@ -34,10 +34,12 @@ public defn ensure-slm-dir-structure-exists () -> False:
 
 defn write-build-stanza-proj (dependencies: Tuple<Dependency>) -> False:
   within f = open(SLM_STANZA_PROJ, false):
-    val deps-dir = path-join(get-cwd(), SLM_DEPS_DIR)
     for dep in dependencies do:
-      val dep-path = get-cwd() $> parse-path $> relative-to-dir{_, dep $> /path}
-      val dep-stanza-proj = path-join(to-string(dep-path), "stanza.proj")
+      val dep-path = path-join(path(dep), "stanza.proj")
+      val stanza-proj? = resolve-path(dep-path)
+      val dep-stanza-proj = un-norm-path $ match(stanza-proj?):
+        (x:False): throw $ Exception("Failed to Resolve Path %_. Make double check path dependencies and confirm expected git repos in '.slm/deps'" % [dep-path])
+        (x:String): x
       println(f, to-string(\<>include "%_"<> % [dep-stanza-proj]))
 
 defn write-slm-lock-file (dependencies: Tuple<Dependency>) -> False:

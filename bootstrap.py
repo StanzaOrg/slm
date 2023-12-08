@@ -51,10 +51,15 @@ def fetch_package_into(path, package, version):
         error(f"failed fetching package {package}")
 
 def generate_stanza_proj():
-    dep_proj_files = [
-        f"{SLM_DEPS_DIR}/{dep}/stanza.proj"
-        for dep in DEPENDENCIES.keys()
-    ]
+    dep_proj_files = []
+    for dep in DEPENDENCIES.keys():
+      dep_path = os.path.join(SLM_DEPS_DIR, dep, "stanza.proj")
+      # For Windows - we replace the `\` with `/` so that the
+      #  'stanza build' invokation will actually run. Otherwise,
+      #   stanza treats the `\` as an escape sequence and fails to build.
+      #   On Mac/Linux - this should do nothing.
+      dep_unnorm = dep_path.replace(os.sep, '/')
+      dep_proj_files.append(dep_unnorm)
 
     with open(os.path.join(SLM_DIR, "stanza.proj"), "w") as f:
         f.writelines([f'include "{proj_file}"\n' for proj_file in dep_proj_files])

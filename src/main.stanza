@@ -128,6 +128,16 @@ dep-project = { path = "{HOME}/proj", version="1.2.0" }
 This will enforce a compatibility requirement for the referenced path
 dependency. The path dependency will need to be in the 'v1.x.y' series
 where x >= 2.
+
+Note about Windows:
+
+Paths on Windows can be represented with backslash '\' separators or
+with forward slash '/' separators. All paths will be converted to forward
+slash '/' when written to files. The '\' presents some issues when used
+in 'stanza.proj' files. In 'stanza.proj' files the '\' character must be
+escaped (ie, '\\' ) otherwise, stanza will fail to parse the path correctly.
+Using forward slash avoids this problem.
+
 <MSG>
 
 defn main ():

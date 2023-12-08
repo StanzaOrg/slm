@@ -7,6 +7,7 @@ defpackage slm/dependency:
 
   import slm/logging
   import slm/utils
+  import slm/file-utils
   import slm/flags
 
 public deftype Dependency
@@ -122,11 +123,14 @@ defn env-var-substitute (path:String) -> String:
   within name = sub-curly(path):
     get-env!(name)
 
+
+
 public defn parse-path-dependency (name: String, path: String, version?:Maybe<String>, env-sub-enable:True|False) -> PathDependency:
-  val path* = if env-sub-enable:
+  val path* = un-norm-path $ if env-sub-enable:
     env-var-substitute(path)
   else:
     path
+
   val version = match(version?):
     (x:None): x
     (x:One<String>):
