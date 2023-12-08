@@ -12,15 +12,34 @@ public defn open (f: (FileOutputStream) -> False, path: String, append?: True|Fa
   try: f(file)
   finally: close(file)
 
+
+doc: \<DOC>
+Convert Windows Backlash Path to Forward Slash Variant
+
+This is the reverse of the `norm-path` function in lbstanza core.
+This function is intended to help convert windows backslash paths
+into a consistent format (ie, linux/mac OS-X path format).
+<DOC>
+public defn un-norm-path (path:String) -> String :
+  #if-defined(PLATFORM-WINDOWS):
+    defn convert-backslash-to-forward (path:String) -> String :
+      replace(path, "\\", "/")
+    convert-backslash-to-forward(path)
+  #else:
+    path
+
 lostanza val GET-CWD-BUFF-SIZE: long = 0x1000L
 extern getcwd: (ptr<byte>, long) -> ptr<byte>
 
-public lostanza defn get-cwd () -> ref<String>:
+lostanza defn int-get-cwd () -> ref<String>:
   val buff = call-c clib/malloc(GET-CWD-BUFF-SIZE)
   call-c getcwd(buff, GET-CWD-BUFF-SIZE)
   val ret = String(buff)
   call-c clib/free(buff)
   return ret
+
+public defn get-cwd () -> String :
+  un-norm-path $ int-get-cwd()
 
 public defn dir-name? (path: String) -> Maybe<String>:
   split-last(path, '/') $> map{_, first}
