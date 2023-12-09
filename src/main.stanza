@@ -77,11 +77,16 @@ name = "slm"
 version = "0.3.2"
 
 [dependencies]
-stanza-toml = "StanzaOrg/stanza-toml|0.3.4"
-semver      = "StanzaOrg/semver|0.1.4"
-maybe-utils = "StanzaOrg/maybe-utils|0.1.4"
-term-colors = "StanzaOrg/term-colors|0.1.1"
+stanza-toml.git = "StanzaOrg/stanza-toml"
+stanza-toml.version = "0.3.4"
+maybe-utils.git = "StanzaOrg/maybe-utils"
+maybe-utils.version = "0.1.4"
+semver      = { git = "StanzaOrg/semver", version = "0.1.4" }
+term-colors = { git = "StanzaOrg/term-colors", version = "0.1.1" }
 """
+
+Notice the identical means of expressing a TOML table using either dot-separated
+syntax or the more JSON-like syntax.
 
 Dependency Declarations:
 
@@ -93,13 +98,15 @@ forms:
 
 The github resolution is a String formatted as:
 
-dep-project = "ORG/PROJECT|SEMVER"
+dep-project = { git = "ORG/PROJECT", version = "SEMVER" }
 
  - dep-project = Name of the dependency we are resolving.
- - ORG = The Github Organization where the project can be found.
- - PROJECT = Name of the project under the github org.
- - SEMVER = Semantic version for the project. This semantic version
-    must match a tag on the 'https://github.com/ORG/PROJECT' repository.
+ - git - Required path to repository on Github
+   - ORG = The Github Organization where the project can be found.
+   - PROJECT = Name of the project under the github org.
+ - version - Required version for the dependency.
+   - SEMVER = Semantic version for the project. This semantic version
+     must match a tag on the 'https://github.com/ORG/PROJECT' repository.
 
 2.  File Path Resolution
 
