@@ -8,10 +8,12 @@ defpackage slm/tests/toml:
   import slm/toml
   import slm/dependency
 
+  import slm/tests/test-tools
+
 val exp-write = \<>name = "basic"
 version = "0.2.1"
 [dependencies]
-git-dep = "StanzaOrg/stanza-toml|1.2.3"
+git-dep = { git = "StanzaOrg/stanza-toml" version = "1.2.3" }
 path-dep = { path = "/home/john/src/sqlite" }
 <>
 
@@ -80,3 +82,31 @@ deftest(toml) test-parse-slm-toml:
     (path-dep:PathDependency):
       #EXPECT(name(path-dep) == "test-env")
       #EXPECT(path(path-dep) == "/home/charles/asdf")
+
+deftest(toml) test-parse-mutex-error:
+  set-env("TEST_VAR", "/home/charles")
+
+  defn fail-on-mutex-git-path () :
+    parse-slm-toml("./tests/data/error_git_path_mutex.toml")
+
+  val msg = expect-throw(fail-on-mutex-git-path)
+
+  unset-env("TEST_VAR")
+
+  #EXPECT(msg is-not None)
+  #EXPECT(index-of-chars(value!(msg), "'path' and 'git' attributes are mutually exclusive") is-not False)
+
+
+deftest(toml) test-parse-malformed-error:
+  set-env("TEST_VAR", "/home/charles")
+
+  defn fail-on-no-git-path () :
+    parse-slm-toml("./tests/data/error_no_git_or_path.toml")
+
+  val msg = expect-throw(fail-on-no-git-path)
+
+  unset-env("TEST_VAR")
+
+  #EXPECT(msg is-not None)
+  #EXPECT(index-of-chars(value!(msg), "Expected either a 'path' or 'git' attribute") is-not False)
+

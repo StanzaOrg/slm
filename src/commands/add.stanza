@@ -177,7 +177,7 @@ Add a new Github dependency at the latest tag:
 
   """
   [dependencies]
-  stanza-toml = "StanzaOrg/stanza-toml|0.3.5"
+  stanza-toml = { git = "StanzaOrg/stanza-toml", version = "0.3.5" }
   """
 
 Add a new Github dependency at a particular version
@@ -188,7 +188,7 @@ Add a new Github dependency at a particular version
 
   """
   [dependencies]
-  stanza-toml = "StanzaOrg/stanza-toml|0.3.4"
+  stanza-toml = { git = "StanzaOrg/stanza-toml", version = "0.3.4" }
   """
 
 Add a new Path Dependency

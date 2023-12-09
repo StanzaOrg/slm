@@ -30,24 +30,36 @@ public defn parse-slm-toml (path: String -- env-sub-enable:True|False = true) ->
   val table = path $> parse-file $> table
   val name = table["name"] as String
   val version = table["version"] as String
-  val compiler? = match(get?(table, "compiler")):
-    (x:None): x
-    (x:One<TomlValue>):  One(value(x) as String)
+  val compiler? = extract-as-str? $ get?(table, "compiler")
   val dependencies = to-hashtable<String, Dependency> $
     for [name, specifier] in pairs(table["dependencies"] as TomlTable) seq:
       name => match(specifier):
-        (specifier: String):
-          parse-git-dependency(name, specifier)
-        (table: TomlTable):
-          val version? = match(get?(table, "version")):
-            (x:None): x
-            (x:One<TomlValue>): One(value(x) as String)
-          parse-path-dependency(name, table["path"] as String, version?, env-sub-enable)
-        (_):
-          error("invalid slm.toml: '%_' is not a valid dependency specifier"
-                % [specifier])
+        (legacy:String):
+          parse-git-dependency(name, legacy)
+        (table:TomlTable):
+          parse-dependency(name, table, env-sub-enable)
 
   SlmToml(name, version, compiler?, dependencies)
+
+defn extract-as-str? (v:Maybe<TomlValue>) -> Maybe<String> :
+  match(v):
+    (x:None): x
+    (x:One<TomlValue>): One $ (value(x) as String)
+
+defn parse-dependency (name:String, table:TomlTable, env-sub-enable:True|False) -> Dependency :
+  val pathAttr = extract-as-str? $ get?(table, "path")
+  val gitAttr = extract-as-str? $ get?(table, "git")
+  val version = extract-as-str? $ get?(table, "version")
+  match(pathAttr, gitAttr):
+    (p:One<String>, g:One<String>):
+      throw $ Exception("Invalid Dependency[%_]: The 'path' and 'git' attributes are mutually exclusive" % [name])
+    (p:One<String>, g:None): ; Path Dependency
+      parse-path-dependency(name, value(p), version, env-sub-enable)
+    (p:None, g:One<String>): ; Git Dependency
+      parse-git-dependency(name, value(g), version)
+    (p:None, g:None):
+      throw $ Exception("Invalid Dependency[%_]: Expected either a 'path' or 'git' attribute but found neither" % [name])
+
 
 doc: \<DOC>
 Output the SlmToml config as a valid TOML file.
