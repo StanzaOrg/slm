@@ -49,7 +49,7 @@ defmethod version-string? (d: GitDependency) -> One<String>:
   One(version-string(d))
 
 defmethod print (o:OutputStream, d:GitDependency) :
-  print(o, "%_ = \"%_|%_\"" % [name(d), locator(d), version-string(d)])
+  print(o, "%_ = { git = \"%_\" version = \"%_\" }" % [name(d), locator(d), version-string(d)])
 
 public defn version-string (d: GitDependency) -> String:
   to-string(version(d))
@@ -64,7 +64,15 @@ public defn colored-name? (d: Dependency) -> ColoredString:
     $> bold $> foreground{_, TerminalBrightWhite}
     $> clear-color?
 
+
+doc: \<DOC>
+Legacy Version of the Git Dependency Parser
+
+The legacy version uses a string in the form `name|0.1.2`
+where `0.1.2` is the version for the dependency.
+<DOC>
 public defn parse-git-dependency (name: String, specifier: String):
+  info("Extracting Legacy Github Dependency Specifier for '%_'. Consider Upgrading to Toml Table Variable" % [name])
   GitDependency(name, locator, requested-version, hash)
 where:
   val [locator, requested-version] = parse-specifier(specifier)
@@ -82,6 +90,16 @@ defn parse-specifier (specifier: String) -> [String, SemanticVersion]:
     else:
       error("malformed specifier '%_'" % [specifier])
 
+public defn parse-git-dependency (name:String, locator:String, version?:Maybe<String>) -> GitDependency :
+  val version = match(version?):
+    (x:None):
+      throw $ Exception("Invalid Git Dependency[%_]: No Version Attribute found"% [name])
+    (x:One<String>):
+      parse-semver(value(x)) $>
+        expect{_, "Git Dep[%_]: Failed to Parse Version: '%_'" % [name, x]}
+
+  val hash = "" ; This gets resolved during the fetch/sync
+  GitDependency(name, locator, version, hash)
 
 ; This function was shamelessly stolen from lbstanza:compiler/config.stanza
 ; https://github.com/StanzaOrg/lbstanza/blob/0cbcd2ce7d8b1794e82624170a0a09d3053d0fb1/compiler/config.stanza#L298
