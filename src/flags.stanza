@@ -4,7 +4,7 @@ defpackage slm/flags:
   import slm/utils
 
 protected var verbose?: True|False = false
-protected var debug?: True|False = false
+protected var debug?: True|False = get-env("SLM_DEBUG") is String
 
 public val SLM_TOML_NAME:String = "slm.toml"
 public val SLM_LOCK_NAME:String = "slm.lock"
