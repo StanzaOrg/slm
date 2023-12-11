@@ -6,13 +6,32 @@ defpackage slm/git-utils:
   import semver
 
   import slm/utils
+  import slm/logging
   import slm/file-utils
   import slm/process-utils
 
+doc: \<DOC>
+Parser the version string returned by git
+
+The git version is typically in the form:
+
+'git version 2.38.0'
+
+But may also be in the form:
+
+'git version 2.38.0.window.1'
+
+This attempts to parse both to determine the version
+<DOC>
 defn parse-git-version (msg:String) -> Maybe<SemanticVersion> :
   val comps = split(msg, " ")
   for comp in comps first:
-    parse-semver(comp)
+    val version-elements = to-tuple $ split(comp, ".", 4)
+    if length(version-elements) < 3:
+      None()
+    else:
+      val version-str = string-join(version-elements[0 through 2], ".")
+      parse-semver(version-str)
 
 defn run-git-version () -> Maybe<SemanticVersion> :
   try:
@@ -25,15 +44,18 @@ defn run-git-version () -> Maybe<SemanticVersion> :
     val msg = get-output(p) $> trim
     val code = run-and-get-exit-code(p)
     if code == 0:
+      debug("Parsing git version: %_" % [msg])
       parse-git-version(msg)
     else if code == 127:
       ; This indicates that there is no `git` on the path:
+      debug("git version returns code=%_ - Not on Path" % [code])
       None()
     else:
-      println("Error checking 'git version': code = %_ \n %_" % [code, msg])
+      debug("Error checking 'git version': code = %_ \n %_" % [code, msg])
       None()
   catch (e:ProcessLaunchError):
     ; Launch failure is synonymous with executable not found.
+    debug("Failed to Launch 'git version': %_" % [e])
     None()
 
 var git-vers:Maybe<SemanticVersion> = run-git-version()
