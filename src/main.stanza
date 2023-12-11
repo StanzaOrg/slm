@@ -151,9 +151,6 @@ defn main ():
   ;   - Check that dependencies have been fetched
   ;   - Build the project
 
-  if get-env("SLM_DEBUG") is String:
-    slm/flags/debug? = true
-
   setup-opts()
 
   simple-command-line-cli(
