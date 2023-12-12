@@ -21,11 +21,10 @@ path-dep = { path = "/home/john/src/sqlite" }
 deftest(toml) test-write-basic:
 
   val uut = SlmToml(
-    "basic", "0.2.1", None(),
-    to-hashtable<String, Dependency>([
+    "basic", "0.2.1", [
       "git-dep" => GitDependency("git-dep", "StanzaOrg/stanza-toml", SemanticVersion(1, 2, 3), "")
       "path-dep" => PathDependency("path-dep", "/home/john/src/sqlite")
-    ]))
+    ])
 
   val output = StringBuffer()
 
@@ -36,12 +35,11 @@ deftest(toml) test-write-basic:
 
 deftest(toml) test-find-dependency:
   val uut = SlmToml(
-  "basic", "0.2.1", None(),
-  to-hashtable<String, Dependency>([
+  "basic", "0.2.1", [
     "git-dep" => GitDependency("git-dep", "StanzaOrg/stanza-toml", SemanticVersion(1, 2, 3), "")
     "path-dep" => PathDependency("path-dep", "/home/john/src/sqlite")
     "find-me" => GitDependency("find-me", "sqlite/sqlite", SemanticVersion(2, 0, 2), "")
-  ]))
+  ])
 
   val ret-pos = find-dependency(uut, "find-me")
   #EXPECT(ret-pos is-not None)

@@ -13,15 +13,9 @@ defpackage slm/tests/commands/add:
 
 deftest(add-cmd) test-add-git-basic:
 
-  val input = SlmToml(
-    "my-pkg",
-    "0.1.2",
-    None(),
-    to-hashtable<String, Dependency>([])
-  )
+  val input = SlmToml("my-pkg", "0.1.2", [])
 
   val uut = add-git-dependency(input, "StanzaOrg/stanza-toml", One $ SemanticVersion(0,3,2))
-
 
   #EXPECT( name(uut) == "my-pkg" )
   #EXPECT( version(uut) == "0.1.2" )
@@ -41,13 +35,9 @@ deftest(add-cmd) test-add-git-basic:
 deftest(add-cmd) test-add-git-existing:
 
   val input = SlmToml(
-    "my-pkg",
-    "0.1.2",
-    None(),
-    to-hashtable<String, Dependency>([
+    "my-pkg", "0.1.2", [
       "stanza-toml" => GitDependency("stanza-toml", "StanzaOrg/stanza-toml", SemanticVersion(0,3,1), "")
     ])
-  )
 
   defn attempt-add () :
     ; Without Force - this should fail.
@@ -60,13 +50,9 @@ deftest(add-cmd) test-add-git-existing:
 deftest(add-cmd) test-add-git-existing-force:
 
   val input = SlmToml(
-    "my-pkg",
-    "0.1.2",
-    None(),
-    to-hashtable<String, Dependency>([
+    "my-pkg", "0.1.2", [
       "stanza-toml" => GitDependency("stanza-toml", "StanzaOrg/stanza-toml", SemanticVersion(0,3,1), "")
     ])
-  )
 
     ; Force should cause this to complete successfully
   val uut = add-git-dependency(input, "StanzaOrg/stanza-toml", One $ SemanticVersion(0,3,2), force = true)
@@ -89,10 +75,7 @@ deftest(add-cmd) test-add-git-existing-force:
 deftest(add-cmd) test-add-git-name-override:
 
   val input = SlmToml(
-    "my-pkg",
-    "0.1.2",
-    None(),
-    to-hashtable<String, Dependency>([])
+    "my-pkg", "0.1.2", []
   )
 
   val uut = add-git-dependency(input, "StanzaOrg/stanza-toml", One $ SemanticVersion(0,3,2), name-override = One("toml2"))
@@ -115,10 +98,7 @@ deftest(add-cmd) test-add-git-name-override:
 deftest(add-cmd) test-add-path-basic:
 
   val input = SlmToml(
-    "my-pkg",
-    "0.1.2",
-    None(),
-    to-hashtable<String, Dependency>([])
+    "my-pkg", "0.1.2", []
   )
 
   val uut = add-path-dependency(input, "/Users/ted/src/stanza-toml", None())
@@ -140,14 +120,10 @@ deftest(add-cmd) test-add-path-basic:
 deftest(add-cmd) test-add-path-name-override:
 
   val input = SlmToml(
-    "my-pkg",
-    "0.1.2",
-    None(),
-    to-hashtable<String, Dependency>([
+    "my-pkg", "0.1.2", [
       "maybe-utils" => GitDependency("maybe-utils", "StanzaOrg/maybe-utils", SemanticVersion(0,1,4), "")
       "semver" => GitDependency("semver", "StanzaOrg/semver", SemanticVersion(0,1,2), "")
     ])
-  )
 
   val uut = add-path-dependency(input, "/Users/ted/src/stanza-toml", None(), name-override = One("toml-extreme"))
 
@@ -179,13 +155,10 @@ deftest(add-cmd) test-add-path-with-version:
 
   val input = SlmToml(
     "my-pkg",
-    "0.1.2",
-    None(),
-    to-hashtable<String, Dependency>([
+    "0.1.2", [
       "maybe-utils" => GitDependency("maybe-utils", "StanzaOrg/maybe-utils", SemanticVersion(0,1,4), "")
       "semver" => GitDependency("semver", "StanzaOrg/semver", SemanticVersion(0,1,2), "")
     ])
-  )
 
   val uut = add-path-dependency(input, "/Users/ted/src/stanza-toml", One $ SemanticVersion(1, 0, 3))
 
