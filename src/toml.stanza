@@ -2,6 +2,7 @@ defpackage slm/toml:
   import core
   import collections
 
+  import semver
   import maybe-utils
   import toml/file
   import toml/parser
@@ -11,12 +12,40 @@ defpackage slm/toml:
   import slm/dependency
   import slm/logging
   import slm/utils
+  import slm/errors
 
 public defstruct SlmToml:
   name: String
   version: String
   compiler?: Maybe<String>
+  stanza-version?: Maybe<String>
   dependencies: HashTable<String, Dependency> with: (updater => sub-deps)
+
+public defn SlmToml (
+  name: String
+  version: String
+  deps: Tuple<KeyValue<String, Dependency>>
+  --
+  compiler? = ?
+  stanza-version? = ?
+  ):
+  val deps* = to-hashtable<String, Dependency>(deps)
+  SlmToml(name, version, compiler?, stanza-version?, deps*)
+
+doc: \<DOC>
+Extract the Semantic Version for the Stanza Version specification
+
+@return If None - it means that no version spec is required.
+If One - then this value is the semantic version required by this
+configuration file.
+<DOC>
+public defn get-stanza-version? (cfg:SlmToml) -> Maybe<SemanticVersion> :
+  match(stanza-version?(cfg)):
+    (x:None): x
+    (raw-str?:One<String>):
+      val raw-str = value(raw-str?)
+      val vers? = parse-semver(raw-str)
+      One $ value-or-throw(vers?, InvalidVersionError(raw-str))
 
 doc: \<DOC>
 Parse the SLM TOML configuration file
@@ -31,6 +60,7 @@ public defn parse-slm-toml (path: String -- env-sub-enable:True|False = true) ->
   val name = table["name"] as String
   val version = table["version"] as String
   val compiler? = extract-as-str? $ get?(table, "compiler")
+  val stanza-version? = extract-as-str? $ get?(table, "stanza-version")
   val dependencies = to-hashtable<String, Dependency> $
     for [name, specifier] in pairs(table["dependencies"] as TomlTable) seq:
       name => match(specifier):
@@ -39,7 +69,7 @@ public defn parse-slm-toml (path: String -- env-sub-enable:True|False = true) ->
         (table:TomlTable):
           parse-dependency(name, table, env-sub-enable)
 
-  SlmToml(name, version, compiler?, dependencies)
+  SlmToml(name, version, compiler?, stanza-version?, dependencies)
 
 defn extract-as-str? (v:Maybe<TomlValue>) -> Maybe<String> :
   match(v):

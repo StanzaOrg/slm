@@ -16,10 +16,10 @@ deftest(rm-cmd) test-remove-basic:
   val input = SlmToml(
     "my-pkg",
     "0.1.3",
-    One("jstanza")
-    to-hashtable<String, Dependency>([
+    [
       "stanza-toml" => GitDependency("stanza-toml", "StanzaOrg/stanza-toml", SemanticVersion(0,3,1), "")
-    ])
+    ]
+    compiler? = "jstanza"
   )
 
   val uut = remove-dependency(input, ["stanza-toml"])
@@ -36,10 +36,7 @@ deftest(rm-cmd) test-remove-basic:
 deftest(rm-cmd) test-remove-not-found:
 
   val input = SlmToml(
-    "my-pkg",
-    "0.1.3",
-    None(),
-    to-hashtable<String, Dependency>([])
+    "my-pkg", "0.1.3", []
   )
 
   defn attempt-remove () :
@@ -52,15 +49,14 @@ deftest(rm-cmd) test-remove-not-found:
 deftest(rm-cmd) test-remove-with-others:
 
   val input = SlmToml(
-    "my-pkg",
-    "0.1.3",
-    One("jstanza")
-    to-hashtable<String, Dependency>([
+    "my-pkg", "0.1.3",
+    [
       "stanza-toml" => GitDependency("stanza-toml", "StanzaOrg/stanza-toml", SemanticVersion(0,3,1), "")
       "semver" => GitDependency("semver", "StanzaOrg/semver", SemanticVersion(0,1,4), "")
       "maybe-utils" => GitDependency("maybe-utils", "StanzaOrg/maybe-utils", SemanticVersion(0,1,5), "")
       "scooby-doo" => PathDependency("scooby-doo", "/where/are/you")
-    ])
+    ],
+    compiler? = "jstanza"
   )
 
   val uut = remove-dependency(input, ["semver"])
@@ -80,15 +76,14 @@ deftest(rm-cmd) test-remove-with-others:
 deftest(rm-cmd) test-remove-multiple:
 
   val input = SlmToml(
-    "my-pkg",
-    "0.1.3",
-    One("jstanza")
-    to-hashtable<String, Dependency>([
+    "my-pkg", "0.1.3",
+    [
       "stanza-toml" => GitDependency("stanza-toml", "StanzaOrg/stanza-toml", SemanticVersion(0,3,1), "")
       "semver" => GitDependency("semver", "StanzaOrg/semver", SemanticVersion(0,1,4), "")
       "maybe-utils" => GitDependency("maybe-utils", "StanzaOrg/maybe-utils", SemanticVersion(0,1,5), "")
       "scooby-doo" => PathDependency("scooby-doo", "/where/are/you")
-    ])
+    ],
+    compiler? = "jstanza"
   )
 
   val uut = remove-dependency(input, ["semver", "scooby-doo"])
@@ -109,15 +104,14 @@ deftest(rm-cmd) test-remove-multiple:
 deftest(rm-cmd) test-remove-multiple-with-fail:
 
   val input = SlmToml(
-    "my-pkg",
-    "0.1.3",
-    One("jstanza")
-    to-hashtable<String, Dependency>([
+    "my-pkg", "0.1.3",
+    [
       "stanza-toml" => GitDependency("stanza-toml", "StanzaOrg/stanza-toml", SemanticVersion(0,3,1), "")
       "semver" => GitDependency("semver", "StanzaOrg/semver", SemanticVersion(0,1,4), "")
       "maybe-utils" => GitDependency("maybe-utils", "StanzaOrg/maybe-utils", SemanticVersion(0,1,5), "")
       "scooby-doo" => PathDependency("scooby-doo", "/where/are/you")
-    ])
+    ]
+    compiler? = "jstanza"
   )
 
   defn attempt-remove ():
