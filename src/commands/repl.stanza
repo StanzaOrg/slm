@@ -9,6 +9,7 @@ defpackage slm/commands/repl:
   import slm/logging
   import slm/toml
   import slm/utils
+  import slm/stanza-utils
 
 public defn repl (cmd-args:CommandArgs) -> False:
   val cfg = parse-slm-toml(SLM_TOML_NAME)

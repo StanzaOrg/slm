@@ -20,6 +20,7 @@ defpackage slm/commands/build:
   import slm/flags
   import slm/toml
   import slm/utils
+  import slm/stanza-utils
 
 defn get-build-target (cmd-args:CommandArgs) -> Tuple<String> :
   val arg = args(cmd-args)

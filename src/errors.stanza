@@ -46,3 +46,15 @@ public defstruct DependencyNotFoundError <: Exception :
 public defmethod print (o:OutputStream, e:DependencyNotFoundError):
   val msg = "The following dependencies were not found in the dependency table: %," % [targets(e)]
   print(o, msg)
+
+public defstruct StanzaVersionProcessError <: Exception :
+  code:Int
+
+public defmethod print (o:OutputStream, e:StanzaVersionProcessError) :
+  print(o,"'stanza version' exits with code: %_" % [code(e)])
+
+public defstruct StanzaVersionUnavailableError <: Exception
+
+public defmethod print (o:OutputStream, e:StanzaVersionProcessError) :
+  print(o, "No Stanza Version Available -- This is a Bug in SLM")
+

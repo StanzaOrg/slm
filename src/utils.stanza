@@ -8,12 +8,6 @@ defpackage slm/utils:
 
   import slm/file-utils
 
-public defn get-stanza-exe (compiler?:Maybe<String>) -> String :
-  val ret = get-env("SLM_STANZA")
-  trim $ match(compiler?, ret):
-    (_, x:String): x
-    (x:One<String>, _): value(x)
-    (x:None, y:False): "stanza"
 
 public defn clear-color? (c: ColoredString) -> ColoredString:
   if not supports-color?():

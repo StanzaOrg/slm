@@ -1,0 +1,21 @@
+#use-added-syntax(tests)
+defpackage slm/tests/stanza-utils:
+  import core
+
+  import slm/stanza-utils
+
+
+deftest(stanza-utils) test-stanza-version-fail:
+
+  STANZA-VERSION? = None()
+  val msg = expect-throw(get-stanza-version!)
+  #EXPECT(index-of-chars(msg, "No Stanza Version Available") is-not False)
+
+deftest(stanza-utils) test-get-proj-stanza-version:
+
+  STANZA-VERSION? = None()
+
+  val exp-vers = get-proj-stanza-version!(None())
+  val obs-vers = get-stanza-version!()
+
+  #EXPECT(exp-vers == obs-vers)
