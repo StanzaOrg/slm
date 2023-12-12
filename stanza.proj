@@ -3,6 +3,8 @@ include? ".slm/stanza.proj"
 packages slm/* defined-in "src/"
 packages slm/tests/* defined-in "tests/"
 
+pkg-cache: ".slm/pkg-cache"
+
 build main:
   inputs: slm/main
   pkg: ".slm/pkgs"
