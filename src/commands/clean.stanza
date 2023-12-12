@@ -9,7 +9,7 @@ defpackage slm/commands/clean:
 
 public defn clean (cmd-args:CommandArgs) -> False:
   debug("cleaning .slm")
-  for build-dir in [SLM_DEPS_DIR, SLM_PKGS_DIR] do:
+  for build-dir in SLM_BUILD_DIRS do:
     delete-files-in-dir(build-dir)
   create-empty-file(SLM_STANZA_PROJ)
   delete-file-if-exists(SLM_LOCK_NAME)

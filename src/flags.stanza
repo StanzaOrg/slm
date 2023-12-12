@@ -11,7 +11,10 @@ public val SLM_LOCK_NAME:String = "slm.lock"
 public val SLM_DIR:String = ".slm"
 public val SLM_DEPS_DIR:String = path-join(SLM_DIR, "deps")
 public val SLM_PKGS_DIR:String = path-join(SLM_DIR, "pkgs")
+public val SLM_PKGCACHE_DIR:String = path-join(SLM_DIR, "pkg-cache")
 public val SLM_STANZA_PROJ:String = path-join(SLM_DIR, "stanza.proj")
+
+public val SLM_BUILD_DIRS:Tuple<String> = [SLM_DEPS_DIR, SLM_PKGS_DIR, SLM_PKGCACHE_DIR]
 
 ;;;;;;;;;;;;;;;;;;;;
 ; Exit Codes

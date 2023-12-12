@@ -45,7 +45,7 @@ defn ensure-slm-dir-structure-exists () -> False:
       true
 
   if create-dir!(SLM_DIR):
-    for build-dir in [SLM_DEPS_DIR, SLM_PKGS_DIR] do:
+    for build-dir in SLM_BUILD_DIRS do:
       create-dir!(build-dir)
   false
 

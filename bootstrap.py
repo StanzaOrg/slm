@@ -17,6 +17,7 @@ DEPENDENCIES = {
 SLM_DIR = os.path.join(os.getcwd(), ".slm")
 SLM_PKGS_DIR = os.path.join(SLM_DIR, "pkgs")
 SLM_DEPS_DIR = os.path.join(SLM_DIR, "deps")
+SLM_PKGCACHE_DIR = os.path.join(SLM_DIR, "pkg-cache")
 
 def error(msg):
     print(msg, file=sys.stderr)
@@ -69,6 +70,7 @@ def bootstrap(args):
     os.makedirs(SLM_DIR)
     os.makedirs(SLM_PKGS_DIR)
     os.makedirs(SLM_DEPS_DIR)
+    os.makedirs(SLM_PKGCACHE_DIR)
 
     # Clone dependencies
     for dependency, identifier in DEPENDENCIES.items():
