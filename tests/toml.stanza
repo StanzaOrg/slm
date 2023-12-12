@@ -13,7 +13,7 @@ defpackage slm/tests/toml:
 val exp-write = \<>name = "basic"
 version = "0.2.1"
 [dependencies]
-git-dep = { git = "StanzaOrg/stanza-toml" version = "1.2.3" }
+git-dep = { git = "StanzaOrg/stanza-toml", version = "1.2.3" }
 path-dep = { path = "/home/john/src/sqlite" }
 <>
 

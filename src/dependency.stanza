@@ -50,7 +50,7 @@ defmethod version-string? (d: GitDependency) -> One<String>:
   One(version-string(d))
 
 defmethod print (o:OutputStream, d:GitDependency) :
-  print(o, "%_ = { git = \"%_\" version = \"%_\" }" % [name(d), locator(d), version-string(d)])
+  print(o, "%_ = { git = \"%_\", version = \"%_\" }" % [name(d), locator(d), version-string(d)])
 
 public defn version-string (d: GitDependency) -> String:
   to-string(version(d))
