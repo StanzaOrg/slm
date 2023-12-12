@@ -6,13 +6,29 @@ import sys
 
 from subprocess import CalledProcessError
 
-# Keep in sync with `slm.toml`
-DEPENDENCIES = {
-        "stanza-toml": "StanzaOrg/stanza-toml|0.3.4",
-        "maybe-utils": "StanzaOrg/maybe-utils|0.1.4",
-        "semver": "StanzaOrg/semver|0.1.4",
-        "term-colors": "StanzaOrg/term-colors|0.1.1",
-}
+def eprint(msg):
+    print(msg, file=sys.stderr)
+
+if sys.version_info[0] < 3:
+    eprint("This script requires python version 3 or greater")
+    exit(1)
+
+if sys.version_info[0] == 3 and sys.version_info[1] < 11:
+    # The tomllib package was introduced in py3.11 - so
+    #  any version before that requires this hack to complete
+    #  the bootstrap.
+    # Keep in sync with `slm.toml`
+    DEPENDENCIES = {
+        "stanza-toml": {"git": "StanzaOrg/stanza-toml", "version": "0.3.4"},
+        "maybe-utils": {"git": "StanzaOrg/maybe-utils", "version": "|0.1.4"},
+        "semver": {"git" : "StanzaOrg/semver", "version" : "0.1.6"},
+        "term-colors": { "git": "StanzaOrg/term-colors", "version" : "0.1.1"},
+    }
+else:
+    import tomllib
+    with open("slm.toml", "rb") as f:
+        data = tomllib.load(f)
+    DEPENDENCIES = data["dependencies"]
 
 SLM_DIR = os.path.join(os.getcwd(), ".slm")
 SLM_PKGS_DIR = os.path.join(SLM_DIR, "pkgs")
@@ -73,8 +89,9 @@ def bootstrap(args):
     os.makedirs(SLM_PKGCACHE_DIR)
 
     # Clone dependencies
-    for dependency, identifier in DEPENDENCIES.items():
-        package, version = tuple(identifier.split("|"))
+    for dependency, specifier in DEPENDENCIES.items():
+        package = specifier["git"]
+        version = specifier["version"]
         path = os.path.join(SLM_DEPS_DIR, dependency)
         fetch_package_into(path, package, version)
 
