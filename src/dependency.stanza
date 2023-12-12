@@ -16,6 +16,13 @@ public defmulti path (d: Dependency) -> String
 public defmulti version-string? (d: Dependency) -> Maybe<String>:
   None()
 
+public defstruct UnknownDependencyTypeError <: Exception :
+  dep:Dependency
+
+public defmethod print (o:OutputStream, e:UnknownDependencyTypeError):
+  val msg = "Unknown and Unhandled Dependency Type: %_" % [dep(e)]
+  print(o, msg)
+
 ; Dependencies specified by path (e.g. `foo = { path = "../foo" }`)
 public defstruct PathDependency <: Dependency:
   name: String with: (as-method => true)

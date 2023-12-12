@@ -1,0 +1,129 @@
+defpackage slm/stanza-utils:
+  import core
+  import collections
+
+  import semver
+
+  import slm/dependency
+  import slm/toml
+  import slm/flags
+  import slm/errors
+  import slm/logging
+  import slm/utils
+  import slm/file-utils
+  import slm/process-utils
+
+doc: \<DOC>
+Determine the stanza binary that we will reference for build/repl
+
+@param compiler? Optional compiler setting from the SLM TOML config file.
+@return Full Path String or name for the binary to be found on the `$PATH`
+<DOC>
+public defn get-stanza-exe (compiler?:Maybe<String>) -> String :
+  val ret = get-env("SLM_STANZA")
+  trim $ match(compiler?, ret):
+    (_, x:String): x
+    (x:One<String>, _): value(x)
+    (x:None, y:False): "stanza"
+
+public-when(TESTING) var STANZA-VERSION?:Maybe<SemanticVersion> = None()
+
+doc: \<DOC>
+Retrieve the previously acquired stanza binary version.
+
+This function is intended to be run only after the
+other `get-proj-stanza-version!` function has been
+called.
+
+This function returns the version of stanza that the
+current project is running with. All dependencies will
+be checked against this version.
+<DOC>
+public defn get-stanza-version! () -> SemanticVersion :
+  match(STANZA-VERSION?):
+    (x:None): throw $ StanzaVersionUnavailableError()
+    (x:One<SemanticVersion>): value(x)
+
+doc: \<DOC>
+Acquire the semantic version of the stanza binary.
+
+@param compiler? Optional Compiler name from 'slm.toml' config
+  file.
+@throws InvalidVersionError If we fail to parse the version string from stanza
+@throws ProcessLaunchError If we fail to run the stanza binary.
+@throws StanzaVersionProcessError If `stanza version` exits with an error code.
+<DOC>
+public defn get-proj-stanza-version! (compiler?:Maybe<String>) -> SemanticVersion :
+  val exe = get-stanza-exe(compiler?)
+  try:
+    val p = ProcessBuilder([exe, "version", "-terse"])
+      $> with-output
+      $> build
+
+    val msg = get-output(p) $> trim
+    val code = run-and-get-exit-code(p)
+    if code == 0:
+      debug("Parsing stanza version: %_" % [msg])
+      val ver? = parse-semver(msg)
+      match(ver?):
+        (x:None): throw $ InvalidVersionError(msg)
+        (x:One<SemanticVersion>):
+          STANZA-VERSION? = x
+          value(x)
+    else:
+      throw $ StanzaVersionProcessError(code)
+  catch (e:ProcessLaunchError):
+    debug("Failed to Launch 'stanza version': %_" % [e])
+    throw(e)
+
+
+doc: \<DOC>
+Check for stanza version compatibility in the project.
+
+This function will check that the stanza binary reports
+a version that is compatible with all of the stanza version
+specifications in:
+
+1.  The project's configuration
+2.  The each dependency's configuration
+
+@param cfg Project's configuration file.
+@param dependencies All dependencies for the project.
+@return Vector of KeyValue pairs of all dependencies that fail the stanza version check:
+Key => Name of the Dependency
+Value = Message for the Expected Version
+<DOC>
+public defn check-stanza-versions (cfg:SlmToml, dependencies:Tuple<Dependency>) -> Vector<KeyValue<String,String>>:
+
+  ; For each dependency check that the required
+  ;  stanza version is compatible with the project
+  ;  stanza binary version.
+  ;  Note that we aren't using the `compiler?` spec
+  ;  in the dependencies.
+
+  val non-compat = to-vector<KeyValue<String, String>> $
+    for dep in dependencies seq?:
+      val slm-cfg = match(dep):
+        (git-dep:GitDependency):
+          path-join(SLM_DEPS_DIR, name(git-dep), SLM_TOML_NAME)
+        (path-dep:PathDependency):
+          path-join(path(path-dep), SLM_TOML_NAME)
+        (x):
+          throw $ UnknownDependencyTypeError(x)
+
+      val dep-cfg = parse-slm-toml(slm-cfg)
+      debug("Dep[%_]: Stanza Version Spec: %_" % [name(dep), stanza-version?(dep-cfg)])
+      val [compatible, msg] = is-stanza-compatible?(dep-cfg)
+      debug("Dep[%_]: Compatible: %_ | %_" % [name(dep), compatible, msg])
+
+      if compatible: None()
+      else: One(name(dep) => msg)
+
+  ; Project Configuration
+  debug("Project: Stanza Version Spec: %_" % [stanza-version?(cfg)])
+  val [compatible, msg] = is-stanza-compatible?(cfg)
+  debug("Project: Compatible: %_ | %_" % [compatible, msg])
+  if not compatible:
+    add(non-compat, name(cfg) => msg)
+
+  non-compat

@@ -13,6 +13,7 @@ defpackage slm/toml:
   import slm/logging
   import slm/utils
   import slm/errors
+  import slm/stanza-utils
 
 public defstruct SlmToml:
   name: String
@@ -108,3 +109,19 @@ public defn find-dependency (cfg:SlmToml, name:String) -> Maybe<Dependency> :
   val deps = dependencies(cfg)
   for dep-name in keys(deps) first :
     One(deps[name]) when name == dep-name else None()
+
+doc: \<DOC>
+Check if this SLM config's stanza requirement is met.
+
+This function assumes that the stanza version has already
+been acquired and that the `get-stanza-version!` function
+will return a valid `SemanticVersion`
+<DOC>
+public defn is-stanza-compatible? (cfg:SlmToml) -> [True|False, String] :
+  match(get-stanza-version?(cfg)):
+    (x:None): [true, "No Stanza Version Requirement Specified"]
+    (raw-spec:One<SemanticVersion>):
+      val exp = value(raw-spec)
+      val obs = get-stanza-version!()
+      val msg = to-string("Expected Stanza Version: %_" % [exp])
+      [compatible?(exp, obs), msg]
