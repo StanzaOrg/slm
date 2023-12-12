@@ -5,12 +5,37 @@
 # Requirements
 
 - Linux with glibc 2.31 or newer
-- Stanza 0.16.3 or newer
-- Git 2.6.7 or newer
+- Stanza 0.18.52 or newer
+- Git 2.28.0 or newer
 
 # Installation
 
 Just download a release from [releases](https://github.com/StanzaOrg/slm/releases), and put it on your `$PATH` somewhere.
+
+## Building from Source
+
+To build SLM from source you will need to bootstrap the build environment. The
+`bootstrap.py` file contains a python3 script that will setup the dependencies
+for the build and call `stanza`
+
+Requirements:
+
+1.  Python 3.11 or greater available on your system.
+2.  Stanza 0.18.52 availble on the `$PATH`
+
+Then you can run:
+
+```
+$> python3 bootstrap.py
+slm bootstrapped: run `slm build` to finish building.
+$> ./slm build
+slm: syncing semver to 0.1.6
+slm: syncing term-colors to 0.1.1
+slm: syncing stanza-toml to 0.3.4
+slm: syncing maybe-utils to 0.1.4
+```
+
+Once complete the `slm` binary located in the local directory is ready for use.
 
 # Usage
 
@@ -29,10 +54,15 @@ name = "slm"
 version = "0.3.2"
 
 [dependencies]
-stanza-toml = "StanzaOrg/stanza-toml|0.3.4"
-semver      = "StanzaOrg/semver|0.1.4"
-maybe-utils = "StanzaOrg/maybe-utils|0.1.4"
-term-colors = "StanzaOrg/term-colors|0.1.1"
+stanza-toml.git     = "StanzaOrg/stanza-toml"
+stanza-toml.version = "0.3.4"
+semver.git          = "StanzaOrg/semver"
+semver.version      = "0.1.4"
+maybe-utils.git     = "StanzaOrg/maybe-utils"
+maybe-utils.version = "0.1.4"
+term-colors.git     = "StanzaOrg/term-colors"
+term-colors.version = "0.1.1"
+
 ```
 
 ## Build
@@ -60,8 +90,7 @@ To publish a `slm` package, use `slm publish`. For now, you must also have set a
 
 To clean a `slm` package, use `slm clean`. This removes any fetched dependencies and clears your build cache.
 
-# Caveats
+## Working directly with `stanza`
 
-Packages that use `slm` must be built using `slm build`, and cannot be built using `stanza build`. Attempting to do so will most likely result in various compile errors due to the build system not pulling in packages from your dependencies.
-
-This is in part due to the fact that the Stanza build system is not capable of fetching packages (like `slm build`), but also because a `slm`-compatible `stanza.proj` does not reference the main `.slm/stanza.proj` or `stanza.proj` files from dependent packages in any way. This is mostly not an issue in practice, but something to be aware of if you run into this issue.
+You can also call `stanza build` or `stanza repl` directly once you have
+resolved dependencies once using `slm build` or `slm repl`.
