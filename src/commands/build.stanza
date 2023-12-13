@@ -1,5 +1,6 @@
 defpackage slm/commands/build:
   import core
+  import collections
   import arg-parser
   import core/parsed-path
 
@@ -40,11 +41,23 @@ public defn build (cmd-args:CommandArgs) -> False:
   val build-args = get?(cmd-args, "-", [])
   val targ? = get-build-target(cmd-args)
 
+  val cfg = parse-slm-toml(SLM_TOML_NAME)
+  get-proj-stanza-version!(compiler?(cfg))
+
   val dependencies = slm/dependencies/fetch-and-sync()
+
+  val non-compat = check-stanza-versions(cfg, dependencies)
+  if length(non-compat) > 0:
+    val name-version = for [name, msg] in pairs(non-compat) seq:
+      "'%_' %_" % [name, msg]
+    val content = string-join(name-version, "\n")
+    info("Current Stanza Version: %_" % [get-stanza-version!()])
+    info("Dependencies with Stanza Version Issues:")
+    info(content)
+    error("Stanza Version Compatibility Check Failed")
 
   val slm-dir = path-join(get-cwd(), SLM_DIR)
 
-  val cfg = parse-slm-toml(SLM_TOML_NAME)
   val stanza-exe = get-stanza-exe(compiler?(cfg))
   debug("with stanza='%_'" % [stanza-exe])
   debug("with build args '%,'" % [build-args])

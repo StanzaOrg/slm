@@ -12,11 +12,24 @@ defpackage slm/commands/repl:
   import slm/stanza-utils
 
 public defn repl (cmd-args:CommandArgs) -> False:
+
   val cfg = parse-slm-toml(SLM_TOML_NAME)
+  get-proj-stanza-version!(compiler?(cfg))
+
   val stanza-exe = get-stanza-exe(compiler?(cfg))
   val repl-args = get?(cmd-args, "-", [])
 
   val dependencies = slm/dependencies/fetch-and-sync()
+
+  val non-compat = check-stanza-versions(cfg, dependencies)
+  if length(non-compat) > 0:
+    val name-version = for [name, msg] in pairs(non-compat) seq:
+      "'%_' %_" % [name, msg]
+    val content = string-join(name-version, "\n")
+    info("Current Stanza Version: %_" % [get-stanza-version!()])
+    info("Dependencies with Stanza Version Issues:")
+    info(content)
+    error("Stanza Version Compatibility Check Failed")
 
   val args = to-tuple $ cat-all([[stanza-exe, "repl"], repl-args])
   val slm-dir = path-join(get-cwd(), SLM_DIR)
