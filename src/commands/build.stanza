@@ -38,6 +38,7 @@ public defn build (cmd-args:CommandArgs) -> False:
   if verbose:
     slm/flags/debug? = true
 
+  val force-build = get?(cmd-args, "force", false)
   val build-args = get?(cmd-args, "-", [])
   val targ? = get-build-target(cmd-args)
 
@@ -48,13 +49,16 @@ public defn build (cmd-args:CommandArgs) -> False:
 
   val non-compat = check-stanza-versions(cfg, dependencies)
   if length(non-compat) > 0:
-    val name-version = for [name, msg] in pairs(non-compat) seq:
-      "'%_' %_" % [name, msg]
-    val content = string-join(name-version, "\n")
-    info("Current Stanza Version: %_" % [get-stanza-version!()])
-    info("Dependencies with Stanza Version Issues:")
-    info(content)
-    error("Stanza Version Compatibility Check Failed")
+    if force-build:
+      info("Stanza Compatibility Check Failed - Proceeding by Force")
+    else:
+      val name-version = for [name, msg] in pairs(non-compat) seq:
+        "'%_' %_" % [name, msg]
+      val content = string-join(name-version, "\n")
+      info("Current Stanza Version: %_" % [get-stanza-version!()])
+      info("Dependencies with Stanza Version Issues:")
+      info(content)
+      error("Stanza Version Compatibility Check Failed")
 
   val slm-dir = path-join(get-cwd(), SLM_DIR)
 
@@ -131,6 +135,12 @@ val VERBOSE-FLAG = \<MSG>
 Generate verbose output from build.
 <MSG>
 
+val FORCE-FLAG = \<MSG>
+This flag instructs the build system to ignore any stanza
+version compatibility checks and attempt to build this project
+regardless.
+<MSG>
+
 val BUILD-ARGS-FLAG = \<MSG>
 To pass additional build arguments directly to the
 stanza build invokation, the user can use the '--'
@@ -141,6 +151,7 @@ passed directly to the build.
 public defn setup-build-cmd () -> Command :
   val buildFlags = [
     Flag("verbose", ZeroFlag, OptionalFlag, VERBOSE-FLAG)
+    Flag("force", ZeroFlag, OptionalFlag, FORCE-FLAG),
     Flag("-", AllRemainingFlag, OptionalFlag, BUILD-ARGS-FLAG)
 
   ]

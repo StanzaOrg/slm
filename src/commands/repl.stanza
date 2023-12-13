@@ -17,19 +17,24 @@ public defn repl (cmd-args:CommandArgs) -> False:
   get-proj-stanza-version!(compiler?(cfg))
 
   val stanza-exe = get-stanza-exe(compiler?(cfg))
+  val force-build = get?(cmd-args, "force", false)
   val repl-args = get?(cmd-args, "-", [])
+
 
   val dependencies = slm/dependencies/fetch-and-sync()
 
   val non-compat = check-stanza-versions(cfg, dependencies)
   if length(non-compat) > 0:
-    val name-version = for [name, msg] in pairs(non-compat) seq:
-      "'%_' %_" % [name, msg]
-    val content = string-join(name-version, "\n")
-    info("Current Stanza Version: %_" % [get-stanza-version!()])
-    info("Dependencies with Stanza Version Issues:")
-    info(content)
-    error("Stanza Version Compatibility Check Failed")
+    if force-build:
+      info("Stanza Compatibility Check Failed - Proceeding by Force")
+    else:
+      val name-version = for [name, msg] in pairs(non-compat) seq:
+        "'%_' %_" % [name, msg]
+      val content = string-join(name-version, "\n")
+      info("Current Stanza Version: %_" % [get-stanza-version!()])
+      info("Dependencies with Stanza Version Issues:")
+      info(content)
+      error("Stanza Version Compatibility Check Failed")
 
   val args = to-tuple $ cat-all([[stanza-exe, "repl"], repl-args])
   val slm-dir = path-join(get-cwd(), SLM_DIR)
@@ -77,6 +82,12 @@ All command line arguments after the 'repl' command passed directly
 to the 'stanza repl' instance.
 <MSG>
 
+val FORCE-FLAG = \<MSG>
+This flag instructs the build system to ignore any stanza
+version compatibility checks and attempt to run the repl on this project
+regardless.
+<MSG>
+
 val REPL-ARGS-FLAG = \<MSG>
 To pass additional build arguments directly to the
 stanza repl invokation, the user can use the '--'
@@ -87,6 +98,7 @@ passed directly to the repl.
 
 public defn setup-repl-cmd () -> Command :
   val replFlags = [
+    Flag("force", ZeroFlag, OptionalFlag, FORCE-FLAG),
     Flag("-", AllRemainingFlag, OptionalFlag, REPL-ARGS-FLAG)
   ]
 
