@@ -57,25 +57,30 @@ info.
 
 Configuration Keys:
 
-- name         :  Name of the project. This should match the
-                  top-level namespace of the packages defined in
-                  this project. This string should be a valid stanza
-                  identifier.
-- version      :  Current Version of the Project. This string should
-                  be a semantic version format. It will be passed to
-                  the project at build time via environment variable.
-                  See the 'build' command for more info.
-- compiler     :  Optional compiler executable name/filepath to override
-                  the default of 'stanza'.
-- dependencies :  Table with key-value pairs that indicate the dependencies
-                  for this project. See more info below.
+- name           :  Name of the project. This should match the
+                    top-level namespace of the packages defined in
+                    this project. This string should be a valid stanza
+                    identifier.
+- version        :  Current Version of the Project. This string should
+                    be a semantic version format. It will be passed to
+                    the project at build time via environment variable.
+                    See the 'build' command for more info.
+- compiler       :  Optional compiler executable name/filepath to override
+                    the default of 'stanza'.
+- stanza-version :  Optional compatible Stanza Version for this Project. If
+                    this value is provided then the stanza binary that builds
+                    the project will be inspected. If the binary version is not
+                    compatible with the string version listed here, then the
+                    build or repl will fail with an error message.
+- dependencies   :  Table with key-value pairs that indicate the dependencies
+                    for this project. See more info below.
 
 Example Configuration File:
 
 """
 name = "slm"
 version = "0.3.2"
-
+stanza-version = "0.18.2"
 [dependencies]
 stanza-toml.git = "StanzaOrg/stanza-toml"
 stanza-toml.version = "0.3.4"
