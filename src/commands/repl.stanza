@@ -13,8 +13,7 @@ defpackage slm/commands/repl:
 
 public defn repl (cmd-args:CommandArgs) -> False:
 
-  val cfg = parse-slm-toml(SLM_TOML_NAME)
-  get-proj-stanza-version!(compiler?(cfg))
+  val cfg = parse-project-toml(SLM_TOML_NAME)
 
   val stanza-exe = get-stanza-exe(compiler?(cfg))
   val force-build = get?(cmd-args, "force", false)

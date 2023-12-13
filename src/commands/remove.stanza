@@ -15,7 +15,7 @@ public defn cli-remove-dependency (cmd-args:CommandArgs) -> False :
   val cfg-path = get?(cmd-args, "cfg", SLM_TOML_NAME)
   val dry-run? = get?(cmd-args, "dry-run", false)
 
-  val cfg = parse-slm-toml(cfg-path, env-sub-enable = false)
+  val cfg = parse-project-toml(cfg-path, env-sub-enable = false)
 
   val cfg* = remove-dependency(cfg, targets)
 

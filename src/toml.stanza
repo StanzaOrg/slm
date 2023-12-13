@@ -49,6 +49,19 @@ public defn get-stanza-version? (cfg:SlmToml) -> Maybe<SemanticVersion> :
       One $ value-or-throw(vers?, InvalidVersionError(raw-str))
 
 doc: \<DOC>
+Parse the project level TOML file
+
+This extracts the configuration and does some setup
+for the stanza version checking. This is primarily a
+helper function to make sure the `get-proj-stanza-version!`
+gets called on valid data for the project.
+<DOC>
+public defn parse-project-toml (path:String -- env-sub-enable:True|False = true) -> SlmToml :
+  val cfg = parse-slm-toml(path, env-sub-enable = env-sub-enable)
+  get-proj-stanza-version!(compiler?(cfg))
+  cfg
+
+doc: \<DOC>
 Parse the SLM TOML configuration file
 
 @param path Path to the file to parse.

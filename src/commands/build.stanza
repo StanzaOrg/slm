@@ -42,8 +42,7 @@ public defn build (cmd-args:CommandArgs) -> False:
   val build-args = get?(cmd-args, "-", [])
   val targ? = get-build-target(cmd-args)
 
-  val cfg = parse-slm-toml(SLM_TOML_NAME)
-  get-proj-stanza-version!(compiler?(cfg))
+  val cfg = parse-project-toml(SLM_TOML_NAME)
 
   val dependencies = slm/dependencies/fetch-and-sync()
 
