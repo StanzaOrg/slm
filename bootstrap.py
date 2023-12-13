@@ -20,7 +20,7 @@ if sys.version_info[0] == 3 and sys.version_info[1] < 11:
     # Keep in sync with `slm.toml`
     DEPENDENCIES = {
         "stanza-toml": {"git": "StanzaOrg/stanza-toml", "version": "0.3.4"},
-        "maybe-utils": {"git": "StanzaOrg/maybe-utils", "version": "|0.1.4"},
+        "maybe-utils": {"git": "StanzaOrg/maybe-utils", "version": "0.1.4"},
         "semver": {"git" : "StanzaOrg/semver", "version" : "0.1.6"},
         "term-colors": { "git": "StanzaOrg/term-colors", "version" : "0.1.1"},
     }
