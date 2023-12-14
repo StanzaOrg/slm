@@ -1,5 +1,4 @@
 import sys
-
 V = sys.version_info
 if V[0] < 3:
    raise RuntimeError("Invalid Python Version - This script expects at least Python 3")
@@ -8,6 +7,7 @@ if V[0] == 3 and (V[1] < 11):
   raise RuntimeError("Invalid Python Version - This scripts expect at least version Python 3.11")
 
 import os
+import platform
 from conan import ConanFile
 from conan.tools.files import copy
 import tomllib
@@ -48,22 +48,43 @@ class slmRecipe(ConanFile):
         print(f"OS: {_os}   Arch: {_arch}")
         self.folders.build = "build"
 
+    def get_bin_name(self):
+        # NOTE - the 'self.settings.os' isn't available in
+        #  export sources on windows for some reason - hence why I'm trying to
+        #  determine what name to use in a different way.
+        name = "slm"
+        if platform.system() == "Windows":
+            return f"{name}.exe"
+        else:
+            return name
+
+    def dist_files(self):
+       return [
+          self.get_bin_name(),
+          "LICENSE"
+       ]
+
+    def copy_dist_files(self, src_dir, dst_dir):
+        success = []
+        for f in self.dist_files():
+            cp_files = copy(self, f, src_dir, dst_dir)
+            success.extend(cp_files)
+
+        if len(success) != len(self.dist_files()):
+          raise RuntimeError("Export: Failed to Copy Distribution Files")
+
     def export_sources(self):
-        exp_files = copy(self, "slm", self.recipe_folder, self.export_sources_folder)
-        if len(exp_files) == 0:
-          raise RuntimeError("Export: Failed to Copy SLM Binary")
+        self.copy_dist_files(self.recipe_folder, self.export_sources_folder)
 
     def build(self):
-        build_files = copy(self, "slm", self.export_sources_folder, self.build_folder)
-        if len(build_files) == 0:
-          raise RuntimeError("Build:Failed to Copy SLM Binary")
+        self.copy_dist_files(self.export_sources_folder, self.build_folder)
 
     def package(self):
+        # Slight deviation here - I want the binary in the `bin`
+        #   directory and the LICENSE at the top level of the package
         BIN_DIR = os.path.join(self.package_folder, "bin")
-        print(f"BinDir: {BIN_DIR}")
-        cp_files = copy(self, "slm", self.build_folder, BIN_DIR)
-        if len(cp_files) == 0:
-          raise RuntimeError("Package:Failed to Copy SLM Binary")
+        copy(self, self.get_bin_name(), self.build_folder, BIN_DIR)
+        copy(self, "LICENSE", self.build_folder, self.package_folder)
 
 
 
