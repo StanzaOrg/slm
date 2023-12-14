@@ -67,13 +67,17 @@ public defn slurp-stream (s: InputStream) -> String:
   loop()
 
 public defn delete-files-in-dir (path: String) -> False:
-  val dir-path = parse-path(path)
-  for file in dir-files(path) do:
-    val file-path = to-string $ relative-to-dir(dir-path, file)
-    if file-type(file-path, false) is DirectoryType:
-      delete-recursive(file-path)
-    else:
-      delete-file(file-path)
+  label<False> return:
+    if not file-exists?(path):
+      return(false)
+
+    val dir-path = parse-path(path)
+    for file in dir-files(path) do:
+      val file-path = to-string $ relative-to-dir(dir-path, file)
+      if file-type(file-path, false) is DirectoryType:
+        delete-recursive(file-path)
+      else:
+        delete-file(file-path)
 
 public defn delete-file-if-exists (path: String) -> False:
   try:
