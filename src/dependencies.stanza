@@ -55,7 +55,7 @@ defn write-build-stanza-proj (dependencies: Tuple<Dependency>) -> False:
       val dep-path = path-join(path(dep), "stanza.proj")
       val stanza-proj? = resolve-path(dep-path)
       val dep-stanza-proj = un-norm-path $ match(stanza-proj?):
-        (x:False): throw $ Exception("Failed to Resolve Path %_. Make double check path dependencies and confirm expected git repos in '.slm/deps'" % [dep-path])
+        (x:False): throw $ Exception("Failed to Resolve Path %_. Double check path dependencies and confirm expected git repos in '.slm/deps'" % [dep-path])
         (x:String): x
       println(f, to-string(\<>include "%_"<> % [dep-stanza-proj]))
 
