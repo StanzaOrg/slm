@@ -105,11 +105,19 @@ To build the Conan2 package for binary distribution of `slm`:
     2.  `python3 -m venv venv`
     3.  `source venv/bin/activate`
     4.  `pip install -r requirements.txt`
-2.  Run the conan build:
+2.  Setup the conan build:
+    1.  [Optional] Define the `CONAN_HOME` environment variable:
+        1.  `export CONAN_HOME=$PWD/.conan2`
+    2.  Create or confirm that you have a conan profile installed
+        1.  Create: `conan profile detect`
+            1.  This will create a profile by guessing based on your system configuration.
+        2.  Confirm: `conan profile show -pr default`
+            1.  This will show the default configuration.
+3.  Run the conan build:
     1.  `conan create . -s os="Macos" -s arch="x86_64"`
     2.  You can replace os with `Windows` or `Linux`
     3.  No Promises on `Windows` build working yet.
-3.  Publish the package:
+4.  Publish the package:
     1.  `conan remote add <NAME> <URL>`
         1.  You should only have to do this once.
     2.  `conan remote login <NAME> <USER> -p <PASSWD>`
