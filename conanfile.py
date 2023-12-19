@@ -12,6 +12,8 @@ from conan import ConanFile
 from conan.tools.files import copy
 import tomllib
 
+SLM_FOLDER = None
+
 def get_slm_config(fp = "./slm.toml"):
     with open(fp, "rb") as f:
       data = tomllib.load(f)
@@ -73,11 +75,16 @@ class slmRecipe(ConanFile):
         if len(success) != len(self.dist_files()):
           raise RuntimeError("Export: Failed to Copy Distribution Files")
 
-    def export_sources(self):
-        self.copy_dist_files(self.recipe_folder, self.export_sources_folder)
+    # def export_sources(self):
+    #     # Anything copied to the export sources folder will
+    #     #  get hashed to create the repository id. We want this
+    #     #  to be consistent from OS to OS.
+    #  TODO - When we get the `stanza build` running through conan
+    #    We would copy sources here and then run the build.
 
     def build(self):
-        self.copy_dist_files(self.export_sources_folder, self.build_folder)
+        SLM_FOLDER = os.environ["SLM_ROOT_DIR"]
+        self.copy_dist_files(SLM_FOLDER, self.build_folder)
 
     def package(self):
         # Slight deviation here - I want the binary in the `bin`

@@ -114,9 +114,8 @@ To build the Conan2 package for binary distribution of `slm`:
         2.  Confirm: `conan profile show -pr default`
             1.  This will show the default configuration.
 3.  Run the conan build:
-    1.  `conan create . -s os="Macos" -s arch="x86_64"`
-    2.  You can replace os with `Windows` or `Linux`
-    3.  No Promises on `Windows` build working yet.
+    1.  Mac/Linux: `build_conan.sh`
+    2.  Windows: `build_conan.ps1`
 4.  Publish the package:
     1.  `conan remote add <NAME> <URL>`
         1.  You should only have to do this once.
