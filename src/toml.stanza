@@ -70,8 +70,8 @@ public defn parse-slm-toml (path: String -- env-sub-enable:True|False = true) ->
   val table = path $> parse-file $> table
   val name = table["name"] as String
   val version = table["version"] as String
-  val compiler? = extract-as-str? $ get?(table, "compiler")
-  val stanza-version? = extract-as-str? $ get?(table, "stanza-version")
+  val compiler? = get-str?(table, "compiler")
+  val stanza-version? = get-str?(table, "stanza-version")
   val dependencies = to-hashtable<String, Dependency> $
     for [name, specifier] in pairs(table["dependencies"] as TomlTable) seq:
       name => match(specifier):
@@ -82,15 +82,10 @@ public defn parse-slm-toml (path: String -- env-sub-enable:True|False = true) ->
 
   SlmToml(name, version, compiler?, stanza-version?, dependencies)
 
-defn extract-as-str? (v:Maybe<TomlValue>) -> Maybe<String> :
-  match(v):
-    (x:None): x
-    (x:One<TomlValue>): One $ (value(x) as String)
-
 defn parse-dependency (name:String, table:TomlTable, env-sub-enable:True|False) -> Dependency :
-  val pathAttr = extract-as-str? $ get?(table, "path")
-  val gitAttr = extract-as-str? $ get?(table, "git")
-  val version = extract-as-str? $ get?(table, "version")
+  val pathAttr = get-str?(table, "path")
+  val gitAttr = get-str?(table, "git")
+  val version = get-str?(table, "version")
   match(pathAttr, gitAttr):
     (p:One<String>, g:One<String>):
       throw $ Exception("Invalid Dependency[%_]: The 'path' and 'git' attributes are mutually exclusive" % [name])
