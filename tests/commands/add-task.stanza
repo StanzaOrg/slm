@@ -1,0 +1,244 @@
+#use-added-syntax(tests)
+defpackage slm/tests/commands/add-task:
+  import core
+  import collections
+
+  import slm/task
+  import slm/dependency
+  import slm/toml
+  import slm/commands/add-task
+
+  import slm/tests/test-tools
+
+deftest(add-task) test-add-task-basic:
+
+  val input = SlmToml("my-pkg", "0.1.2", [])
+
+  val uut = add-task-dependency(
+    input, "my-task", "which"
+    )
+
+  #EXPECT(name(uut) == "my-pkg")
+  #EXPECT(version(uut) == "0.1.2")
+  #EXPECT( compiler?(uut) == None() )
+  #EXPECT( stanza-version?(uut) == None() )
+
+  val deps = dependencies(uut)
+  val names = to-tuple $ keys(deps)
+  #EXPECT( length(names) == 1 )
+  #EXPECT( names[0] == "my-task" )
+
+  val dep = deps["my-task"] as TaskDependency
+
+  #EXPECT(name(dep) == "my-task")
+  #EXPECT(task?(dep) is-not None)
+  val ptasks = platform-tasks(dep)
+  val ks = to-tuple $ keys(ptasks)
+  #EXPECT(length(ks) == 0)
+
+  val task = value!(task?(dep))
+  #EXPECT(command(task) == "which")
+  #EXPECT(args(task) is None)
+  #EXPECT(working-dir(task) is None)
+  #EXPECT(env-vars(task) == [])
+
+deftest(add-task) test-add-task-existing:
+
+  val input = SlmToml(
+    "my-pkg", "0.1.2", [
+      "my-task" => TaskDependency("my-task", task = Task("which"))
+    ])
+
+  val msg = expect-throw({
+    add-task-dependency(
+      input, "my-task", "which"
+    )
+  })
+
+  #EXPECT(index-of-chars(value!(msg), "Task 'my-task' Already Exists") is-not False)
+
+deftest(add-task) test-reject-invalid-platform:
+  val input = SlmToml("my-pkg", "0.1.2", [])
+
+  val msg = expect-throw({
+    add-task-dependency(
+      input, "my-task", "which", platform? = One("blargle-tooth")
+    )
+  })
+
+  #EXPECT(index-of-chars(value!(msg), "Invalid Platform: blargle") is-not False)
+
+deftest(add-task) test-add-task-platform:
+
+  val input = SlmToml("my-pkg", "0.1.2", [])
+
+  val uut = add-task-dependency(
+    input, "my-task", "get-command",
+    platform? = One("windows")
+    )
+
+  #EXPECT(name(uut) == "my-pkg")
+  #EXPECT(version(uut) == "0.1.2")
+  #EXPECT( compiler?(uut) == None() )
+  #EXPECT( stanza-version?(uut) == None() )
+
+  val deps = dependencies(uut)
+  val names = to-tuple $ keys(deps)
+  #EXPECT( length(names) == 1 )
+  #EXPECT( names[0] == "my-task" )
+
+  val dep = deps["my-task"] as TaskDependency
+
+  #EXPECT(name(dep) == "my-task")
+  #EXPECT(task?(dep) is None)
+  val ptasks = platform-tasks(dep)
+  val ks = to-tuple $ keys(ptasks)
+  #EXPECT(length(ks) == 1)
+
+  val task = ptasks["windows"]
+
+  #EXPECT(command(task) == "get-command")
+  #EXPECT(args(task) is None)
+  #EXPECT(working-dir(task) is None)
+  #EXPECT(env-vars(task) == [])
+
+deftest(add-task) test-add-task-platform-existing:
+
+  val input = SlmToml(
+    "my-pkg", "0.1.2", [
+      "my-task" => TaskDependency("my-task", platform-tasks = ["windows" => Task("get-command")])
+    ])
+
+  val msg = expect-throw({
+    add-task-dependency(
+      input, "my-task", "which", platform? = One("windows")
+    )
+  })
+
+  #EXPECT(index-of-chars(value!(msg), "Task 'my-task' Platform 'windows' Already Exists") is-not False)
+
+deftest(add-task) test-add-task-existing-non-task :
+  val input = SlmToml(
+    "my-pkg", "0.1.2", [
+      "my-task" => PathDependency("my-task", "/usr/bin")
+    ])
+
+  val msg = expect-throw({
+    add-task-dependency(
+      input, "my-task", "which"
+    )
+  })
+
+  #EXPECT(index-of-chars(value!(msg), "Invalid Dependency at 'my-task'") is-not False)
+
+
+deftest(add-task) test-add-task-force :
+
+  val input = SlmToml(
+    "my-pkg", "0.1.2", [
+      "my-task" => TaskDependency("my-task", task = Task("which"))
+    ])
+
+  val uut = add-task-dependency(
+    input, "my-task", "whereis", args? = One("-t -s"), force = true
+    )
+
+  #EXPECT(name(uut) == "my-pkg")
+  #EXPECT(version(uut) == "0.1.2")
+  #EXPECT( compiler?(uut) == None() )
+  #EXPECT( stanza-version?(uut) == None() )
+
+  val deps = dependencies(uut)
+  val names = to-tuple $ keys(deps)
+  #EXPECT( length(names) == 1 )
+  #EXPECT( names[0] == "my-task" )
+
+  val dep = deps["my-task"] as TaskDependency
+
+  #EXPECT(name(dep) == "my-task")
+  #EXPECT(task?(dep) is-not None)
+  val ptasks = platform-tasks(dep)
+  val ks = to-tuple $ keys(ptasks)
+  #EXPECT(length(ks) == 0)
+
+  val task = value!(task?(dep))
+  #EXPECT(command(task) == "whereis")
+  #EXPECT(args(task) == One("-t -s"))
+  #EXPECT(working-dir(task) is None)
+  #EXPECT(env-vars(task) == [])
+
+deftest(add-task) test-add-task-platform-force :
+
+  val input = SlmToml(
+    "my-pkg", "0.1.2", [
+      "my-task" => TaskDependency("my-task", platform-tasks = ["windows" => Task("get-command")])
+    ])
+
+  val uut = add-task-dependency(
+    input, "my-task", "whereis", platform? = One("windows"), working-dir? = One("/usr/bin"), force = true
+    )
+
+  #EXPECT(name(uut) == "my-pkg")
+  #EXPECT(version(uut) == "0.1.2")
+  #EXPECT( compiler?(uut) == None() )
+  #EXPECT( stanza-version?(uut) == None() )
+
+  val deps = dependencies(uut)
+  val names = to-tuple $ keys(deps)
+  #EXPECT( length(names) == 1 )
+  #EXPECT( names[0] == "my-task" )
+
+  val dep = deps["my-task"] as TaskDependency
+  #EXPECT(task?(dep) is None)
+  val ptasks = platform-tasks(dep)
+  val ks = to-tuple $ keys(ptasks)
+  #EXPECT(length(ks) == 1)
+
+  val task = ptasks["windows"]
+
+  #EXPECT(command(task) == "whereis")
+  #EXPECT(args(task) is None)
+  #EXPECT(working-dir(task) == One("/usr/bin"))
+  #EXPECT(env-vars(task) == [])
+
+
+deftest(add-task) test-add-task-platform-with-existing-task :
+
+  val input = SlmToml(
+    "my-pkg", "0.1.2", [
+      "my-task" => TaskDependency("my-task", task = Task("which"), platform-tasks = ["windows" => Task("get-command")])
+    ])
+
+  val uut = add-task-dependency(
+    input, "my-task", "whereis", platform? = One("os-x"), env-vars = ["DEBUG" => "1"]
+    )
+
+  #EXPECT(name(uut) == "my-pkg")
+  #EXPECT(version(uut) == "0.1.2")
+  #EXPECT( compiler?(uut) == None() )
+  #EXPECT( stanza-version?(uut) == None() )
+
+  val deps = dependencies(uut)
+  val names = to-tuple $ keys(deps)
+  #EXPECT( length(names) == 1 )
+  #EXPECT( names[0] == "my-task" )
+
+  val dep = deps["my-task"] as TaskDependency
+  #EXPECT(task?(dep) is-not None)
+  val ptasks = platform-tasks(dep)
+  val ks = to-tuple $ keys(ptasks)
+  #EXPECT(length(ks) == 2)
+
+  val task = ptasks["windows"]
+
+  #EXPECT(command(task) == "get-command")
+  #EXPECT(args(task) is None)
+  #EXPECT(working-dir(task) is None)
+  #EXPECT(env-vars(task) == [])
+
+  val osx = ptasks["os-x"]
+
+  #EXPECT(command(osx) == "whereis")
+  #EXPECT(args(osx) is None)
+  #EXPECT(working-dir(osx) is None)
+  #EXPECT(env-vars(osx) == ["DEBUG" => "1"])

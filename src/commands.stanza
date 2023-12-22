@@ -1,6 +1,8 @@
 defpackage slm/commands:
   forward slm/commands/add with:
     only => (setup-add-cmd)
+  forward slm/commands/add-task with:
+    only => (setup-add-task-cmd)
   forward slm/commands/build with:
     only => (setup-build-cmd)
   forward slm/commands/clean with:
