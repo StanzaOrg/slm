@@ -2,6 +2,9 @@ defpackage slm/string-utils:
   import core
   import maybe-utils
 
+  import slm/errors
+
+
 public defn strip-end (s: String, strip: String) -> String:
   if s[(length(s) - length(strip)) to false] == strip:
     s[0 to length(s) - length(strip)]
@@ -12,3 +15,68 @@ public defn split-last (s: String, delim: Char) -> Maybe<[String, String]>:
   last-index-of-char(s, delim) $> to-maybe $> map{_, fn (i):
     [s[0 to i], s[(i + 1) to false]]
   }
+
+
+; This function was shamelessly stolen from lbstanza:compiler/config.stanza
+; https://github.com/StanzaOrg/lbstanza/blob/0cbcd2ce7d8b1794e82624170a0a09d3053d0fb1/compiler/config.stanza#L298
+; Sadly - it is not public so I can't just invoke it directly.
+defn sub-curly (f:String -> String, s:String) -> String :
+  if index-of-char(s, '{') is False :
+    s
+  else :
+    val buffer = StringBuffer()
+
+    ;Iterate through the curlies
+    let loop (start:Int = 0) :
+      ;Determine curly bounds
+      val [i, j] = let :
+        val i = index-of-char(s, start to false, '{')
+        match(i:Int) :
+          [i, index-of-char(s, (i + 1) to false, '}')]
+        else : [i, false]
+      ;If there is a curly
+      match(i:Int, j:Int) :
+        ;Add string up to curly
+        if start < i :
+          add-all(buffer, s[start to i])
+        ;Add replacement
+        val replacement = f(s[(i + 1) through (j - 1)])
+        add-all(buffer, replacement)
+        ;Continue past } char
+        loop(j + 1)
+      else :
+        ;End of string, add the rest
+        if start < length(s) :
+          add-all(buffer, s[start to false])
+
+    ;Return spliced string
+    to-string(buffer)
+
+doc: \<DOC>
+Transform the passed string by substituting environment variables
+
+Environment variables can be specified by name using the curly-bracket format:
+
+```
+{HOME}
+```
+
+The value between the `{}` will be converted to a string name for an environment
+variable.
+
+@param path string to be transformed by replacing `{VAR}` with contents of {@link get-env!}
+@throws ValueError when the environment variable can't be found in the environment.
+
+<DOC>
+public defn env-var-substitute (path:String) -> String:
+  within name = sub-curly(path):
+    try:
+      get-env!(name)
+    catch (e:NoEnvVarError):
+      ; NOTE - this is a hack because stanza doesn't provide a `printer` implementation
+      ;  for `NoEnvVarError` right now.
+      ;  PR https://github.com/StanzaOrg/lbstanza/pull/68
+      throw $ ValueError("No Environment Variable '%_' found - Confirm Environment Settings" % [name])
+
+public defn env-var-substitute (path?:Maybe<String>) -> Maybe<String> :
+  map(path?, env-var-substitute)
