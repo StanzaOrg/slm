@@ -6,6 +6,7 @@ defpackage slm/utils:
   import maybe-utils
   import term-colors
 
+  import slm/errors
   import slm/file-utils
 
 
@@ -82,3 +83,18 @@ public defn split-any (s:String, splitters:String) -> Tuple<String> :
       if length(comps) > 1 :
         return(comps)
     return([s])
+
+doc: \<DOC>
+Check that the pass string is non-empty
+
+This is intended to be used with the `ensure` functionality of
+`defstruct` member construction.
+<DOC>
+public defn ensure-not-empty! (field:String, v:String):
+  if length(v) == 0:
+    throw $ ValueError("Field[%_] - Expected Non-empty String - Received: %~" % [field, v])
+
+public defn ensure-not-empty! (field:String, v?:Maybe<String>):
+  match(v?):
+    (v:One<String>): ensure-not-empty!(field, value(v))
+    (_:None): false
