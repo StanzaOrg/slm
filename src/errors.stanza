@@ -2,6 +2,12 @@ defpackage slm/errors:
   import core
   import semver
 
+public defstruct ValueError <: Exception :
+  msg:String|Printable
+
+defmethod print (o:OutputStream, e:ValueError):
+  print(o, "ValueError: %_" % [msg(e)])
+
 public defstruct GitNotFoundError <: Exception :
   PATH:Maybe<String>
 
