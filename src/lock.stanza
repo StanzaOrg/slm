@@ -3,9 +3,7 @@ defpackage slm/lock:
 
   import maybe-utils
   import semver
-  import toml/file
-  import toml/parser
-  import toml/table
+  import toml
 
   import slm/logging
   import slm/utils
