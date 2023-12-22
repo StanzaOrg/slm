@@ -1,0 +1,200 @@
+#use-added-syntax(tests)
+defpackage slm/tests/task:
+  import core
+
+  import toml
+  import slm/task
+
+val basic-task = \<>
+uut = {
+  "command" = "which"
+}
+<>
+
+val basic-task-args = \<>
+uut = {
+  "command" = "which",
+  "args" = "-a -s"
+}
+<>
+
+val basic-task-wdir = \<>
+uut = {
+  "command" = "which",
+  "working-dir" = "{HOME}"
+}
+<>
+
+val basic-task-evars = \<>
+uut = {
+  "command" = "which",
+  "env-vars" = {
+    "SLM_STANZA" = "jstanza",
+    "SLM_DEBUG" = "1"
+  }
+}
+<>
+
+val basic-task-complete = \<>
+uut = {
+  "command" = "{HOME}/which",
+  "args" = "-a -s -t {PWD}",
+  "working-dir" = "{WHERE}",
+  "env-vars" = {
+    "SLM_STANZA" = "kstanza"
+  }
+}
+<>
+
+
+deftest(task) test-parse-task :
+
+  val input-vectors = [
+    [basic-task, Task("which")]
+    [basic-task-args, Task("which", args = "-a -s")]
+    [basic-task-wdir, Task("which", working-dir = "{HOME}")]
+    [basic-task-evars, Task("which", env-vars = [KeyValue("SLM_STANZA", "jstanza"), KeyValue("SLM_DEBUG", "1")])]
+    [basic-task-complete, Task("{HOME}/which", args = "-a -s -t {PWD}", working-dir = "{WHERE}", env-vars = [KeyValue("SLM_STANZA", "kstanza")] )]
+  ]
+
+  for input-vector in input-vectors do:
+    val [in-str, exp] = input-vector
+    val t = table $ parse-string(in-str)
+
+    val task? = get-table?(t, "uut")
+    #EXPECT(task? is-not None)
+    val task = value!(task?)
+
+    val obs = parse-task(task)
+    #EXPECT(obs == exp)
+
+
+val invalid-task = \<>
+uut = {
+  "command-" = "which",
+  "args" = "There's a snake in my boot"
+}
+<>
+
+deftest(task) test-invalid-task :
+
+  val t = table $ parse-string(invalid-task)
+
+  val task? = get-table?(t, "uut")
+  #EXPECT(task? is-not None)
+  val task = value!(task?)
+
+  try:
+    val obs = parse-task(task, name = "uut-task")
+    #EXPECT("Function Succeeded Where Failure was Expected" == "")
+  catch (e:InvalidTaskDependency):
+    #EXPECT(name(e) == "uut-task")
+    val m = to-string $ msg(e)
+    #EXPECT(index-of-chars(m, "No 'command' key") is-not False )
+  catch (e:Exception):
+    #EXPECT("Invalid Exception Type Thrown" == e)
+
+deftest(task) print-task :
+  val input-vectors = [
+    [Task("cp"), "{ command = \"cp\" }"]
+    [Task("cp", args = "-r src dst"), "{ command = \"cp\", args = \"-r src dst\" }"]
+    [Task("cp", working-dir = "{HOME}/src"), "{ command = \"cp\", working-dir = \"{HOME}/src\" }"]
+    [Task("cp", env-vars = [KeyValue("SLM_STANZA", "mstanza")]), "{ command = \"cp\", env-vars = { \"SLM_STANZA\" = \"mstanza\" } }"]
+  ]
+
+  for input-vector in input-vectors do:
+    val [task, exp] = input-vector
+
+    val buf = StringBuffer()
+    print(buf, task)
+
+    val obs = to-string(buf)
+    #EXPECT(obs == exp)
+
+
+val basic-task-dep = \<>
+libwhich = {
+  task = {
+    "command" = "which"
+  }
+}
+<>
+
+val basic-task-dep-windows = \<>
+libwhich.task = {
+  "command" = "which"
+}
+libwhich.task.windows = {
+  "command" = "get-command"
+}
+<>
+
+val only-platform-deps = \<>
+libwhich.task.windows = {
+  "command" = "get-command"
+}
+libwhich.task.os-x = {
+  "command" = "which2"
+}
+libwhich.task.linux = {
+  "command" = "which"
+}
+<>
+
+deftest(task) test-parse-task-dep:
+
+  val input-vectors = [
+    [basic-task-dep, TaskDependency("libwhich", task = Task("which"))],
+    [basic-task-dep-windows, TaskDependency("libwhich", task = Task("which"), platform-tasks = [KeyValue("windows", Task("get-command"))])]
+    [only-platform-deps, TaskDependency("libwhich", platform-tasks = [
+      KeyValue("windows", Task("get-command")),
+      KeyValue("os-x", Task("which2")),
+      KeyValue("linux", Task("which")),
+    ])]
+  ]
+
+  for input-vector in input-vectors do:
+    val [content, exp] = input-vector
+
+    val t = table $ parse-string(content)
+
+    val task? = get-table?(t, "libwhich")
+    #EXPECT(task? is-not None)
+    val task-dep = value!(task?)
+
+    val obs = parse-task-dependency("libwhich", task-dep)
+    #EXPECT(obs == exp)
+
+
+val basic-task-dep-expected = \<>libwhich.task = { command = "which" }
+<>
+
+val basic-task-dep-win-expected = \<>libwhich.task = { command = "which" }
+libwhich.task.windows = { command = "get-command" }
+<>
+
+val basic-task-dep-platforms-expected = \<>libwhich.task.linux = { command = "which" }
+libwhich.task.os-x = { command = "which2" }
+libwhich.task.windows = { command = "get-command" }
+<>
+
+deftest(task) test-print-task-dep:
+  val input-vectors = [
+    [TaskDependency("libwhich", task = Task("which")), basic-task-dep-expected],
+    [TaskDependency("libwhich", task = Task("which"), platform-tasks = [KeyValue("windows", Task("get-command"))]), basic-task-dep-win-expected]
+    [TaskDependency("libwhich", platform-tasks = [
+      KeyValue("windows", Task("get-command")),
+      KeyValue("os-x", Task("which2")),
+      KeyValue("linux", Task("which")),
+    ]), basic-task-dep-platforms-expected]
+  ]
+
+  for input-vector in input-vectors do:
+    val [task-dep, exp] = input-vector
+
+    val buf = StringBuffer()
+    print(buf, task-dep)
+
+    val obs = to-string(buf)
+    #EXPECT(obs == exp)
+

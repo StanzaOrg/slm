@@ -1,0 +1,272 @@
+defpackage slm/task:
+  import core
+  import collections
+
+  import toml
+  import maybe-utils
+
+  import slm/flags
+  import slm/dependency
+  import slm/logging
+  import slm/utils
+  import slm/string-utils
+
+public defstruct InvalidTaskDependency <: Exception :
+  name:String
+  msg:String|Printable
+
+defmethod print (o:OutputStream, e:InvalidTaskDependency) :
+  print(o, "Invalid Task Dependency[%_]: %_" % [name(e), to-string $ msg(e)])
+
+doc: \<DOC>
+Define a Task that can be run during the dependency resolution phase
+
+This object outlines the features and parameters for running a
+process via a OS system call during the dependency resolution
+phase.
+
+This object is intended to be OS independent. Different
+variants will be created for different variants. See the
+{@link TaskDependency} object below.
+<DOC>
+public defstruct Task <: Equalable & Hashable:
+  command: String with: (ensure => ensure-not-empty!); Required
+  args: Maybe<String>
+  working-dir:Maybe<String> with: (ensure => ensure-not-empty!)
+  env-vars: Tuple<KeyValue<String, String>>
+with:
+  hashable => true
+  equalable => true
+
+public defn Task (
+  command:String
+  --
+  args:String = ?,
+  working-dir:String = ?,
+  env-vars:Tuple<KeyValue<String, String>> = []
+  ) -> Task :
+  Task(command, args, working-dir, env-vars)
+
+;Programmatic way to create task objects.
+; The `arg = ?` syntax is useful for making
+; nice, user constructable objects. But if you
+; actually want to have a function that calls it,
+; then it is easier if the arguments just take `Maybe<String>`
+; directly.
+public defn to-task (
+  command:String
+  --
+  args?:Maybe<String> = None(),
+  working-dir?:Maybe<String> = None(),
+  env-vars:Tuple<KeyValue<String, String>> = []
+  ) -> Task :
+  Task(command, args?, working-dir?, env-vars)
+
+; NOTE - stanza-toml doesn't support inline arrays
+;  so we can't separate arguments this way - we will
+;  just use a string for now.
+; defn args-to-string (t:Task) -> String :
+;   val elems = for arg in args(t) seq:
+;     to-string("%~" % [arg])
+;   to-string("[%,]" % [elems])
+
+defn env-vars-to-string (t:Task) -> String :
+  val elems = for kvp in env-vars(t) seq:
+    to-string("%~ = %~" % [key(kvp), value(kvp)])
+  to-string("{ %, }" % [elems])
+
+defmethod print (o:OutputStream, t:Task) :
+  val comps = Vector<String|Printable>()
+  add(comps, "command = %~" % [command(t)])
+  if args(t) is-not None:
+    add(comps, "args = %~" % [value! $ args(t)])
+  if working-dir(t) is-not None:
+    add(comps, "working-dir = %~" % [value! $ working-dir(t)])
+  if length(env-vars(t)) > 0 :
+    val ev-str = env-vars-to-string(t)
+    add(comps, "env-vars = %_" % [ev-str])
+
+  val entries = string-join(comps, ", ")
+  print(o, "{ %_ }" % [entries])
+
+defn parse-env-vars (table:TomlTable -- env-sub-enable:True|False = false) -> Tuple<KeyValue<String, String>> :
+  to-tuple $ for kvp in table seq:
+    val [k, v] = if env-sub-enable:
+      [
+        env-var-substitute $ key(kvp)
+        env-var-substitute $ (value(kvp) as String)
+      ]
+    else:
+      [key(kvp), value(kvp) as String]
+    KeyValue(k, v)
+
+defn sub-vars? (v:Maybe<String>, enable:True|False) -> Maybe<String> :
+  if enable : env-var-substitute(v)
+  else: v
+
+doc: \<DOC>
+Parse a Task object from the TOML configuration
+
+@param table TomlTable that contains the following structure:
+{
+  "command" : "",
+  "args" : "",
+  "working-dir" : "",
+  "env-vars" : {
+    "" : ""
+  }
+}
+<DOC>
+public defn parse-task (table:TomlTable -- env-sub-enable:True|False = false, name:String = "unknown") -> Task :
+  val command? = sub-vars?{_, env-sub-enable} $ get-str?(table, "command")
+  val command = value-or-throw(command?, InvalidTaskDependency(name, "No 'command' key found"))
+  val args = sub-vars?{_, env-sub-enable} $ get-str?(table, "args")
+  val working-dir = sub-vars?{_, env-sub-enable} $ get-str?(table, "working-dir")
+  val ev-table? = get-table?(table, "env-vars")
+  val env-vars = match(ev-table?):
+    (_:None): []
+    (x:One<TomlTable>):
+      parse-env-vars(value(x), env-sub-enable = env-sub-enable)
+  Task(command, args, working-dir, env-vars)
+
+doc: \<DOC>
+Error to indicate that an invalid platform (ie, Windows/Mac/Linux) has been attempted.
+<DOC>
+public defstruct InvalidPlatformError <: Exception :
+  name:String
+
+defmethod print (o:OutputStream, e:InvalidPlatformError) :
+  print(o, "Invalid Platform: %_" % [name(e)])
+
+val task-platforms = ["windows", "os-x", "linux"]
+
+public defn is-valid-platform! (plat-name?:Maybe<String>) :
+  match(plat-name?):
+    (x:None): false
+    (v:One<String>):
+      val plat-name = value(v)
+      if not contains?(task-platforms, plat-name):
+        throw $ InvalidPlatformError(plat-name)
+
+public defn ensure-valid-platforms! (field:String, v:HashTable<String, Task>):
+  for plat-name in keys(v) do:
+    if not contains?(task-platforms, plat-name):
+      debug("Field[%_]: Platform '%_' not in the accepted platforms: [%,]" % [field, plat-name, task-platforms] )
+      throw $ InvalidPlatformError(plat-name)
+
+doc: \<DOC>
+Task Dependency - Run a script to do some setup
+
+This dependency is intended to provide the developer the
+option to run a general purpose script as part of the dependency
+resolution. For example, this could run `conan` to build a C/C++
+dependency and make the static library available for the
+subsequent stanza build.
+<DOC>
+public defstruct TaskDependency <: Dependency & Hashable & Equalable:
+  name:String with: (
+    as-method => true
+    ensure => ensure-not-empty!
+    )
+  task?:Maybe<Task> with: (
+    updater => sub-task?
+  )
+  platform-tasks:HashTable<String, Task> with: (
+    ensure => ensure-valid-platforms!,
+    updater => sub-platform-tasks
+  )
+with:
+  constructor => #TaskDependency
+
+defmethod path (d:TaskDependency) -> String:
+  path-join(SLM_DEPS_DIR, name(d))
+
+defmethod equal? (a:TaskDependency, b:TaskDependency) -> True|False :
+  val a-tasks = to-tuple $ platform-tasks(a)
+  val b-tasks = to-tuple $ platform-tasks(b)
+  name(a) == name(b) and (task?(a) == task?(b)) and (a-tasks == b-tasks)
+
+defmethod hash (x:TaskDependency) -> Int :
+  val ptask-hash = sum $ for kvp in platform-tasks(x) seq:
+    val [k,v] = [key(kvp), value(kvp)]
+    hash(k) + hash(v)
+  hash(name(x)) + hash(task?(x)) + ptask-hash
+
+public defn TaskDependency (
+  name:String,
+  --
+  task:Task = ?
+  platform-tasks:Tuple<KeyValue<String, Task>> = []
+  ) -> TaskDependency:
+  val ptasks = to-hashtable<String, Task>(platform-tasks)
+  #TaskDependency(name, task, ptasks)
+
+defmethod print (o:OutputStream, d:TaskDependency) :
+  val t? = task?(d)
+  match(t?):
+    (t:One<Task>):
+      println(o, "%_.task = %_" % [name(d), value(t)])
+    (t:None): false
+
+  ; Print in alphabetical order for consistency.
+  val ptasks = platform-tasks(d)
+  val ks = to-vector<String> $ keys(ptasks)
+  qsort!(ks)
+
+  for platform in ks do:
+    val t = ptasks[platform]
+    println(o, "%_.task.%_ = %_" % [name(d), platform, t])
+
+; Default Task plus windows specific task
+; [dependencies]
+; libz3.task = {
+;   command = "tools/run.ps1"
+;   args = ["-q", "-e"]
+; }
+; libz3.task.windows = {
+;   command = "tools/run.ps1"
+;   args = ["-q", "-e"]
+;   working-dir = "./tools"
+; }
+
+; No Default - Windows and Mac task
+;  No linux task - logs warning but doesn't fail
+;  dependency resolution.
+; [dependencies]
+; libz3.task.windows = {
+;   command = "tools/run.ps1"
+;   args = ["-q", "-e"]
+; }
+; libz3.task.os-x = {
+;   command = "tools/run.ps1"
+;   args = ["-q", "-e"]
+;   env-vars = {
+;     "SLM_STANZA" = "jstanza"
+;   }
+; }
+
+public defn parse-task-dependency (name:String, table:TomlTable -- env-sub-enable:True|False = false) -> TaskDependency :
+  val task? = get-table?(table, "task")
+  val task-table = value-or-throw(task?, InvalidTaskDependency(name, "No 'task' key found"))
+
+  val plat-tasks = to-hashtable<String, Task> $ for platform in task-platforms seq? :
+    val plat-task? = get-table?(task-table, platform)
+    match(plat-task?):
+      (x:None): x
+      (x:One<TomlTable>):
+        One $ platform => parse-task(
+          value(x),
+          name = to-string("%_.%_" % [name, platform])
+          env-sub-enable = env-sub-enable
+          )
+
+  val task = try:
+    One $ parse-task(task-table, name = name, env-sub-enable = env-sub-enable)
+  catch (e:InvalidTaskDependency):
+    debug(to-string(e))
+    debug("Assuming that there is no global task definition")
+    None()
+
+  #TaskDependency(name, task, plat-tasks)
+
+

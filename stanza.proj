@@ -15,6 +15,7 @@ build-test tests:
     slm/tests/git-utils
     slm/tests/utils
     slm/tests/toml
+    slm/tests/task
     slm/tests/commands/add
     slm/tests/commands/remove
   pkg: "test-pkgs"
