@@ -17,6 +17,7 @@ build-test tests:
     slm/tests/toml
     slm/tests/task
     slm/tests/commands/add
+    slm/tests/commands/add-task
     slm/tests/commands/remove
   pkg: "test-pkgs"
   o: "slm-tests"

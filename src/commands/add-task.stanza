@@ -1,0 +1,281 @@
+defpackage slm/commands/add-task:
+  import core
+  import collections
+  import arg-parser
+
+  import semver
+  import maybe-utils
+
+  import slm/flags
+  import slm/toml
+  import slm/task
+  import slm/dependency
+  import slm/errors
+  import slm/file-utils
+  import slm/logging
+
+defn cli-add-task (cmd-args:CommandArgs) -> False :
+
+  val cfg-path = get?(cmd-args, "cfg", SLM_TOML_NAME)
+
+  val name = get(cmd-args, "name")
+  val command = get(cmd-args, "command")
+  val platform? = to-maybe $ get?(cmd-args, "platform", false)
+  val args? = to-maybe $ get?(cmd-args, "args", false)
+  val working-dir? = to-maybe $ get?(cmd-args, "working-dir", false)
+  val env-vars = get?(cmd-args, "env-vars", [])
+
+  val force = get?(cmd-args, "force", false)
+  val dry-run? = get?(cmd-args, "dry-run", false)
+
+  debug("Add-Task Parameters:")
+  val paramTable = [
+    ["name", name]
+    ["command", command]
+    ["platform", platform?]
+    ["args", args?]
+    ["working-dir?", args?]
+    ["env-vars", env-vars]
+    ["force", force]
+    ["dry-run", dry-run?]
+  ]
+  for kvp in paramTable do:
+    debug("\t%_ = %_" % kvp)
+
+  val cfg = parse-project-toml(cfg-path, env-sub-enable = false)
+
+  val env-vars* = parse-env-vars-flag(env-vars)
+
+  val cfg* = add-task-dependency(
+    cfg,
+    name, command,
+    platform? = platform?,
+    args? = args?,
+    working-dir? = working-dir?,
+    env-vars = env-vars*,
+    force = force
+    )
+
+  debug("-- Start New File Write --")
+
+  if dry-run?:
+    val o = current-output-stream()
+    write(o, cfg*)
+  else:
+    within f = open(cfg-path, false):
+      write(f, cfg*)
+
+  debug("-- New File Write Complete --")
+
+defn remove-existing-task (existing:TaskDependency, name:String, platform?:Maybe<String>, force:True|False) -> TaskDependency :
+  match(platform?):
+    (x:None):
+      if task?(existing) is-not None and not force:
+        throw $ ValueError("Task '%_' Already Exists" % [name])
+
+      sub-task?(existing, None())
+    (x:One<String>):
+      val platform = value(x)
+      val plat-tasks = to-hashtable<String, Task> $ platform-tasks(existing)
+      val plat-task = to-maybe $ get?{_, platform, false} $ plat-tasks
+      if plat-task is None :
+        existing
+      else:
+        if not force:
+          throw $ ValueError("Task '%_' Platform '%_' Already Exists" % [name, platform])
+
+        remove(plat-tasks, platform)
+        sub-platform-tasks(existing, plat-tasks)
+
+defn parse-env-vars-flag (env-vars:Tuple<String>) -> Tuple<KeyValue<String, String>> :
+  to-tuple $ for env-var in env-vars seq:
+    val comps = to-tuple $ split(env-var, "=", 2)
+    if length(comps) != 2 :
+      throw $ ValueError("Failed to Parse Environment Variable Spec: %_" % [env-var])
+    KeyValue(comps[0], comps[1])
+
+public defn add-task-dependency (
+  cfg:SlmToml,
+  name:String,
+  command:String,
+  --
+  platform?:Maybe<String> = None(),
+  args?:Maybe<String> = None(),
+  working-dir?:Maybe<String> = None(),
+  env-vars:Tuple<KeyValue<String, String>> = [],
+  force:True|False = false
+  ) -> SlmToml:
+
+  is-valid-platform!(platform?)
+
+  debug("Adding new task dependency")
+
+  ; Check if a dependency by this name already exists in the
+  ;   repo configs.
+  val existing? = find-dependency(cfg, name)
+
+  ; This is the object that we will transform
+  ;  in the next step
+  val task-dep:TaskDependency = match(existing?):
+    (x:None): TaskDependency(name)
+    (dep:One<Dependency>):
+      match(value(dep)):
+        (x:TaskDependency):
+          remove-existing-task(x, name, platform?, force)
+        (x):
+          throw $ ValueError("Invalid Dependency at '%_' - Expected 'TaskDependency' but Found '%_'" % [name, x])
+
+  ; Remove the existing dependency if it exists - we will
+  ;  update with the new one after transforming it
+  val deps = to-hashtable<String, Dependency>( dependencies(cfg) )
+  remove(deps, name)
+
+  val task = to-task(
+    command,
+    args? = args?,
+    working-dir? = working-dir?
+    env-vars = env-vars
+  )
+
+  val task-dep* = match(platform?):
+    (_:None):
+      sub-task?(task-dep, One $ task)
+    (x:One<String>):
+      val platform = value(x)
+      platform-tasks(task-dep)[platform] = task
+      task-dep
+
+  deps[name] = task-dep*
+
+  sub-deps(cfg, deps)
+
+
+val ADD-TASK-MSG = \<MSG>
+The 'add-task' command will append a new task dependency to the 'slm.toml' file
+of the current project.
+
+If the project already contains a reference to this dependency, then
+the 'add-task' command will return an error code unless the 'force'
+option is supplied.
+
+Examples:
+
+Add a new task dependency at the latest tag:
+
+  $> slm add-task -name build-z3 -command "./tools/build_z3.sh"
+
+  Resolves to:
+
+  """
+  [dependencies]
+  build-z3.task = { command = "./tools/build_z3.sh" }
+  """
+
+Add a new task dependency for the windows platform only
+
+  $> slm add-task -name build-z3 -platform windows -command "./tools/build_z3.ps1"
+
+  Resolves to:
+
+  """
+  [dependencies]
+  build-z3.task.windows = { command = "./tools/build_z3.ps1" }
+  """
+
+Add a new task dependency with environment variables
+
+  $> slm add-task -name build-z3 -command "make" -env-vars 'Z3_VERSION=11.1.1' 'DEBUG=1'
+
+  Resolves to:
+
+  """
+  [dependencies]
+  build-z3.task = {
+    command = "make"
+    env-vars = {
+      "Z3_VERSION" = "11.1.1",
+      "DEBUG" = "1"
+    }
+  }
+  """
+
+<MSG>
+
+val CFG-FLAG = \<MSG>
+Select the configuration file to conduct the 'add-task' operation on. The default
+value is the 'slm.toml' file in the current working directory.
+<MSG>
+
+
+val NAME-FLAG = \<MSG>
+This flag sets the name for the added task dependency.
+<MSG>
+
+val CMD-FLAG = \<MSG>
+This flag sets the command that will be for the new task. This should be either (1) the
+name of a binary that can be found on the path or (2) a relative or absolute path to the
+binary to be executed.
+<MSG>
+
+val ARGS-FLAG = \<MSG>
+This flag sets the arguments that will be passed to the 'command' of this task.
+<MSG>
+
+val WORK-DIR-FLAG = \<MSG>
+This flag sets the working directory for the 'command' invocation of this task.
+This value can be either a relative or absolute path. By default, the working
+directory will be this SLM project's directory when the 'slm build' or 'slm repl'
+command is invoked.
+<MSG>
+
+val ENV-VAR-FLAG = \<MSG>
+This flag sets environment variables that will be set only during the
+invocation of 'command'. This argument is assumed to be 1 or more strings
+in the following format:
+
+  NAME=VALUE
+
+The user will typically call this with:
+
+  -env-vars 'SLM_DEBUG=1' 'ROOT={HOME}'
+
+By default, no additional environment variables are included.
+<MSG>
+
+val PLATFORM-FLAG = \<MSG>
+This flag sets the platform to which this task applies. If this flag is
+not supplied, then the task is general and applies to all platforms
+that don't have a platform specific task installed.
+If this flag is supplied with a valid platform name, then a platform
+specific task will be created that will be invoked only if the user is
+running 'slm' on that platform.
+Valid platforms are: "windows", "os-x", and "linux"
+<MSG>
+
+val FORCE-FLAG = \<MSG>
+This flag will force 'slm' to add a task dependency to the 'slm.toml'. This is useful
+for cases where you want to add a 'TaskDependency' that overrides an existing
+'Dependency'. If an existing dependency with a matching 'name' is found, then
+that dependency will be dropped from the 'slm.toml' before the new overriding
+dependency is added.
+<MSG>
+
+val DRY-RUN-FLAG = \<MSG>
+This flag will cause 'slm' to do all of the checks and operations to perform
+an 'add-task' operation - but it won't actually change the 'slm.toml' file of the
+project. It will output the resultant changes to std-out for inspection.
+<MSG>
+
+public defn setup-add-task-cmd () -> Command :
+  val taskFlags = [
+    Flag("cfg", OneFlag, OptionalFlag, CFG-FLAG)
+    Flag("name", OneFlag, RequiredFlag, NAME-FLAG)
+    Flag("command", OneFlag, RequiredFlag, CMD-FLAG)
+    Flag("platform", OneFlag, OptionalFlag, PLATFORM-FLAG)
+    Flag("args", OneFlag, OptionalFlag, ARGS-FLAG)
+    Flag("working-dir", OneFlag, OptionalFlag, WORK-DIR-FLAG)
+    Flag("env-vars", AtLeastOneFlag, OptionalFlag, ENV-VAR-FLAG)
+    Flag("force", ZeroFlag, OptionalFlag, FORCE-FLAG)
+    Flag("dry-run", ZeroFlag, OptionalFlag, DRY-RUN-FLAG)
+  ]
+  Command("add-task", ZeroArg, false, taskFlags, ADD-TASK-MSG, cli-add-task)
