@@ -5,9 +5,7 @@ defpackage slm/commands/init:
   import collections
 
   import maybe-utils
-  import toml/file
-  import toml/table
-  import toml/value
+  import toml
 
   import slm/flags
   import slm/file-utils

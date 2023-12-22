@@ -7,10 +7,7 @@ defpackage slm/commands/build:
   import maybe-utils
   import semver
   import term-colors
-  import toml/file
-  import toml/parser
-  import toml/table
-  import toml/value
+  import toml
 
   import slm/dependency
   import slm/dependencies

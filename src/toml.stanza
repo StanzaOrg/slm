@@ -4,10 +4,7 @@ defpackage slm/toml:
 
   import semver
   import maybe-utils
-  import toml/file
-  import toml/parser
-  import toml/table
-  import toml/value
+  import toml
 
   import slm/dependency
   import slm/logging
