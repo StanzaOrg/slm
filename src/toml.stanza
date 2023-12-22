@@ -9,6 +9,7 @@ defpackage slm/toml:
   import slm/dependency
   import slm/logging
   import slm/utils
+  import slm/task
   import slm/errors
   import slm/stanza-utils
 
@@ -82,20 +83,30 @@ public defn parse-slm-toml (path: String -- env-sub-enable:True|False = true) ->
 
   SlmToml(name, version, compiler?, stanza-version?, dependencies)
 
+public defstruct InvalidDependencyConfigError <: Exception :
+  name:String
+  msg:String|Printable
+
+defmethod print (o:OutputStream, e:InvalidDependencyConfigError) :
+  print(o, "Invalid Dependency[%_]: %_" % [name(e), msg(e)])
+
 defn parse-dependency (name:String, table:TomlTable, env-sub-enable:True|False) -> Dependency :
   val pathAttr = get-str?(table, "path")
   val gitAttr = get-str?(table, "git")
   val version = get-str?(table, "version")
-  match(pathAttr, gitAttr):
-    (p:One<String>, g:One<String>):
-      throw $ Exception("Invalid Dependency[%_]: The 'path' and 'git' attributes are mutually exclusive" % [name])
-    (p:One<String>, g:None): ; Path Dependency
-      parse-path-dependency(name, value(p), version, env-sub-enable)
-    (p:None, g:One<String>): ; Git Dependency
-      parse-git-dependency(name, value(g), version)
-    (p:None, g:None):
-      throw $ Exception("Invalid Dependency[%_]: Expected either a 'path' or 'git' attribute but found neither" % [name])
 
+  val taskAttr = get-table?(table, "task")
+  match(pathAttr, gitAttr, taskAttr):
+    (p:One<String>, g:None, t:None): ; Path Dependency
+      parse-path-dependency(name, value(p), version, env-sub-enable)
+    (p:None, g:One<String>, t:None): ; Git Dependency
+      parse-git-dependency(name, value(g), version)
+    (p:None, g:None, t:One): ; Task Dependency
+      parse-task-dependency(name, table, env-sub-enable = env-sub-enable)
+    (p:None, g:None, t:None): ; Invalid Dependency - no type specified
+      throw $ InvalidDependencyConfigError(name, "Expected at least one of 'path', 'git', or 'task'")
+    (p, g, t):
+      throw $ InvalidDependencyConfigError(name, "The 'path', 'git', and 'task' keys are mutually exclusive. Your config has an invalid combination.")
 
 doc: \<DOC>
 Output the SlmToml config as a valid TOML file.

@@ -7,6 +7,7 @@ defpackage slm/tests/toml:
 
   import slm/toml
   import slm/dependency
+  import slm/task
 
   import slm/tests/test-tools
 
@@ -39,6 +40,7 @@ deftest(toml) test-find-dependency:
     "git-dep" => GitDependency("git-dep", "StanzaOrg/stanza-toml", SemanticVersion(1, 2, 3), "")
     "path-dep" => PathDependency("path-dep", "/home/john/src/sqlite")
     "find-me" => GitDependency("find-me", "sqlite/sqlite", SemanticVersion(2, 0, 2), "")
+    "task-me" => TaskDependency("task-me", task = Task("xeyes"))
   ])
 
   val ret-pos = find-dependency(uut, "find-me")
@@ -60,7 +62,7 @@ deftest(toml) test-parse-slm-toml:
   #EXPECT(compiler?(uut) == One("jstanza"))
 
   val deps = dependencies(uut)
-  #EXPECT(length(to-tuple(deps)) ==  3)
+  #EXPECT(length(to-tuple(deps)) ==  4)
 
   val dep1 = deps["stanza-toml"]
   match(dep1):
@@ -81,6 +83,18 @@ deftest(toml) test-parse-slm-toml:
       #EXPECT(name(path-dep) == "test-env")
       #EXPECT(path(path-dep) == "/home/charles/asdf")
 
+  val dep4 = deps["build-task"]
+  match(dep4):
+    (task-dep:TaskDependency):
+      #EXPECT(name(task-dep) == "build-task")
+      #EXPECT( task?(task-dep) is-not None)
+      val ptasks = to-tuple $ platform-tasks(task-dep)
+      #EXPECT( length(ptasks) == 1 )
+      val [name, t] = [key(ptasks[0]), value(ptasks[0])]
+      #EXPECT(name == "windows")
+      #EXPECT(command(t) == "build_libtask.ps1")
+
+
 deftest(toml) test-parse-mutex-error:
   set-env("TEST_VAR", "/home/charles")
 
@@ -92,7 +106,7 @@ deftest(toml) test-parse-mutex-error:
   unset-env("TEST_VAR")
 
   #EXPECT(msg is-not None)
-  #EXPECT(index-of-chars(value!(msg), "'path' and 'git' attributes are mutually exclusive") is-not False)
+  #EXPECT(index-of-chars(value!(msg), "Invalid Dependency[sqlite]:") is-not False)
 
 
 deftest(toml) test-parse-malformed-error:
@@ -106,5 +120,5 @@ deftest(toml) test-parse-malformed-error:
   unset-env("TEST_VAR")
 
   #EXPECT(msg is-not None)
-  #EXPECT(index-of-chars(value!(msg), "Expected either a 'path' or 'git' attribute") is-not False)
+  #EXPECT(index-of-chars(value!(msg), "Invalid Dependency[stanza-toml]:") is-not False)
 
