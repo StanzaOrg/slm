@@ -4,3 +4,10 @@ slm
 test-pkgs/
 slm-tests
 .vscode/
+.envrc
+.stanza
+
+# Conan Related
+.conan2/
+test_package/*.sh
+venv/
