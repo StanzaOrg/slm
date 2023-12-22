@@ -107,7 +107,7 @@ public defn add-git-dependency (
 
   val version-spec = match(version-spec?):
     (_:None):
-      ; we need to query the repo for the lastest tag
+      ; we need to query the repo for the latest tag
       ;   in the repository.
       if not has-git?():
         val PATH = to-maybe $ get-env("PATH")
