@@ -10,14 +10,9 @@ defpackage slm/task:
   import slm/dependency
   import slm/logging
   import slm/utils
+  import slm/errors
   import slm/string-utils
-
-public defstruct InvalidTaskDependency <: Exception :
-  name:String
-  msg:String|Printable
-
-defmethod print (o:OutputStream, e:InvalidTaskDependency) :
-  print(o, "Invalid Task Dependency[%_]: %_" % [name(e), to-string $ msg(e)])
+  import slm/process-utils
 
 doc: \<DOC>
 Define a Task that can be run during the dependency resolution phase
@@ -62,6 +57,16 @@ public defn to-task (
   env-vars:Tuple<KeyValue<String, String>> = []
   ) -> Task :
   Task(command, args?, working-dir?, env-vars)
+
+
+defn to-cmd-seq (task:Task) -> Tuple<String> :
+  val args? = args(task)
+  val arg-seq = match(args?):
+    (_:None): []
+    (x:One<String>):
+      shell-lex $ value(x)
+
+  to-tuple $ cat([command(task)], arg-seq)
 
 ; NOTE - stanza-toml doesn't support inline arrays
 ;  so we can't separate arguments this way - we will
@@ -249,4 +254,44 @@ public defn parse-task-dependency (name:String, table:TomlTable -- env-sub-enabl
 
   #TaskDependency(name, task, plat-tasks)
 
+doc: \<DOC>
+Execute the task for this platform
+<DOC>
+public defn run-task-dep (dep:TaskDependency, parent-name:String, dep-path:String) -> Maybe<TaskDependency> :
+  val ptasks = platform-tasks(dep)
+  val platform = lower-case $ to-string(CURRENT-PLATFORM)
+  val plat-task? = to-maybe $ get?(ptasks, platform, false)
 
+  val task? = or?(plat-task?, task?(dep))
+  debug("Dep: %_ Parent: %_ Task: %_" % [name(dep), parent-name, task?])
+
+  val [code, msg] = match(task?):
+    (_:None):
+      throw $ NoTaskDefError(platform)
+    (x:One<Task>):
+      val task = value(x)
+      call-task(task, dep-path)
+
+  ; @TODO - save to log ?
+  debug(msg)
+
+  if code != 0:
+    error("Dependency[%_]: Failed! code=%_" % [name(dep), code])
+    None()
+  else:
+    One(dep)
+
+defn call-task (task:Task, dep-path:String) -> [Int, String]:
+
+  val cmd-seq = to-cmd-seq(task)
+  val work-dir? = or?(working-dir(task), One(dep-path))
+  val env-vars = env-vars(task)
+
+  val p = ProcessBuilder(cmd-seq, work-dir?)
+    $> with-output
+    $> with-env-vars{_, env-vars}
+    $> build
+
+  val msg = get-output(p) $> trim
+  val code = run-and-get-exit-code(p)
+  [code, msg]
