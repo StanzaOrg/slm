@@ -73,3 +73,15 @@ public defstruct StanzaVersionUnavailableError <: Exception
 public defmethod print (o:OutputStream, e:StanzaVersionProcessError) :
   print(o, "No Stanza Version Available -- This is a Bug in SLM")
 
+public defstruct NoTaskDefError <: Exception :
+  platform:String
+
+defmethod print (o:OutputStream, e:NoTaskDefError):
+  print(o, "No Task to support this platform '%_' found" % [platform(e)])
+
+public defstruct InvalidTaskDependency <: Exception :
+  name:String
+  msg:String|Printable
+
+defmethod print (o:OutputStream, e:InvalidTaskDependency) :
+  print(o, "Invalid Task Dependency[%_]: %_" % [name(e), to-string $ msg(e)])
