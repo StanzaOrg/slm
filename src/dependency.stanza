@@ -16,6 +16,29 @@ public defmulti name (d: Dependency) -> String
 public defmulti path (d: Dependency) -> String
 public defmulti version-string? (d: Dependency) -> Maybe<String>:
   None()
+doc: \<DOC>
+Indicates whether a dependency should be parsed recursively.
+
+Typical dependencies like git/path depedencies have a `slm.toml`
+file that we will need to parse and then recursively discover
+dependencies with.
+
+Other deps, like the `TaskDependency` does not have an `slm.toml`
+and is primarily for executing a command/process for external
+initialization.
+
+This flag is for differentiating between these two types of
+dependency.
+<DOC>
+public defmulti recursive (d:Dependency) -> True|False :
+  true
+
+doc: \<DOC>
+Tool for filtering dependencies for recursives only.
+<DOC>
+public defn recursive-deps-only (deps:Seqable<Dependency>) -> Seqable<Dependency> :
+  for dep in deps filter:
+    recursive(dep)
 
 public defstruct UnknownDependencyTypeError <: Exception :
   dep:Dependency
