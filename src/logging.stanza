@@ -21,6 +21,15 @@ defn program-prefix () -> ColoredString|String:
   else:
     to-string("%_:" % [program-name()])
 
+defn sub-command () -> String|Printable :
+  val args = command-line-arguments()
+  if length(args) > 1:
+    args $> get{_, 1} $> to-maybe
+    $> map{_, fn (cmd): "%_: " % [cmd]}
+    $> value-or{_, ""}
+  else:
+    ""
+
 public defn debug (msg: Printable|String) -> False:
   if slm/flags/debug?:
     println(current-error-stream(), "%_ %_%_%_" % [
@@ -28,10 +37,7 @@ public defn debug (msg: Printable|String) -> False:
       ColoredString("debug: ")
         $> bold $> dim $> foreground{_, TerminalYellow}
         $> clear-color?,
-      command-line-arguments()
-        $> get{_, 1} $> to-maybe
-        $> map{_, fn (cmd): "%_: " % [cmd]}
-        $> value-or{_, ""},
+      sub-command(),
       msg,
     ])
 
