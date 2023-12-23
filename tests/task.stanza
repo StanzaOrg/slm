@@ -4,6 +4,7 @@ defpackage slm/tests/task:
 
   import toml
   import slm/task
+  import slm/errors
 
 val basic-task = \<>
 uut = {

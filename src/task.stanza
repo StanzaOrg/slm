@@ -6,6 +6,7 @@ defpackage slm/task:
   import maybe-utils
 
   import slm/flags
+  import slm/platforms
   import slm/dependency
   import slm/logging
   import slm/utils
@@ -129,30 +130,9 @@ public defn parse-task (table:TomlTable -- env-sub-enable:True|False = false, na
       parse-env-vars(value(x), env-sub-enable = env-sub-enable)
   Task(command, args, working-dir, env-vars)
 
-doc: \<DOC>
-Error to indicate that an invalid platform (ie, Windows/Mac/Linux) has been attempted.
-<DOC>
-public defstruct InvalidPlatformError <: Exception :
-  name:String
-
-defmethod print (o:OutputStream, e:InvalidPlatformError) :
-  print(o, "Invalid Platform: %_" % [name(e)])
-
-val task-platforms = ["windows", "os-x", "linux"]
-
-public defn is-valid-platform! (plat-name?:Maybe<String>) :
-  match(plat-name?):
-    (x:None): false
-    (v:One<String>):
-      val plat-name = value(v)
-      if not contains?(task-platforms, plat-name):
-        throw $ InvalidPlatformError(plat-name)
-
 public defn ensure-valid-platforms! (field:String, v:HashTable<String, Task>):
   for plat-name in keys(v) do:
-    if not contains?(task-platforms, plat-name):
-      debug("Field[%_]: Platform '%_' not in the accepted platforms: [%,]" % [field, plat-name, task-platforms] )
-      throw $ InvalidPlatformError(plat-name)
+    is-valid-platform!(One(plat-name))
 
 doc: \<DOC>
 Task Dependency - Run a script to do some setup

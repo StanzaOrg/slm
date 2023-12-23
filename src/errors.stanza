@@ -8,6 +8,15 @@ public defstruct ValueError <: Exception :
 defmethod print (o:OutputStream, e:ValueError):
   print(o, "ValueError: %_" % [msg(e)])
 
+doc: \<DOC>
+Error to indicate that an invalid platform (ie, Windows/Mac/Linux) has been attempted.
+<DOC>
+public defstruct InvalidPlatformError <: Exception :
+  name:String
+
+defmethod print (o:OutputStream, e:InvalidPlatformError) :
+  print(o, "Invalid Platform: %_ - This platform is not a known and accepted platform type" % [name(e)])
+
 public defstruct GitNotFoundError <: Exception :
   PATH:Maybe<String>
 

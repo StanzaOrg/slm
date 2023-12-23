@@ -13,6 +13,8 @@ defpackage slm/commands/add-task:
   import slm/errors
   import slm/file-utils
   import slm/logging
+  import slm/platforms
+
 
 defn cli-add-task (cmd-args:CommandArgs) -> False :
 
