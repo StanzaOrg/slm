@@ -1,0 +1,19 @@
+#use-added-syntax(tests)
+defpackage slm/tests/string-utils:
+  import core
+  import slm/string-utils
+
+deftest(string-utils) test-shell-lex:
+
+  val test-vectors = [
+    ["-a -t -s", ["-a", "-t", "-s"]],
+    ["-a \"ALL DONE\" -t -s", ["-a", "ALL DONE", "-t", "-s"]]
+    ["-a 'ALL DONE' -t -s", ["-a", "ALL DONE", "-t", "-s"]]
+    ["-a 'ALL \\\'DONE' -t -s", ["-a", "ALL 'DONE", "-t", "-s"]]
+    ["-a 'ALL \\\\DONE' -t -s", ["-a", "ALL \\DONE", "-t", "-s"]]
+    ["-a \"ALL \\\"DONE\" -t ' NO R\\\\E\\'ALLY ' -s", ["-a", "ALL \"DONE", "-t", " NO R\\E'ALLY ", "-s"]]
+  ]
+  for test-vector in test-vectors do:
+    val [uut, exp] = test-vector
+    val obs = shell-lex(uut)
+    #EXPECT(obs == exp)

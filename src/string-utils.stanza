@@ -1,5 +1,6 @@
 defpackage slm/string-utils:
   import core
+  import collections
   import maybe-utils
 
   import slm/errors
@@ -80,3 +81,94 @@ public defn env-var-substitute (path:String) -> String:
 
 public defn env-var-substitute (path?:Maybe<String>) -> Maybe<String> :
   map(path?, env-var-substitute)
+
+
+doc: \<DOC>
+State enum for the shell-lex utility
+<DOC>
+defenum STATE:
+  IDLE
+  DQ
+  SQ
+
+
+doc: \<DOC>
+Split the args string into a tuple using shell lexing rules.
+
+To call a command via `call-system`, we
+need to split the components into separate parts.
+
+The user can use `"` or `'` to create string literals.
+I'm having to do this primiarily because the toml library
+doesn't support arrays.
+<DOC>
+public defn shell-lex (args:String) -> Tuple<String> :
+
+  val escable = "\"\\'"
+  val stream = StringInputStream(args)
+  val stack = Vector<String>()
+  val buf = StringBuffer()
+  var curr-state = IDLE
+
+  defn process-char (x:Char) -> STATE :
+    switch(x):
+      '\\': ; Escape
+        val o = get-char(stream)
+        ; println("Attempt Exscape: %_" % [o])
+        if o is False:
+          throw $ ValueError("Invalid Escape Sequence")
+        if contains?(escable, o as Char):
+          add(buf, o as Char)
+        else:
+          throw $ ValueError("Attempt to escape character that is not escable: '%_'" % [o] )
+        curr-state
+      ' ':
+        if curr-state == DQ or curr-state == SQ:
+          add(buf, x)
+        else:
+          if length(buf) > 0:
+            add(stack, to-string(buf))
+          clear(buf)
+        curr-state
+      '"':
+        if curr-state == DQ:
+          add(stack, to-string(buf))
+          clear(buf)
+          IDLE
+        else if curr-state == SQ:
+          add(buf, x)
+          curr-state
+        else:
+          if length(buf) == 0:
+            DQ
+          else:
+            curr-state
+      '\'':
+        if curr-state == SQ:
+          add(stack, to-string(buf))
+          clear(buf)
+          IDLE
+        else if curr-state == DQ:
+          add(buf, x)
+          curr-state
+        else:
+          if length(buf) == 0:
+            SQ
+          else:
+            curr-state
+      else:
+        add(buf, x)
+        curr-state
+
+  while length(stream) > 0:
+    val c = get-char(stream)
+    match(c):
+      (_:False): false
+      (x:Char):
+        val next-state = process-char(x)
+        ; println("Curr: %_ Next: %_" % [curr-state, next-state])
+        curr-state = next-state
+  if length(buf) > 0:
+    add(stack, to-string(buf))
+    clear(buf)
+  to-tuple(stack)
