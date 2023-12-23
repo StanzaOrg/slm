@@ -1,0 +1,27 @@
+defpackage slm/platforms:
+  import core
+  import collections
+
+  import slm/errors
+
+defn compute-task-platforms () -> Tuple<String> :
+  defn get-max-Platform () -> Int :
+    label<Int> return:
+      for i in 0 to false do:
+        val ret = Platform?(i)
+        if ret is False:
+          return(i)
+      throw $ ValueError("Failed to find Max Int for Platform Enum")
+
+  to-tuple $ for i in 0 to get-max-Platform() seq:
+    lower-case $ to-string("%_" % [Platform(i)])
+
+public val task-platforms = compute-task-platforms()
+
+public defn is-valid-platform! (plat-name?:Maybe<String>) :
+  match(plat-name?):
+    (x:None): false
+    (v:One<String>):
+      val plat-name = lower-case $ value(v)
+      if not contains?(task-platforms, plat-name):
+        throw $ InvalidPlatformError(plat-name)
