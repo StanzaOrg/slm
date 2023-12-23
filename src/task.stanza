@@ -163,6 +163,9 @@ public defstruct TaskDependency <: Dependency & Hashable & Equalable:
 with:
   constructor => #TaskDependency
 
+defmethod recursive (d:TaskDependency) -> True|False :
+  false
+
 defmethod path (d:TaskDependency) -> String:
   path-join(SLM_DEPS_DIR, name(d))
 
