@@ -1,0 +1,42 @@
+#use-added-syntax(tests)
+defpackage slm/tests/lock:
+  import core
+
+  import semver
+
+  import slm/dep-types
+  import slm/lock
+
+deftest(lock) test-lock-file:
+
+  val buf = StringBuffer()
+
+  val deps = [
+    GitDependency("maybe-utils", "StanzaOrg/maybe-utils", SemanticVersion(0, 1, 3), "hash01")
+    GitDependency("libz", "Blagle/stanza-libz", SemanticVersion(0, 2, 4), "hash02")
+    PathDependency("stanza-toml", "/Users/john/src/toml")
+    TaskDependency("make-cupcackes", task = Task("/usr/bin/cupcakes"))
+  ]
+
+  write-slm-lock-file(buf, deps)
+
+  val content = to-string(buf)
+  val lines = split(content, "\n")
+
+  val lines* = to-tuple $ for line in lines filter:
+    length(trim(line)) > 0
+
+  #EXPECT(length(lines*) == 4)
+
+  val sstream = StringInputStream(content)
+  val ldeps = parse-slm-lock-file(sstream)
+  #EXPECT(length(ldeps) == 4)
+
+  val exp = [
+    LockedGitDependency("maybe-utils", "StanzaOrg/maybe-utils", SemanticVersion(0, 1, 3), "hash01")
+    LockedGitDependency("libz", "Blagle/stanza-libz", SemanticVersion(0, 2, 4), "hash02")
+    LockedPathDependency("stanza-toml")
+    LockedTaskDependency("make-cupcackes", "1525912865")
+  ]
+
+  #EXPECT(ldeps == exp)

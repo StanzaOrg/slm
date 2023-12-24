@@ -11,30 +11,56 @@ defpackage slm/dependencies:
   import slm/dep-types
   import slm/file-utils
   import slm/git-utils
+  import slm/stanza-utils
   import slm/lock
   import slm/logging
   import slm/toml
   import slm/utils
 
-public defn fetch-and-sync () -> Tuple<Dependency>:
+public defn fetch-and-sync (cfg:SlmToml, force:True|False) -> Tuple<Dependency>:
 
   ensure-slm-dir-structure-exists()
 
+  val deps = resolve-deps(cfg)
+  check-stanza-compatible-deps(cfg, deps, force)
+
+  deps
+
+defn resolve-deps (cfg:SlmToml) -> Tuple<Dependency> :
   ; There are two main strategies we'll use
   ; 1. If there's a slm.lock, then we resolve all dependencies to that exact hash
   ;    using only the lockfile.
   ;
   ; 2. Otherwise we use the slm.toml
-  val deps = if file-exists?(SLM_LOCK_NAME):
-    parse-slm-lock-and-resolve-dependencies()
+  if file-exists?(SLM_LOCK_NAME):
+    val lock-cfg = within f = open(SLM_LOCK_NAME):
+      parse-slm-lock-file(f)
+    parse-slm-lock-and-resolve-dependencies(cfg, lock-cfg)
   else:
-    parse-slm-toml-and-resolve-dependencies()
+    val deps = parse-slm-toml-and-resolve-dependencies(cfg)
 
-  write-build-stanza-proj(deps)
-  write-slm-lock-file(deps)
+    ; We only write this
+    within f = open(SLM_STANZA_PROJ, false):
+      write-build-stanza-proj(f, deps)
 
-  deps
+    within f = open(SLM_LOCK_NAME, false):
+      write-slm-lock-file(f, deps)
 
+    deps
+
+defn check-stanza-compatible-deps (cfg:SlmToml, deps:Tuple<Dependency>, force:True|False) :
+  val non-compat = check-stanza-versions(cfg, deps)
+  if length(non-compat) > 0:
+    if force:
+      info("Stanza Compatibility Check Failed - Proceeding by Force")
+    else:
+      val name-version = for [name, msg] in pairs(non-compat) seq:
+        "'%_' %_" % [name, msg]
+      val content = string-join(name-version, "\n")
+      info("Current Stanza Version: %_" % [get-stanza-version!()])
+      info("Dependencies with Stanza Version Issues:")
+      info(content)
+      error("Stanza Version Compatibility Check Failed")
 
 defn ensure-slm-dir-structure-exists () -> False:
   defn create-dir! (path: String) -> True|False:
@@ -47,67 +73,65 @@ defn ensure-slm-dir-structure-exists () -> False:
       create-dir!(build-dir)
   false
 
-defn write-build-stanza-proj (dependencies: Tuple<Dependency>) -> False:
-  within f = open(SLM_STANZA_PROJ, false):
-    for dep in dependencies do:
-      val dep-path = path-join(path(dep), "stanza.proj")
-      val stanza-proj? = resolve-path(dep-path)
-      val dep-stanza-proj = un-norm-path $ match(stanza-proj?):
-        (x:False): throw $ Exception("Failed to Resolve Path %_. Double check path dependencies and confirm expected git repos in '.slm/deps'" % [dep-path])
-        (x:String): x
-      println(f, to-string(\<>include "%_"<> % [dep-stanza-proj]))
-
-defn write-slm-lock-file (dependencies: Tuple<Dependency>) -> False:
-  within f = open(SLM_LOCK_NAME, false):
-    for dep in dependencies do:
-      match(dep):
-        (dep: GitDependency):
-          println(f, "%_={locator=%~,version=%~,hash=%~}"
-                  % [name(dep), locator(dep), to-string(version(dep)), hash(dep)])
-        (dep: PathDependency):
-          println(f, "%_={}" % [name(dep)])
+public-when(TESTING) defn write-build-stanza-proj (f:OutputStream, dependencies: Tuple<Dependency>) -> False:
+  val deps* = recursive-deps-only(dependencies)
+  for dep in deps* do:
+    val dep-path = path-join(path(dep), "stanza.proj")
+    val stanza-proj? = resolve-path(dep-path)
+    val dep-stanza-proj = un-norm-path $ match(stanza-proj?):
+      (x:False): throw $ Exception("Failed to Resolve Path %_. Double check path dependencies and confirm expected git repos in '.slm/deps'" % [dep-path])
+      (x:String): x
+    println(f, to-string(\<>include "%_"<> % [dep-stanza-proj]))
 
 
-defn parse-slm-lock-and-resolve-dependencies ():
-  val slm-toml-dependencies = parse-slm-toml(SLM_TOML_NAME) $> dependencies
+defn parse-slm-lock-and-resolve-dependencies (cfg:SlmToml, lock-cfg:Tuple<LockedDependency>):
+  val slm-toml-dependencies = dependencies(cfg)
   val locked-dependencies = to-hashtable<String, Dependency> $
-    for locked-dep in parse-slm-lock-file(SLM_LOCK_NAME) seq:
+    for locked-dep in lock-cfg seq:
       name(locked-dep) => match(locked-dep):
         (dep: LockedGitDependency):
-          val locked-dep = GitDependency(name(dep), locator(dep), version(dep), hash(dep))
+          val git-dep = GitDependency(name(dep), locator(dep), version(dep), hash(dep))
           val slm-toml-dep? = get?(slm-toml-dependencies, name(dep))
           match(slm-toml-dep?):
             (slm-toml-dep:GitDependency):
-              if not compatible?(version(slm-toml-dep), version(locked-dep)):
+              if not compatible?(version(slm-toml-dep), version(git-dep)):
                 error("'%_' (version %_) specified in 'slm.toml'.\n\
                        This conflicts with locked version ('%_') from 'slm.lock'\n\
                        If you wish to use the version from your 'slm.toml', \
-                       delete 'slm clean', then re-run this command."
-                       % [name(dep), version(slm-toml-dep), version(locked-dep)])
+                       run 'slm clean', then re-run this command."
+                       % [name(dep), version(slm-toml-dep), version(git-dep)])
               else:
-                fetch-or-sync-at-hash(locked-dep)
-                locked-dep
+                fetch-or-sync-at-hash(git-dep)
+                git-dep
             (slm-toml-dep:PathDependency):
               error("'%_' is specified as a path dependency in 'slm.toml'.\n\
                     This conflicts with locked version ('%_') from 'slm.lock'\n\
                     If you wish to use the version from your 'slm.toml', \
-                    delete 'slm clean', then re-run this command."
-                    % [name(dep), version(locked-dep)])
+                    run 'slm clean', then re-run this command."
+                    % [name(slm-toml-dep), version(dep)])
+            (slm-toml-dep:TaskDependency):
+              ; To re-run, the user needs to run `slm clean` and then `slm build`
+              ;  again
+              error("'%_' is specified as a task dependency in 'slm.toml'.\n\
+                    This conflicts with the locked version ('%_') from 'slm.lock'\n\
+                    If you wish to use the version from your 'slm.toml', \
+                    run 'slm clean', then re-run this command." % [name(slm-toml-dep), version(dep)]
+                    )
             (x:False):
               ; This dependency was found in the lock file but not in our slm.toml file.
               ;  This likely means it is a "grand-child" or further decendent
               ;  dependency. We just want to let it ride
               ; TODO - It may also be a removed dependency. There is no way for me to
               ;  distinguish between the two
-              locked-dep
+              git-dep
         (dep: LockedPathDependency):
           val slm-toml-dep = get?(slm-toml-dependencies, name(dep))
           match(slm-toml-dep):
-            (git-dep:GitDependency):
-              error("'%_' is specified as a git dependency in 'slm.toml'.\n\
+            (git-dep:GitDependency|TaskDependency):
+              error("'%_' is specified as a git/task dependency in 'slm.toml'.\n\
                     This conflicts with locked (path) version from 'slm.lock'\n\
                     If you wish to use the version from your 'slm.toml', \
-                    delete 'slm clean', then re-run this command."
+                    run 'slm clean', then re-run this command."
                     % [name(dep)])
             (path-dep:PathDependency):
               val [is-compat, obs-version] = check-path-compatible(path-dep)
@@ -125,6 +149,26 @@ defn parse-slm-lock-and-resolve-dependencies ():
                     We don't currently handle this case. Consider adding the\
                     necessary path dependency to the local project's 'slm.toml'\
                     to work around this short-coming." % [name(dep)])
+        (dep: LockedTaskDependency):
+          val slm-toml-dep = get?(slm-toml-dependencies, name(dep))
+          match(slm-toml-dep):
+            (g-or-p:GitDependency|PathDependency):
+              error("'%_' is specified as a git/path dependency in 'slm.toml'.\n\
+                    This conflicts with the locked (task) version from 'slm.lock'\n\
+                    If you wish to use the version from 'slm.toml', run 'slm clean',\n\
+                    then re-run this command." % [name(dep)])
+            (task-dep:TaskDependency):
+              ; In order not to confuse things, I'm not going to re-run the task here
+              ;  even if it is different
+              ;  we should probably indicate a warning though - as that might give the
+              ;  user the leeway to run 'slm clean' and re-run the tasks.
+              ;  Everything should be idempotent
+              task-dep
+            (x:False):
+              ; This dependency was found in the lock file, but was not found
+              ;  in our slm.toml file. This likely means it is a "grand-child"
+              ;  or further descendent dependency.
+              error("This error doesn't make sense")
 
   for [name, dep] in pairs(slm-toml-dependencies) do:
     if get?(locked-dependencies, name) is False:
@@ -164,13 +208,10 @@ defn check-path-compatible (d:PathDependency) -> [True|False, String] :
     (obs, exp:None): true
   [is-compat, obs-version-str]
 
-defn parse-slm-toml-and-resolve-dependencies () -> Tuple<Dependency>:
+defn parse-slm-toml-and-resolve-dependencies (cfg:SlmToml) -> Tuple<Dependency>:
   val resolved-dependencies = HashTable<String, Dependency>()
 
-  let loop (slm-toml-path: String = SLM_TOML_NAME, top-level: True|False = true):
-    debug("parsing '%_'" % [slm-toml-path])
-
-    val slm-toml = parse-slm-toml(slm-toml-path)
+  let loop (slm-toml:SlmToml = cfg, dep-path:String = get-cwd(), top-level: True|False = true):
     val parent-name = slm-toml $> name
     val resolved = to-tuple $ for dep in values(dependencies(slm-toml)) seq?:
       match(dep):
@@ -184,17 +225,26 @@ defn parse-slm-toml-and-resolve-dependencies () -> Tuple<Dependency>:
                    You can't have path dependencies in dependencies \
                    (path dependencies can only be specified in a top-level slm.toml)"
                    % [/name(dep), parent-name])
+        (dep: TaskDependency):
+          run-task-dep(dep, parent-name, dep-path)
         (_): fatal("unreachable")
 
-    debug("done parsing '%_'" % [slm-toml-path])
+    debug("done resolving '%_'" % [parent-name])
+
     for dep in resolved do:
       match(dep: GitDependency):
         debug("resolved %_ at %_" % [colored-name?(dep), version-string(dep)])
       resolved-dependencies[/name(dep)] = dep
 
-    for dep in resolved do:
+    val resolved* = recursive-deps-only(resolved)
+    for dep in resolved* do:
       val next-slm-toml = path-join(path(dep), SLM_TOML_NAME)
-      loop(next-slm-toml, false)
+      debug("parsing '%_'" % [next-slm-toml])
+      val [dep-path, _] = split-filepath(next-slm-toml)
+      debug("dep-path: %_" % [dep-path])
+      val next-cfg = within f = open(next-slm-toml):
+        parse-slm-toml(f)
+      loop(next-cfg, dep-path, false)
 
   debug("done parsing dependency graph")
   for dep in values(resolved-dependencies) do:
