@@ -4,7 +4,7 @@ defpackage slm/tests/commands/add-task:
   import collections
 
   import slm/task
-  import slm/dependency
+  import slm/dep-types
   import slm/toml
   import slm/commands/add-task
 

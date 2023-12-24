@@ -6,7 +6,7 @@ defpackage slm/toml:
   import maybe-utils
   import toml
 
-  import slm/dependency
+  import slm/dep-types
   import slm/logging
   import slm/utils
   import slm/task

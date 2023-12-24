@@ -8,7 +8,7 @@ defpackage slm/dependencies:
   import toml
 
   import slm/flags
-  import slm/dependency
+  import slm/dep-types
   import slm/file-utils
   import slm/git-utils
   import slm/lock

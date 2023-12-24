@@ -7,7 +7,7 @@ defpackage slm/tests/commands/add:
 
   import slm/commands/add
   import slm/toml
-  import slm/dependency
+  import slm/dep-types
 
   import slm/tests/test-tools
 
