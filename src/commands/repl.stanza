@@ -20,20 +20,7 @@ public defn repl (cmd-args:CommandArgs) -> False:
   val repl-args = get?(cmd-args, "-", [])
 
 
-  val dependencies = slm/dependencies/fetch-and-sync()
-
-  val non-compat = check-stanza-versions(cfg, dependencies)
-  if length(non-compat) > 0:
-    if force-build:
-      info("Stanza Compatibility Check Failed - Proceeding by Force")
-    else:
-      val name-version = for [name, msg] in pairs(non-compat) seq:
-        "'%_' %_" % [name, msg]
-      val content = string-join(name-version, "\n")
-      info("Current Stanza Version: %_" % [get-stanza-version!()])
-      info("Dependencies with Stanza Version Issues:")
-      info(content)
-      error("Stanza Version Compatibility Check Failed")
+  val dependencies = slm/dependencies/fetch-and-sync(cfg, force-build)
 
   val args = to-tuple $ cat-all([[stanza-exe, "repl"], repl-args])
   val slm-dir = path-join(get-cwd(), SLM_DIR)

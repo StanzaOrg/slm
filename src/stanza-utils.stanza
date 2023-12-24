@@ -100,9 +100,10 @@ public defn check-stanza-versions (cfg:SlmToml, dependencies:Tuple<Dependency>) 
   ;  stanza binary version.
   ;  Note that we aren't using the `compiler?` spec
   ;  in the dependencies.
+  val deps* = recursive-deps-only(dependencies)
 
   val non-compat = to-vector<KeyValue<String, String>> $
-    for dep in dependencies seq?:
+    for dep in deps* seq?:
       val slm-cfg = match(dep):
         (git-dep:GitDependency):
           path-join(SLM_DEPS_DIR, name(git-dep), SLM_TOML_NAME)
