@@ -1,0 +1,77 @@
+defpackage slm/git-dep:
+  import core
+
+  import semver
+  import maybe-utils
+  import term-colors
+
+  import slm/dependency
+  import slm/flags
+  import slm/utils
+  import slm/logging
+
+
+; Dependencies specified by Git locator/version (e.g. `foo = "myorg/myuser|1.0.0"`)
+public defstruct GitDependency <: Dependency:
+  name: String with: (as-method => true)
+  locator: String
+  version: SemanticVersion
+  hash: String with: (updater => sub-hash)
+
+defmethod path (d: GitDependency):
+  path-join(SLM_DEPS_DIR, name(d))
+
+defmethod version-string? (d: GitDependency) -> One<String>:
+  One(version-string(d))
+
+defmethod print (o:OutputStream, d:GitDependency) :
+  print(o, "%_ = { git = \"%_\", version = \"%_\" }" % [name(d), locator(d), version-string(d)])
+
+public defn version-string (d: GitDependency) -> String:
+  to-string(version(d))
+
+public defn colored-version? (d: GitDependency) -> ColoredString:
+  ColoredString(version-string(d))
+    $> bold $> foreground{_, TerminalBrightGreen}
+    $> clear-color?
+
+public defn colored-name? (d: Dependency) -> ColoredString:
+  ColoredString(name(d))
+    $> bold $> foreground{_, TerminalBrightWhite}
+    $> clear-color?
+
+doc: \<DOC>
+Legacy Version of the Git Dependency Parser
+
+The legacy version uses a string in the form `name|0.1.2`
+where `0.1.2` is the version for the dependency.
+<DOC>
+public defn parse-git-dependency (name: String, specifier: String):
+  info("Extracting Legacy Github Dependency Specifier for '%_'. Consider Upgrading to Toml Table Variable" % [name])
+  GitDependency(name, locator, requested-version, hash)
+where:
+  val [locator, requested-version] = parse-specifier(specifier)
+  val hash = ""
+
+defn parse-specifier (specifier: String) -> [String, SemanticVersion]:
+  val elements = to-tuple $ split(specifier, "|")
+  switch(length(elements)):
+    2:
+      val url = elements[0]
+      val version = elements[1]
+        $> parse-semver
+        $> expect{_, "couldn't parse '%_'" % [specifier]}
+      [url, version]
+    else:
+      error("malformed specifier '%_'" % [specifier])
+
+public defn parse-git-dependency (name:String, locator:String, version?:Maybe<String>) -> GitDependency :
+  val version = match(version?):
+    (x:None):
+      throw $ Exception("Invalid Git Dependency[%_]: No Version Attribute found"% [name])
+    (x:One<String>):
+      parse-semver(value(x)) $>
+        expect{_, "Git Dep[%_]: Failed to Parse Version: '%_'" % [name, x]}
+
+  val hash = "" ; This gets resolved during the fetch/sync
+  GitDependency(name, locator, version, hash)

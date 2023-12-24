@@ -1,0 +1,44 @@
+defpackage slm/path-dep:
+  import core
+
+  import semver
+  import maybe-utils
+
+  import slm/dependency
+  import slm/file-utils
+  import slm/string-utils
+
+
+; Dependencies specified by path (e.g. `foo = { path = "../foo" }`)
+public defstruct PathDependency <: Dependency:
+  name: String with: (as-method => true)
+  path: String with: (as-method => true)
+  version?: Maybe<SemanticVersion> with: ( default => None() )
+
+defmethod version-string? (d:PathDependency) -> Maybe<String>:
+  match(version?(d)):
+    (x:None): x
+    (x:One<SemanticVersion>): One $ to-string(x)
+
+public defn version-string! (d:PathDependency) -> String:
+  to-string $ value-or(version?(d), "UNSPECIFIED")
+
+defmethod print (o:OutputStream, d:PathDependency) :
+  print(o, "%_ = { path = \"%_\"" % [name(d), path(d)])
+  match(version?(d)):
+    (x:None): print(o, " }")
+    (x:One<SemanticVersion>): print(o, ", version = \"%_\" }" % [to-string $ value(x)])
+
+
+public defn parse-path-dependency (name: String, path: String, version?:Maybe<String>, env-sub-enable:True|False) -> PathDependency:
+  val path* = un-norm-path $ if env-sub-enable:
+    env-var-substitute(path)
+  else:
+    path
+
+  val version = match(version?):
+    (x:None): x
+    (x:One<String>):
+      val sver = parse-semver(value(x)) $> expect{_, "SemanticVersion: couldn't parse  '%_'" % [x]}
+      One(sver)
+  PathDependency(name, path*, version)

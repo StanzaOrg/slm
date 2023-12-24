@@ -9,7 +9,7 @@ defpackage slm/commands/build:
   import term-colors
   import toml
 
-  import slm/dependency
+  import slm/dep-types
   import slm/dependencies
   import slm/file-utils
   import slm/lock

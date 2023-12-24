@@ -4,7 +4,7 @@ defpackage slm/stanza-utils:
 
   import semver
 
-  import slm/dependency
+  import slm/dep-types
   import slm/toml
   import slm/flags
   import slm/errors

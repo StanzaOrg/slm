@@ -1,0 +1,7 @@
+defpackage slm/dep-types:
+  import core
+
+  forward slm/dependency
+  forward slm/git-dep
+  forward slm/path-dep
+  forward slm/task

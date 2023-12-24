@@ -8,8 +8,7 @@ defpackage slm/commands/add-task:
 
   import slm/flags
   import slm/toml
-  import slm/task
-  import slm/dependency
+  import slm/dep-types
   import slm/errors
   import slm/file-utils
   import slm/logging

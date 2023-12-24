@@ -7,7 +7,7 @@ defpackage slm/tests/commands/remove:
 
   import slm/commands/remove
   import slm/toml
-  import slm/dependency
+  import slm/dep-types
 
   import slm/tests/test-tools
 

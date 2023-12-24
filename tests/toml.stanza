@@ -6,8 +6,7 @@ defpackage slm/tests/toml:
   import semver
 
   import slm/toml
-  import slm/dependency
-  import slm/task
+  import slm/dep-types
 
   import slm/tests/test-tools
 

@@ -5,7 +5,7 @@ defpackage slm/commands/remove:
 
   import slm/flags
   import slm/toml
-  import slm/dependency
+  import slm/dep-types
   import slm/logging
   import slm/errors
   import slm/file-utils
