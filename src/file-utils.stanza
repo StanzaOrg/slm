@@ -12,6 +12,10 @@ public defn open (f: (FileOutputStream) -> False, path: String, append?: True|Fa
   try: f(file)
   finally: close(file)
 
+public defn open (f:(FileInputStream -> ?), path:String) -> ? :
+  val file = FileInputStream(path)
+  try: f(file)
+  finally: close(file)
 
 doc: \<DOC>
 Convert Windows Backlash Path to Forward Slash Variant
