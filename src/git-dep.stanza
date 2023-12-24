@@ -9,7 +9,7 @@ defpackage slm/git-dep:
   import slm/flags
   import slm/utils
   import slm/logging
-
+  import slm/git-utils
 
 ; Dependencies specified by Git locator/version (e.g. `foo = "myorg/myuser|1.0.0"`)
 public defstruct GitDependency <: Dependency:
@@ -75,3 +75,65 @@ public defn parse-git-dependency (name:String, locator:String, version?:Maybe<St
 
   val hash = "" ; This gets resolved during the fetch/sync
   GitDependency(name, locator, version, hash)
+
+public defn fetch-or-sync-at-hash (d: GitDependency) -> False:
+  if not has-git?() :
+    error("No `git` executable found on the path")
+
+  if file-exists?(path(d)):
+    sync-dependency-to-hash(d)
+  else:
+    fetch-dependency-at-hash(d)
+
+
+public defn sync-dependency-to-hash (d: GitDependency) -> False:
+  debug("syncing '%_' at %_" % [name(d), hash(d)])
+
+  if empty?(hash(d)): fatal("internal error")
+
+  if git-rev-parse!(path(d), "HEAD") != hash(d):
+    error("syncing '%_': out of sync with your slm.lock" % [name(d)])
+
+public defn fetch-dependency-at-hash (d: GitDependency) -> False:
+  info("cloning %_ at %_" % [colored-name?(d), hash(d)])
+
+  if empty?(hash(d)): fatal("internal error")
+
+  val url = full-url-from-locator(locator(d))
+  shallow-clone-git-repo(url, path(d))
+
+  run-git-command-in-dir(path(d), ["fetch", "--quiet", "origin", hash(d)])
+  run-git-command-in-dir(path(d), ["checkout", "--quiet", "--force", hash(d)])
+
+  false
+
+
+public defn fetch-dependency-at-version (d: GitDependency) -> False:
+  info("cloning %_ at %~" % [colored-name?(d), colored-version?(d)])
+
+  val url = full-url-from-locator(locator(d))
+  shallow-clone-git-repo(url, path(d))
+
+  val tag = to-string("v%~" % [version(d)])
+  val refspec = to-string("+refs/tags/%_:refs/tags/%_" % [tag, tag])
+  run-git-command-in-dir(path(d), ["fetch", "--quiet", "origin", refspec])
+  run-git-command-in-dir(path(d), ["checkout", "--quiet", "--force", tag])
+
+  false
+
+public defn sync-dependency-to-version (dep: GitDependency) -> False:
+  debug("checking if we need to sync")
+
+  val head-hash = git-rev-parse!(path(dep), "HEAD")
+  debug("head-hash: %_" % [head-hash])
+
+  val tag = to-string("v%~" % [version(dep)])
+  run-git-command-in-dir(path(dep), ["fetch", "--quiet", "origin", tag])
+  val tag-hash = git-rev-parse!(path(dep), tag)
+  debug("tag-hash: %_" % [tag-hash])
+
+  if tag-hash != head-hash:
+    info("syncing %_ to %~" % [colored-name?(dep), colored-version?(dep)])
+    run-git-command-in-dir(path(dep), ["checkout", "--quiet", "--force", tag])
+
+  false
