@@ -12,6 +12,7 @@ defpackage slm/toml:
   import slm/task
   import slm/errors
   import slm/stanza-utils
+  import slm/file-utils
 
 public defstruct SlmToml:
   name: String
@@ -67,8 +68,22 @@ Parse the SLM TOML configuration file
 This will replace strings like `{HOME}` with environment variable
 values if they exist.
 <DOC>
-public defn parse-slm-toml (path: String -- env-sub-enable:True|False = true) -> SlmToml:
-  val table = path $> parse-file $> table
+public defn parse-slm-toml (path:String -- env-sub-enable:True|False = true) -> SlmToml:
+  within f = open(path):
+    parse-slm-toml(f)
+
+doc: \<DOC>
+Parse the SLM TOML configuration file
+
+@param f Input data in the form of a stream. This makse testing
+the implementation easier.
+@param env-sub-enable Allow environment variable substitutions.
+This will replace strings like `{HOME}` with environment variable
+values if they exist.
+<DOC>
+public defn parse-slm-toml (f:InputStream -- env-sub-enable:True|False = true) -> SlmToml:
+  val content = slurp-stream(f)
+  val table = content $> parse-string $> table
   val name = table["name"] as String
   val version = table["version"] as String
   val compiler? = get-str?(table, "compiler")
