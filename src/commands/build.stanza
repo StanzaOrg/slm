@@ -19,6 +19,8 @@ defpackage slm/commands/build:
   import slm/toml
   import slm/utils
   import slm/stanza-utils
+  import slm/platforms
+
 
 defn get-build-target (cmd-args:CommandArgs) -> Tuple<String> :
   val arg = args(cmd-args)
@@ -40,6 +42,13 @@ public defn build (cmd-args:CommandArgs) -> False:
   val targ? = get-build-target(cmd-args)
 
   val cfg = parse-project-toml(SLM_TOML_NAME)
+
+  ; This flag indicates to all dependencies that we are building
+  ;  in static library mode to be able to compile in the build command.
+  set-env("SLM_BUILD_STATIC", "1")
+
+  val platform = get-platform()
+  set-env("SLM_PLATFORM", platform)
 
   val dependencies = slm/dependencies/fetch-and-sync(cfg, force-build)
 
@@ -89,6 +98,24 @@ variable is defined for the context of the `stanza build` process.
 This allows the package's stanza code to use '#env-var(SLM_BUILD_VERSION)'
 to access this version string and compile it into the binary or library
 that is being constructed.
+
+------------------------------
+Static Dependency Construction
+------------------------------
+
+With the task dependencies, external programs can be used to build
+the artifacts needed to load functionality from a static C library.
+To support this, the 'build' command defines the environment
+variable 'SLM_BUILD_STATIC'. This environment variable is intended
+to indicate to any of the task dependencies that a static library
+is needed (as opposed to a shared library, like a *.dll)
+
+The 'slm' binary will also define the 'SLM_PLATFORM' environment
+variable during the dependendency resolution process. This environment
+variable will contain one of the following strings:
+  1.  windows
+  2.  linux
+  3.  os-x
 
 <MSG>
 

@@ -262,7 +262,7 @@ Execute the task for this platform
 <DOC>
 public defn run-task-dep (dep:TaskDependency, parent-name:String, dep-path:String) -> Maybe<TaskDependency> :
   val ptasks = platform-tasks(dep)
-  val platform = lower-case $ to-string(CURRENT-PLATFORM)
+  val platform = get-platform()
   val plat-task? = to-maybe $ get?(ptasks, platform, false)
 
   val task? = or?(plat-task?, task?(dep))
