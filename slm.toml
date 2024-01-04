@@ -2,7 +2,7 @@ name = "slm"
 version = "0.4.1"
 
 [dependencies]
-stanza-toml = { git = "StanzaOrg/stanza-toml", version = "0.3.4" }
+stanza-toml = { git = "StanzaOrg/stanza-toml", version = "0.4.0" }
 semver      = { git = "StanzaOrg/semver", version = "0.1.6" }
 maybe-utils = { git = "StanzaOrg/maybe-utils", version = "0.1.4" }
 term-colors = { git = "StanzaOrg/term-colors", version = "0.1.1" }
