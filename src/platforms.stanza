@@ -25,3 +25,6 @@ public defn is-valid-platform! (plat-name?:Maybe<String>) :
       val plat-name = lower-case $ value(v)
       if not contains?(task-platforms, plat-name):
         throw $ InvalidPlatformError(plat-name)
+
+public defn get-platform () -> String :
+  lower-case $ to-string(CURRENT-PLATFORM)

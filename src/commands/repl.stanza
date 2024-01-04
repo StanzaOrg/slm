@@ -10,6 +10,7 @@ defpackage slm/commands/repl:
   import slm/toml
   import slm/utils
   import slm/stanza-utils
+  import slm/platforms
 
 public defn repl (cmd-args:CommandArgs) -> False:
 
@@ -19,6 +20,12 @@ public defn repl (cmd-args:CommandArgs) -> False:
   val force-build = get?(cmd-args, "force", false)
   val repl-args = get?(cmd-args, "-", [])
 
+  ; This flag indicates to all dependencies that we are building
+  ;  in shared library mode to be able to load in the repl.
+  set-env("SLM_BUILD_SHARED", "1")
+
+  val platform = get-platform()
+  set-env("SLM_PLATFORM", platform)
 
   val dependencies = slm/dependencies/fetch-and-sync(cfg, force-build)
 
@@ -60,6 +67,24 @@ variable is defined for the context of the 'stanza repl' process.
 This allows the package's stanza code to use '#env-var(SLM_BUILD_VERSION)'
 or 'get-env("SLM_BUILD_VERSION")' to access this version string and
 compile it into the functions accessed by the repl.
+
+------------------------------
+Shared Dependency Construction
+------------------------------
+
+With the task dependencies, external programs can be used to build
+the artifacts needed to load functionality from a shared C library.
+To support this, the 'repl' command defines the environment
+variable 'SLM_BUILD_SHARED'. This environment variable is intended
+to indicate to any of the task dependencies that a shared library
+(like a *.so, *.dylib, *.dll) is needed (as opposed to a static library)
+
+The 'slm' binary will also define the 'SLM_PLATFORM' environment
+variable during the dependendency resolution process. This environment
+variable will contain one of the following strings:
+  1.  windows
+  2.  linux
+  3.  os-x
 
 <MSG>
 
