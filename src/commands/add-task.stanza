@@ -77,16 +77,12 @@ defn remove-existing-task (existing:TaskDependency, name:String, platform?:Maybe
       sub-task?(existing, None())
     (x:One<String>):
       val platform = value(x)
-      val plat-tasks = to-hashtable<String, Task> $ platform-tasks(existing)
-      val plat-task = to-maybe $ get?{_, platform, false} $ plat-tasks
-      if plat-task is None :
-        existing
-      else:
-        if not force:
-          throw $ ValueError("Task '%_' Platform '%_' Already Exists" % [name, platform])
+      val table = platform-tasks(existing)
+      if key?(table, platform) and not force:
+        throw $ ValueError("Task '%_' Platform '%_' Already Exists" % [name, platform])
 
-        remove(plat-tasks, platform)
-        sub-platform-tasks(existing, plat-tasks)
+      remove(table, platform)
+      existing
 
 defn parse-env-vars-flag (env-vars:Tuple<String>) -> Tuple<KeyValue<String, String>> :
   to-tuple $ for env-var in env-vars seq:
