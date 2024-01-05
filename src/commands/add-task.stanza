@@ -155,7 +155,16 @@ If the project already contains a reference to this dependency, then
 the 'add-task' command will return an error code unless the 'force'
 option is supplied.
 
+IDEMPOTENCY
+-----------
+
+Tasks are assumed to be idempotent. In other words, no matter how many times
+we call the program or script of a task command, the result should always
+be the same. The expectation is that this command will be run in every
+dependency resolution sequence when `slm build` or `slm repl` runs.
+
 Examples:
+---------
 
 Add a new task dependency at the latest tag:
 
