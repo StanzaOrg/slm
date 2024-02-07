@@ -24,6 +24,10 @@ public defn repl (cmd-args:CommandArgs) -> False:
   ;  in shared library mode to be able to load in the repl.
   set-env("SLM_BUILD_SHARED", "1")
 
+  ; Binary Variable that is used in both build/repl for scripts
+  ;   that want to differentiate that way.
+  set-env("SLM_BUILD_DYNAMIC_LIB", "True")
+
   val platform = get-platform()
   set-env("SLM_PLATFORM", platform)
 
@@ -75,9 +79,13 @@ Shared Dependency Construction
 With the task dependencies, external programs can be used to build
 the artifacts needed to load functionality from a shared C library.
 To support this, the 'repl' command defines the environment
-variable 'SLM_BUILD_SHARED'. This environment variable is intended
+variable 'SLM_BUILD_SHARED=1'. This environment variable is intended
 to indicate to any of the task dependencies that a shared library
 (like a *.so, *.dylib, *.dll) is needed (as opposed to a static library)
+
+Additionally, the 'repl' command defines the environment variable
+'SLM_BUILD_DYNAMIC_LIB=True'. This is the same env-var used by the 'build'
+command which makes it easier for scripts to just reference one variable.
 
 The 'slm' binary will also define the 'SLM_PLATFORM' environment
 variable during the dependendency resolution process. This environment

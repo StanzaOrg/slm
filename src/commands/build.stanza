@@ -47,6 +47,12 @@ public defn build (cmd-args:CommandArgs) -> False:
   ;  in static library mode to be able to compile in the build command.
   set-env("SLM_BUILD_STATIC", "1")
 
+  ; Binary Variable that is used in both build/repl for scripts
+  ;   that want to differentiate that way.
+  ;   This is primarily added for 'conan' because it wants:
+  ;   '--shared=(True|False)'
+  set-env("SLM_BUILD_DYNAMIC_LIB", "False")
+
   val platform = get-platform()
   set-env("SLM_PLATFORM", platform)
 
@@ -106,9 +112,13 @@ Static Dependency Construction
 With the task dependencies, external programs can be used to build
 the artifacts needed to load functionality from a static C library.
 To support this, the 'build' command defines the environment
-variable 'SLM_BUILD_STATIC'. This environment variable is intended
+variable 'SLM_BUILD_STATIC=True'. This environment variable is intended
 to indicate to any of the task dependencies that a static library
 is needed (as opposed to a shared library, like a *.dll)
+
+Additionally, the 'build' command defines the environment variable
+'SLM_BUILD_DYNAMIC_LIB=False'. This is the same env-var used by the 'repl'
+command which makes it easier for scripts to just reference one variable.
 
 The 'slm' binary will also define the 'SLM_PLATFORM' environment
 variable during the dependendency resolution process. This environment
