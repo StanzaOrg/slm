@@ -1,0 +1,8 @@
+# build-stanza-version.txt
+# The version of stanza to be used to compile slm
+# - Comment lines begin with a '#' character
+# - The first non-comment line will be used as the version
+# - The line should be formated as a a version number by itself
+#   like 1.23.45
+#
+0.18.58
