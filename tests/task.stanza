@@ -196,6 +196,7 @@ deftest(task) test-print-task-dep:
     val buf = StringBuffer()
     print(buf, task-dep)
 
-    val obs = to-string(buf)
+    ; filter out any linefeed characters on windows
+    val obs = replace(to-string(buf), "\r", "")
     #EXPECT(obs == exp)
 

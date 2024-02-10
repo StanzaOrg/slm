@@ -28,7 +28,8 @@ deftest(toml) test-write-basic:
 
   val output = StringBuffer()
 
-  write(output, uut)
+  ; filter out any linefeed characters on windows
+  write(output, replace(uut, "\r", ""))
 
   val obs-write = to-string(output)
   #EXPECT( obs-write == exp-write)
