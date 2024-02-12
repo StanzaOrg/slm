@@ -25,7 +25,7 @@ TOP="${PWD}"
 ### if the version line was changed, extract the new version number
 >&2 echo "           TOMLVER:" "${TOMLVER:=$(git -C "${REPODIR}" log -1 -p -m  \
                                                 | filterdiff -p1 -i slm.toml \
-                                                | sed -E -n 's/^version = "(.*)"/\1/p'
+                                                | sed -E -n 's/^\+version = "(.*)"/\1/p'
                                               )}"
 
 if [[ "${TOMLVER}" != "" ]] ; then
