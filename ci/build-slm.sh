@@ -83,8 +83,8 @@ ls slm
 
 # create conan package
 export SLM_ROOT_DIR=$PWD
-CH=${CONAN_HOME:-$PWD/.conan2}
-[ ! -e "${CH}/profiles/default" ] && conan profile detect
+export CONAN_HOME=${CONAN_HOME:-$PWD/.conan2}
+[ ! -e "${CONAN_HOME}/profiles/default" ] && conan profile detect
 conan create .
 
 # upload conan package
