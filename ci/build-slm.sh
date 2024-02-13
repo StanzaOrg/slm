@@ -82,7 +82,7 @@ ci/build.sh
 ls slm
 
 # create conan package
-SLM_ROOT_DIR=$PWD
+export SLM_ROOT_DIR=$PWD
 conan create .
 
 # upload conan package
