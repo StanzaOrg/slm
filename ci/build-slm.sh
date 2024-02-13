@@ -9,6 +9,8 @@ USAGE="STANZA_CONFIG=/path $0"
 
 # Required env var inputs
 echo "     STANZA_CONFIG:" "${STANZA_CONFIG:?Usage: ${USAGE}}"          # directory where .stanza config file is stored, as in normal stanza behavior
+echo "CONAN_USER_LOGIN_ARTIFACTORY:" "${CONAN_USER_LOGIN_ARTIFACTORY:?Error: user login required}"
+echo "  CONAN_PASSWORD_ARTIFACTORY:" "${CONAN_PASSWORD_ARTIFACTORY:?Error: password required}"
 
 # Defaulted env var inputs - can override if necessary
 echo "              REPODIR:" "${REPODIR:=slm}"
@@ -79,6 +81,13 @@ ci/build.sh
 # verify that expected output file exists
 ls slm
 
+# create conan package
+conan create .
+
+# upload conan package
+conan remote add artifactory  "http://44.226.24.141:8081/artifactory/api/conan/conan-local"
+conan remote login artifactory jitx
+conan upload -r artifactory --force slm/${VER}
 
 if [ "$CREATE_PACKAGE" == "true" ] ; then
   #VERU=${VER//./_}  # convert dots to underscores
