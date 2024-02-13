@@ -11,4 +11,5 @@ class slmTestConan(ConanFile):
 
     def test(self):
         if can_run(self):
-            self.run("slm version", env="conanrun")
+            SLM_FOLDER = os.environ["SLM_ROOT_DIR"]
+            self.run(f"{SLM_FOLDER}/slm version", env="conanrun")
