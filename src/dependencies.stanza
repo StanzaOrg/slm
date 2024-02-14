@@ -87,8 +87,9 @@ public-when(TESTING) defn write-build-stanza-proj (f:OutputStream, dependencies:
 defn parse-slm-lock-and-resolve-dependencies (cfg:SlmToml, lock-cfg:Tuple<LockedDependency>):
   val slm-toml-dependencies = dependencies(cfg)
   val locked-dependencies = to-hashtable<String, Dependency> $
-    for locked-dep in lock-cfg seq:
-      name(locked-dep) => match(locked-dep):
+    for locked-dep in lock-cfg seq? :
+      defn return (d) : One(name(locked-dep) => d)
+      match(locked-dep):
         (dep: LockedGitDependency):
           val git-dep = GitDependency(name(dep), locator(dep), version(dep), hash(dep))
           val slm-toml-dep? = get?(slm-toml-dependencies, name(dep))
@@ -102,7 +103,7 @@ defn parse-slm-lock-and-resolve-dependencies (cfg:SlmToml, lock-cfg:Tuple<Locked
                        % [name(dep), version(slm-toml-dep), version(git-dep)])
               else:
                 fetch-or-sync-at-hash(git-dep)
-                git-dep
+                return $ git-dep
             (slm-toml-dep:PathDependency):
               error("'%_' is specified as a path dependency in 'slm.toml'.\n\
                     This conflicts with locked version ('%_') from 'slm.lock'\n\
@@ -120,10 +121,8 @@ defn parse-slm-lock-and-resolve-dependencies (cfg:SlmToml, lock-cfg:Tuple<Locked
             (x:False):
               ; This dependency was found in the lock file but not in our slm.toml file.
               ;  This likely means it is a "grand-child" or further decendent
-              ;  dependency. We just want to let it ride
-              ; TODO - It may also be a removed dependency. There is no way for me to
-              ;  distinguish between the two
-              git-dep
+              ;  dependency. We skip it.
+              None()
         (dep: LockedPathDependency):
           val slm-toml-dep = get?(slm-toml-dependencies, name(dep))
           match(slm-toml-dep):
@@ -137,18 +136,12 @@ defn parse-slm-lock-and-resolve-dependencies (cfg:SlmToml, lock-cfg:Tuple<Locked
               val [is-compat, obs-version] = check-path-compatible(path-dep)
               if not is-compat:
                 error-incompatible-path-version(path-dep, obs-version)
-              path-dep
+              return $ path-dep
             (x:False):
               ; This dependency was found in the lock file but was not found
               ;  in our slm.toml file. This likely means it is a "grand-child"
-              ;  or further descendent dependency. This isn't a common case - but
-              ;  might happen during development.
-              ; TODO Current Code Structure makes it impossible to handle this case
-              error("'%_' is found in the 'slm.lock' file but not in 'slm.toml'. \
-                    It is likely a grandchild dependency that is included as a path.\
-                    We don't currently handle this case. Consider adding the\
-                    necessary path dependency to the local project's 'slm.toml'\
-                    to work around this short-coming." % [name(dep)])
+              ;  or further descendent dependency, so we skip it.
+              None()
         (dep: LockedTaskDependency):
           val slm-toml-dep = get?(slm-toml-dependencies, name(dep))
           match(slm-toml-dep):
@@ -163,12 +156,12 @@ defn parse-slm-lock-and-resolve-dependencies (cfg:SlmToml, lock-cfg:Tuple<Locked
               ;  we should probably indicate a warning though - as that might give the
               ;  user the leeway to run 'slm clean' and re-run the tasks.
               ;  Everything should be idempotent
-              task-dep
+              return $ task-dep
             (x:False):
               ; This dependency was found in the lock file, but was not found
               ;  in our slm.toml file. This likely means it is a "grand-child"
               ;  or further descendent dependency.
-              error("This error doesn't make sense")
+              None()
 
   for [name, dep] in pairs(slm-toml-dependencies) do:
     if get?(locked-dependencies, name) is False:
