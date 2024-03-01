@@ -84,16 +84,30 @@ values if they exist.
 public defn parse-slm-toml (f:InputStream -- env-sub-enable:True|False = true) -> SlmToml:
   val content = slurp-stream(f)
   val table = content $> parse-string $> table
+  
   val name = table["name"] as String
+  debug("parse-slm-toml: name: \"%_\"" % [name])
+  
   val version = table["version"] as String
+  debug("parse-slm-toml: version: \"%_\"" % [version])
+  
   val compiler? = get-str?(table, "compiler")
+  debug("parse-slm-toml: compiler?: \"%_\"" % [compiler?])
+  
   val stanza-version? = get-str?(table, "stanza-version")
+  debug("parse-slm-toml: stanza-version?: \"%_\"" % [stanza-version?])
+
   val dependencies = to-hashtable<String, Dependency> $
     for [name, specifier] in pairs(table["dependencies"] as TomlTable) seq:
+      debug("parse-slm-toml: dependency name: \"%_\"" % [name])
+      debug("parse-slm-toml: dependency specifier: \"%_\"" % [specifier])
       name => match(specifier):
         (legacy:String):
+          debug("parse-slm-toml: calling parse-git-dependency(\"%_\", \"%_\")" % [name, legacy])
           parse-git-dependency(name, legacy)
         (table:TomlTable):
+          debug("parse-slm-toml: dependency table: \"%_\"" % [table])
+          debug("parse-slm-toml: calling parse-dependency(\"%_\", table, %_)" % [name, env-sub-enable])
           parse-dependency(name, table, env-sub-enable)
 
   SlmToml(name, version, compiler?, stanza-version?, dependencies)
@@ -106,22 +120,35 @@ defmethod print (o:OutputStream, e:InvalidDependencyConfigError) :
   print(o, "Invalid Dependency[%_]: %_" % [name(e), msg(e)])
 
 defn parse-dependency (name:String, table:TomlTable, env-sub-enable:True|False) -> Dependency :
-  val pathAttr = get-str?(table, "path")
   val gitAttr = get-str?(table, "git")
+  val pathAttr = get-str?(table, "path")
+  val pkgAttr = get-table?(table, "pkg")
+  val taskAttr = get-table?(table, "task")
   val version = get-str?(table, "version")
 
-  val taskAttr = get-table?(table, "task")
-  match(pathAttr, gitAttr, taskAttr):
-    (p:One<String>, g:None, t:None): ; Path Dependency
+  debug("parse-dependency: gitAttr: \"%_\"" % [gitAttr])
+  debug("parse-dependency: pathAttr: \"%_\"" % [pathAttr])
+  debug("parse-dependency: pkgAttr: \"%_\"" % [pkgAttr])
+  debug("parse-dependency: taskAttr: \"%_\"" % [taskAttr])
+  debug("parse-dependency: version: \"%_\"" % [version])
+
+  match(pathAttr, gitAttr, pkgAttr, taskAttr):
+    (p:One<String>, g:None, k: None, t:None): ; Path Dependency
+      debug("parse-dependency: calling parse-path-dependency(\"%_\", ...)" % [name])
       parse-path-dependency(name, value(p), version, env-sub-enable)
-    (p:None, g:One<String>, t:None): ; Git Dependency
+    (p:None, g:One<String>, k: None, t:None): ; Git Dependency
+      debug("parse-dependency: calling parse-git-dependency(\"%_\", ...)" % [name])
       parse-git-dependency(name, value(g), version)
-    (p:None, g:None, t:One): ; Task Dependency
+    (p:None, g:None, k: One, t:None): ; Pkg Dependency
+      debug("parse-dependency: calling parse-pkg-dependency(\"%_\", ...)" % [name])
+      parse-pkg-dependency(name, table, env-sub-enable = env-sub-enable)
+    (p:None, g:None, k: None, t:One): ; Task Dependency
+      debug("parse-dependency: calling parse-task-dependency(\"%_\", ...)" % [name])
       parse-task-dependency(name, table, env-sub-enable = env-sub-enable)
-    (p:None, g:None, t:None): ; Invalid Dependency - no type specified
-      throw $ InvalidDependencyConfigError(name, "Expected at least one of 'path', 'git', or 'task'")
-    (p, g, t):
-      throw $ InvalidDependencyConfigError(name, "The 'path', 'git', and 'task' keys are mutually exclusive. Your config has an invalid combination.")
+    (p:None, g:None, k: None, t:None): ; Invalid Dependency - no type specified
+      throw $ InvalidDependencyConfigError(name, "Expected at least one of 'path', 'git', 'pkg', or 'task'")
+    (p, g, k, t):
+      throw $ InvalidDependencyConfigError(name, "The 'path', 'git', 'pkg', and 'task' keys are mutually exclusive. Your config has an invalid combination.")
 
 doc: \<DOC>
 Output the SlmToml config as a valid TOML file.
