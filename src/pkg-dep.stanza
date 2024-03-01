@@ -1,0 +1,211 @@
+defpackage slm/pkg-dep:
+  import core
+  import collections
+
+  import maybe-utils
+  import semver
+  import toml
+
+  import slm/dependency
+  import slm/errors
+  import slm/flags
+  import slm/logging
+  import slm/platforms
+  import slm/process-utils
+  import slm/string-utils
+  import slm/utils
+
+doc: \<DOC>
+Define a Pkg dependency representing a pre-compiled stanza pkg archive
+stored in a conan/artifactory repository
+<DOC>
+public defstruct Pkg <: Equalable & Hashable:
+  name: String with: (ensure => ensure-not-empty!); Required
+  version: SemanticVersion
+  type: String
+  options: Tuple<KeyValue<String, String>>
+with:
+  hashable => true
+  equalable => true
+
+public defn Pkg (
+  name: String
+  version: SemanticVersion
+  type: String
+  --
+  options:Tuple<KeyValue<String, String>> = []
+  ) -> Pkg :
+  Pkg(name, version, type, options)
+
+;Programmatic way to create pkg objects.
+public defn to-pkg (
+  name: String
+  version: SemanticVersion
+  type: String
+  --
+  options:Tuple<KeyValue<String, String>> = []
+  ) -> Pkg :
+  Pkg(name, version, type, options)
+
+defn options-to-string (p:Pkg) -> String :
+  val elems = for kvp in options(p) seq:
+    to-string("%~ = %~" % [key(kvp), value(kvp)])
+  to-string("{ %, }" % [elems])
+
+defmethod print (o:OutputStream, p:Pkg) :
+  val comps = Vector<String|Printable>()
+  add(comps, "name = %~" % [name(p)])
+  add(comps, "version = %~" % [version(p)])
+  add(comps, "type = %~" % [type(p)])
+  if length(options(p)) > 0 :
+    val opt-str = options-to-string(p)
+    add(comps, "options = %_" % [opt-str])
+
+  val entries = string-join(comps, ", ")
+  print(o, "{ %_ }" % [entries])
+
+defn parse-options (table:TomlTable -- env-sub-enable:True|False = false) -> Tuple<KeyValue<String, String>> :
+  to-tuple $ for kvp in table seq:
+    val [k, v] = if env-sub-enable:
+      [
+        env-var-substitute $ key(kvp)
+        env-var-substitute $ (value(kvp) as String)
+      ]
+    else:
+      [key(kvp), value(kvp) as String]
+    KeyValue(k, v)
+
+defn sub-vars? (v:Maybe<String>, enable:True|False) -> Maybe<String> :
+  if enable : env-var-substitute(v)
+  else: v
+
+doc: \<DOC>
+Parse a Pkg object from the TOML configuration
+
+@param table TomlTable that contains the following structure:
+{
+  "name" : "",
+  "version" : "",
+  "type" : "",
+  "options" : {
+    "" : ""
+  }
+}
+<DOC>
+public defn parse-pkg (table:TomlTable -- env-sub-enable:True|False = false, name:String = "unknown") -> Pkg :
+  ;val name? = sub-vars?{_, env-sub-enable} $ get-str?(table, "name")
+  ;val name = value-or-throw(name?, InvalidPkgDependency(name, "No 'name' key found"))
+  val version? = get-str?(table, "version")
+  val version = match(version?):
+    (x:None):
+      throw $ InvalidPkgDependency(name, "No 'version' key found")
+    (x:One<String>):
+      parse-semver(value(x)) $>
+        expect{_, "Pkg Dep[%_]: Failed to Parse Version: '%_'" % [name, x]}
+  val type? = sub-vars?{_, env-sub-enable} $ get-str?(table, "type")
+  val type = value-or-throw(type?, InvalidPkgDependency(name, "No 'type' key found"))
+  val opt-table? = get-table?(table, "options")
+  val options = match(opt-table?):
+    (_:None): []
+    (x:One<TomlTable>):
+      parse-options(value(x), env-sub-enable = env-sub-enable)
+  Pkg(name, version, type, options)
+
+doc: \<DOC>
+Pkg Dependency - Pre-compiled stanza pkg archive
+
+This dependency is intended to define a pre-compiled archive
+of stanza pkg binaries which can be linked into an slm project.
+This archive may be stored on a remote conan/artifactory server.
+<DOC>
+public defstruct PkgDependency <: Dependency & Hashable & Equalable:
+  name:String with: (
+    as-method => true
+    ensure => ensure-not-empty!
+    )
+  pkg?:Maybe<Pkg> with: (
+    updater => sub-pkg?
+  )
+with:
+  constructor => #PkgDependency
+
+defmethod recursive (d:PkgDependency) -> True|False :
+  ; a pkg may depend on other pkgs
+  true
+
+defmethod equal? (a:PkgDependency, b:PkgDependency) -> True|False :
+  name(a) == name(b) and (pkg?(a) == pkg?(b))
+
+defmethod hash (x:PkgDependency) -> Int :
+  hash(name(x)) + hash(pkg?(x))
+
+public defn PkgDependency (
+  name:String,
+  --
+  pkg:Pkg = ?
+  ) -> PkgDependency:
+  #PkgDependency(name, pkg)
+
+public defn PkgDependency (
+  name: String
+  version: SemanticVersion
+  type: String
+  --
+  options:Tuple<KeyValue<String, String>> = []
+  ) -> PkgDependency :
+  val pkg = Pkg(name, version, type, options)
+  #PkgDependency(name, to-maybe(pkg))
+
+defmethod print (o:OutputStream, d:PkgDependency) :
+  val p? = pkg?(d)
+  match(p?):
+    (p:One<Pkg>):
+      println(o, "%_.pkg = %_" % [name(d), value(p)])
+    (p:None): false
+
+public defn parse-pkg-dependency (name:String, table:TomlTable -- env-sub-enable:True|False = false) -> PkgDependency :
+  val pkg? = get-table?(table, "pkg")
+  val pkg-table = value-or-throw(pkg?, InvalidPkgDependency(name, "No 'pkg' key found"))
+
+  ; val pkg = try:
+  ;   One $ parse-pkg(pkg-table, name = name, env-sub-enable = env-sub-enable)
+  ; catch (e:InvalidPkgDependency):
+  ;   debug(to-string(e))
+  ;   debug("Assuming that there is no global pkg definition")
+  ;   None()
+  val pkg = One $ parse-pkg(pkg-table, name = name, env-sub-enable = env-sub-enable)
+  #PkgDependency(name, pkg)
+
+public defn fetch-or-sync-pkgver (d: PkgDependency) -> False:
+  throw $ InvalidPkgDependency(name(d), "TODO FIXME implement")
+  ;if not has-git?() :
+  ;  error("No `git` executable found on the path")
+
+  ;if file-exists?(path(d)):
+  ;  sync-dependency-pkgver(d)
+  ;else:
+  ;  fetch-dependency-pkgver(d)
+
+
+public defn sync-dependency-pkgver (d: PkgDependency) -> False:
+  throw $ InvalidPkgDependency(name(d), "TODO FIXME implement")
+  ; debug("syncing '%_' at %_" % [name(d), hash(d)])
+
+  ; if empty?(hash(d)): fatal("internal error")
+
+  ; if git-rev-parse!(path(d), "HEAD") != hash(d):
+  ;   error("syncing '%_': out of sync with your slm.lock" % [name(d)])
+
+public defn fetch-dependency-pkgver (d: PkgDependency) -> False:
+  throw $ InvalidPkgDependency(name(d), "TODO FIXME implement")
+  ; info("cloning %_ at %_" % [colored-name?(d), hash(d)])
+
+  ; if empty?(hash(d)): fatal("internal error")
+
+  ; val url = full-url-from-locator(locator(d))
+  ; shallow-clone-git-repo(url, path(d))
+
+  ; run-git-command-in-dir(path(d), ["fetch", "--quiet", "origin", hash(d)])
+  ; run-git-command-in-dir(path(d), ["checkout", "--quiet", "--force", hash(d)])
+
+  ; false

@@ -7,6 +7,7 @@ defpackage slm/dependencies:
   import term-colors
   import toml
 
+  import slm/errors
   import slm/flags
   import slm/dep-types
   import slm/file-utils
@@ -124,10 +125,47 @@ defn parse-slm-lock-and-resolve-dependencies (cfg:SlmToml, lock-cfg:Tuple<Locked
               ; TODO - It may also be a removed dependency. There is no way for me to
               ;  distinguish between the two
               git-dep
+        (dep: LockedPkgDependency):
+          val pkg-dep = PkgDependency(name(dep), version(dep), type(dep), options = options(dep))
+          val slm-toml-dep? = get?(slm-toml-dependencies, name(dep))
+          match(slm-toml-dep?):
+            (slm-toml-dep:PkgDependency):
+              val tomlver = version(value-or-throw(pkg?(slm-toml-dep), InvalidPkgDependency(name(dep), "No 'pkg' key found")))
+              val lockver = version(value-or-throw(pkg?(pkg-dep), InvalidPkgDependency(name(dep), "No 'pkg' key found")))
+              if not compatible?(tomlver, lockver):
+                error("'%_' (version %_) specified in 'slm.toml'.\n\
+                       This conflicts with locked version ('%_') from 'slm.lock'\n\
+                       If you wish to use the version from your 'slm.toml', \
+                       run 'slm clean', then re-run this command."
+                       % [name(dep), tomlver, lockver])
+              else:
+                fetch-or-sync-pkgver(pkg-dep)
+                pkg-dep
+            (g-or-p:GitDependency|PathDependency):
+              error("'%_' is specified as a git/path dependency in 'slm.toml'.\n\
+                    This conflicts with locked version ('%_') from 'slm.lock'\n\
+                    If you wish to use the version from your 'slm.toml', \
+                    run 'slm clean', then re-run this command."
+                    % [name(g-or-p), version(dep)])
+            (slm-toml-dep:TaskDependency):
+              ; To re-run, the user needs to run `slm clean` and then `slm build`
+              ;  again
+              error("'%_' is specified as a task dependency in 'slm.toml'.\n\
+                    This conflicts with the locked version ('%_') from 'slm.lock'\n\
+                    If you wish to use the version from your 'slm.toml', \
+                    run 'slm clean', then re-run this command." % [name(slm-toml-dep), version(dep)]
+                    )
+            (x:False):
+              ; This dependency was found in the lock file but not in our slm.toml file.
+              ;  This likely means it is a "grand-child" or further decendent
+              ;  dependency. We just want to let it ride
+              ; TODO - It may also be a removed dependency. There is no way for me to
+              ;  distinguish between the two
+              pkg-dep
         (dep: LockedPathDependency):
           val slm-toml-dep = get?(slm-toml-dependencies, name(dep))
           match(slm-toml-dep):
-            (git-dep:GitDependency|TaskDependency):
+            (g-or-t:GitDependency|TaskDependency):
               error("'%_' is specified as a git/task dependency in 'slm.toml'.\n\
                     This conflicts with locked (path) version from 'slm.lock'\n\
                     If you wish to use the version from your 'slm.toml', \

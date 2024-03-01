@@ -5,6 +5,13 @@ packages slm/tests/* defined-in "tests/"
 
 pkg-cache: ".slm/pkg-cache"
 
+package slm/file-utils requires :
+  dynamic-libraries:
+    on-platform:
+      ;windows: "/somewhere/libc.dll"
+      linux: "/lib/x86_64-linux-gnu/libc.so.6"
+      ;os-x: "/somewhere/libc.dylib"
+
 build main:
   inputs: slm/main
   pkg: ".slm/pkgs"

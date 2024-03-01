@@ -85,3 +85,10 @@ public defstruct InvalidTaskDependency <: Exception :
 
 defmethod print (o:OutputStream, e:InvalidTaskDependency) :
   print(o, "Invalid Task Dependency[%_]: %_" % [name(e), to-string $ msg(e)])
+
+public defstruct InvalidPkgDependency <: Exception :
+  name:String
+  msg:String|Printable
+
+defmethod print (o:OutputStream, e:InvalidPkgDependency) :
+  print(o, "Invalid Pkg Dependency[%_]: %_" % [name(e), to-string $ msg(e)])

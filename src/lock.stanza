@@ -5,12 +5,13 @@ defpackage slm/lock:
   import semver
   import toml
 
-  import slm/logging
-  import slm/utils
-  import slm/file-utils
   import slm/dep-types
-  import slm/task
+  import slm/errors
+  import slm/file-utils
   import slm/flags
+  import slm/logging
+  import slm/task
+  import slm/utils
 
 ; What is a lock file?
 ; A lock file replaces your slm.toml -- if it is present, your slm.toml is
@@ -38,6 +39,14 @@ public defstruct LockedGitDependency <: LockedDependency:
 with:
   equalable => true
 
+public defstruct LockedPkgDependency <: LockedDependency:
+  name: String with: (as-method => true)
+  version: SemanticVersion
+  type: String
+  options: Tuple<KeyValue<String, String>>
+with:
+  equalable => true
+
 public defstruct LockedTaskDependency <: LockedDependency:
   name: String with: (as-method => true)
   hash: String
@@ -49,18 +58,23 @@ public defn parse-slm-lock-file (f:InputStream) -> Tuple<LockedDependency>:
   val table = parse-string(content) $> table $> to-seq $> pairs
   to-tuple $ for [name, dependency] in table seq:
     match(dependency: TomlTable):
-      match(get?(dependency, "locator"), get?(dependency, "version"), get?(dependency, "hash")):
-        (locator?: One, version?: One, hash?: One):
+      match(get?(dependency, "locator"), get?(dependency, "type"), get?(dependency, "version"), get?(dependency, "options"), get?(dependency, "hash")):
+        (locator?: One, type?: None, version?: One, options?: None, hash?: One):
           val locator = value!(locator?) as String
           val version = value!(version?) $> parse-semver $> value!
           val hash    = value!(hash?) as String
           LockedGitDependency(name, locator, version, hash)
-        (locator: None, version: None, hash?: One):
+        (locator?: None, type?: One, version?: One, options?: One, hash?: None):
+          val type    = value!(type?) as String
+          val version = value!(version?) $> parse-semver $> value!
+          val options = value!(options?) as Tuple<KeyValue<String, String>>
+          LockedPkgDependency(name, version, type, options)
+        (locator?: None, type?: None, version?: None, options?: None, hash?: One):
           val hash = value!(hash?) as String
           LockedTaskDependency(name, hash)
-        (locator: None, version: None, hash?: None):
+        (locator?: None, type?: None, version?: None, options?: None, hash?: None):
           LockedPathDependency(name)
-        (locator, version, hash):
+        (locator, type, version, options, hash):
           error("lock entry '%_' invalid: has it been corrupted?" % [name])
     else:
       error("lock format invalid: has it been corrupted?")
@@ -71,6 +85,10 @@ public defn write-slm-lock-file (f:OutputStream, dependencies: Tuple<Dependency>
         (dep: GitDependency):
           println(f, "%_={locator=%~,version=%~,hash=%~}"
                   % [name(dep), locator(dep), to-string(version(dep)), hash(dep)])
+        (dep: PkgDependency):
+          val pkg = value-or-throw(pkg?(dep), InvalidPkgDependency(name(dep), "No 'pkg' key found"))
+          println(f, "%_={version=%~,type=%~,options=%~}"
+                  % [name(dep), to-string(version(pkg)), type(pkg), to-string(options(pkg))])
         (dep: PathDependency):
           println(f, "%_={}" % [name(dep)])
         (dep: TaskDependency):
