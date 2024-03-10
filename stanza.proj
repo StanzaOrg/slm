@@ -3,16 +3,42 @@ include? ".slm/stanza.proj"
 packages slm/* defined-in "src/"
 packages slm/tests/* defined-in "tests/"
 
+; TODO convert curl to slm package and remove this hack
+package lang-utils defined-in "../jitx-client/jitpcb/src/utils/lang-utils.stanza"
+include "../jitx-client/stanza-utils/stanza.proj"
+include "../jitx-client/jitpcb/src/lib-curl/stanza.proj"
+
+; TODO convert json to slm package and remove this hack
+include "../jitx-client/jitpcb/src/lib-json/stanza.proj"
+
 pkg-cache: ".slm/pkg-cache"
 
 package slm/file-utils requires :
   dynamic-libraries:
     on-platform:
       ;windows: "/somewhere/libc.dll"
-      linux: "/lib/x86_64-linux-gnu/libc.so.6"
+      linux: ("/lib/x86_64-linux-gnu/libc.so.6" "/lib/x86_64-linux-gnu/libcurl.so.4")
       ;os-x: "/somewhere/libc.dylib"
 
+package slm/pkg-dep requires :
+  ;dynamic-libraries:
+  ;  on-platform:
+  ;    ;windows: "/somewhere/libc.dll"
+  ;    linux: ("/lib/x86_64-linux-gnu/libc.so.6" "/lib/x86_64-linux-gnu/libcurl.so.4")
+  ;    ;os-x: "/somewhere/libc.dylib"
+  ;;;;;;;;;;;;;
+  ; TODO convert curl to slm package and remove this hack
+  ccflags:
+    (
+      "-I../jitx-client/.conan2/p/libcuf19f2c5d15136/p/include"
+      "-L../jitx-client/.conan2/p/libcuf19f2c5d15136/p/lib"
+      "-L../jitx-client/.conan2/p/opens72f8f383a053f/p/lib"
+    )
+
 build main:
+  supported-vm-packages:
+    curl
+    json
   inputs: slm/main
   pkg: ".slm/pkgs"
   o: "slm"
@@ -30,3 +56,9 @@ build-test tests:
     slm/tests/commands/remove
   pkg: "test-pkgs"
   o: "slm-tests"
+
+build-test test_conan:
+  inputs:
+    slm/tests/conan-utils
+  pkg: "test-pkgs"
+  o: "test_conan"

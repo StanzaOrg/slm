@@ -3,9 +3,10 @@ defpackage slm/pkg-dep:
   import collections
 
   import maybe-utils
-  import semver
+  import term-colors
   import toml
 
+  import slm/conan-utils
   import slm/dependency
   import slm/errors
   import slm/flags
@@ -16,53 +17,76 @@ defpackage slm/pkg-dep:
   import slm/utils
 
 doc: \<DOC>
-Define a Pkg dependency representing a pre-compiled stanza pkg archive
+Define a Pkg Dependency representing a pre-compiled stanza pkg archive
 stored in a conan/artifactory repository
+
+This dependency is intended to define a pre-compiled archive
+of stanza pkg binaries which can be linked into an slm project.
+This archive may be stored on a remote conan/artifactory server.
 <DOC>
-public defstruct Pkg <: Equalable & Hashable:
-  name: String with: (ensure => ensure-not-empty!); Required
-  version: SemanticVersion
+public defstruct PkgDependency <: Dependency & Hashable & Equalable:
+  name:String with: (
+    as-method => true
+    ensure => ensure-not-empty!
+    )
+  version: String
   type: String
   options: Tuple<KeyValue<String, String>>
-with:
-  hashable => true
-  equalable => true
 
-public defn Pkg (
+defmethod recursive (d:PkgDependency) -> True|False :
+  ; a pkg can have recursive deps
+  true
+
+defmethod path (d:PkgDependency) -> String:
+  path-join(SLM_DEPS_DIR, name(d))
+
+defmethod equal? (a:PkgDependency, b:PkgDependency) -> True|False :
+  name(a) == name(b) and version(a) == version(b) and type(a) == type(b) and options(a) == options(b)
+
+defmethod hash (x:PkgDependency) -> Int :
+  val options-hash = sum $ for kvp in options(x) seq:
+    val [k,v] = [key(kvp), value(kvp)]
+    hash(k) + hash(v)
+  hash(name(x)) + hash(version(x)) + hash(type(x)) + options-hash
+
+public defn PkgDependency (
   name: String
-  version: SemanticVersion
+  version: String  ; may not always be a SemanticVersion
   type: String
   --
   options:Tuple<KeyValue<String, String>> = []
-  ) -> Pkg :
-  Pkg(name, version, type, options)
+  ) -> PkgDependency :
+  PkgDependency(name, version, type, options)
 
-;Programmatic way to create pkg objects.
-public defn to-pkg (
-  name: String
-  version: SemanticVersion
-  type: String
-  --
-  options:Tuple<KeyValue<String, String>> = []
-  ) -> Pkg :
-  Pkg(name, version, type, options)
-
-defn options-to-string (p:Pkg) -> String :
-  val elems = for kvp in options(p) seq:
-    to-string("%~ = %~" % [key(kvp), value(kvp)])
-  to-string("{ %, }" % [elems])
-
-defmethod print (o:OutputStream, p:Pkg) :
+defmethod print (o:OutputStream, d:PkgDependency) :
   val comps = Vector<String|Printable>()
-  add(comps, "name = %~" % [name(p)])
-  add(comps, "version = %~" % [version(p)])
-  add(comps, "type = %~" % [type(p)])
-  if length(options(p)) > 0 :
-    val opt-str = options-to-string(p)
+  add(comps, "pkg = %~" % [name(d)])
+  add(comps, "version = %~" % [version-string(d)])
+  add(comps, "type = %~" % [type(d)])
+  if length(options(d)) > 0 :
+    val opt-str = options-to-string(d)
     add(comps, "options = %_" % [opt-str])
 
   val entries = string-join(comps, ", ")
-  print(o, "{ %_ }" % [entries])
+  print(o, "%_ = { %_ }" % [name(d), entries])
+
+public defn version-string (d: PkgDependency) -> String:
+  to-string(version(d))
+
+public defn colored-version? (d: PkgDependency) -> ColoredString:
+  ColoredString(version-string(d))
+    $> bold $> foreground{_, TerminalBrightGreen}
+    $> clear-color?
+
+public defn colored-name? (d: PkgDependency) -> ColoredString:
+  ColoredString(name(d))
+    $> bold $> foreground{_, TerminalBrightWhite}
+    $> clear-color?
+
+defn options-to-string (d:PkgDependency) -> String :
+  val elems = for kvp in options(d) seq:
+    to-string("%~ = %~" % [key(kvp), value(kvp)])
+  to-string("{ %, }" % [elems])
 
 defn parse-options (table:TomlTable -- env-sub-enable:True|False = false) -> Tuple<KeyValue<String, String>> :
   to-tuple $ for kvp in table seq:
@@ -92,16 +116,9 @@ Parse a Pkg object from the TOML configuration
   }
 }
 <DOC>
-public defn parse-pkg (table:TomlTable -- env-sub-enable:True|False = false, name:String = "unknown") -> Pkg :
-  ;val name? = sub-vars?{_, env-sub-enable} $ get-str?(table, "name")
-  ;val name = value-or-throw(name?, InvalidPkgDependency(name, "No 'name' key found"))
+public defn parse-pkg-dependency (name:String, table:TomlTable -- env-sub-enable:True|False = false) -> PkgDependency :
   val version? = get-str?(table, "version")
-  val version = match(version?):
-    (x:None):
-      throw $ InvalidPkgDependency(name, "No 'version' key found")
-    (x:One<String>):
-      parse-semver(value(x)) $>
-        expect{_, "Pkg Dep[%_]: Failed to Parse Version: '%_'" % [name, x]}
+  val version = value-or-throw(version?, InvalidPkgDependency(name, "No 'version' key found"))
   val type? = sub-vars?{_, env-sub-enable} $ get-str?(table, "type")
   val type = value-or-throw(type?, InvalidPkgDependency(name, "No 'type' key found"))
   val opt-table? = get-table?(table, "options")
@@ -109,86 +126,18 @@ public defn parse-pkg (table:TomlTable -- env-sub-enable:True|False = false, nam
     (_:None): []
     (x:One<TomlTable>):
       parse-options(value(x), env-sub-enable = env-sub-enable)
-  Pkg(name, version, type, options)
+  PkgDependency(name, version, type, options)
 
-doc: \<DOC>
-Pkg Dependency - Pre-compiled stanza pkg archive
-
-This dependency is intended to define a pre-compiled archive
-of stanza pkg binaries which can be linked into an slm project.
-This archive may be stored on a remote conan/artifactory server.
-<DOC>
-public defstruct PkgDependency <: Dependency & Hashable & Equalable:
-  name:String with: (
-    as-method => true
-    ensure => ensure-not-empty!
-    )
-  pkg?:Maybe<Pkg> with: (
-    updater => sub-pkg?
-  )
-with:
-  constructor => #PkgDependency
-
-defmethod recursive (d:PkgDependency) -> True|False :
-  ; a pkg may depend on other pkgs
-  true
-
-defmethod equal? (a:PkgDependency, b:PkgDependency) -> True|False :
-  name(a) == name(b) and (pkg?(a) == pkg?(b))
-
-defmethod hash (x:PkgDependency) -> Int :
-  hash(name(x)) + hash(pkg?(x))
-
-public defn PkgDependency (
-  name:String,
-  --
-  pkg:Pkg = ?
-  ) -> PkgDependency:
-  #PkgDependency(name, pkg)
-
-public defn PkgDependency (
-  name: String
-  version: SemanticVersion
-  type: String
-  --
-  options:Tuple<KeyValue<String, String>> = []
-  ) -> PkgDependency :
-  val pkg = Pkg(name, version, type, options)
-  #PkgDependency(name, to-maybe(pkg))
-
-defmethod print (o:OutputStream, d:PkgDependency) :
-  val p? = pkg?(d)
-  match(p?):
-    (p:One<Pkg>):
-      println(o, "%_.pkg = %_" % [name(d), value(p)])
-    (p:None): false
-
-public defn parse-pkg-dependency (name:String, table:TomlTable -- env-sub-enable:True|False = false) -> PkgDependency :
-  val pkg? = get-table?(table, "pkg")
-  val pkg-table = value-or-throw(pkg?, InvalidPkgDependency(name, "No 'pkg' key found"))
-
-  ; val pkg = try:
-  ;   One $ parse-pkg(pkg-table, name = name, env-sub-enable = env-sub-enable)
-  ; catch (e:InvalidPkgDependency):
-  ;   debug(to-string(e))
-  ;   debug("Assuming that there is no global pkg definition")
-  ;   None()
-  val pkg = One $ parse-pkg(pkg-table, name = name, env-sub-enable = env-sub-enable)
-  #PkgDependency(name, pkg)
-
-public defn fetch-or-sync-pkgver (d: PkgDependency) -> False:
-  throw $ InvalidPkgDependency(name(d), "TODO FIXME implement")
-  ;if not has-git?() :
-  ;  error("No `git` executable found on the path")
-
+public defn fetch-or-sync-pkgver (d: PkgDependency, parent-name:String|False = false, dep-path:String|False = false) -> Maybe<PkgDependency>:
   ;if file-exists?(path(d)):
   ;  sync-dependency-pkgver(d)
   ;else:
-  ;  fetch-dependency-pkgver(d)
-
+  fetch-dependency-pkgver(d)
+  to-maybe(d)
 
 public defn sync-dependency-pkgver (d: PkgDependency) -> False:
-  throw $ InvalidPkgDependency(name(d), "TODO FIXME implement")
+  ;throw $ InvalidPkgDependency(name(d), "TODO FIXME implement")
+  false
   ; debug("syncing '%_' at %_" % [name(d), hash(d)])
 
   ; if empty?(hash(d)): fatal("internal error")
@@ -197,15 +146,18 @@ public defn sync-dependency-pkgver (d: PkgDependency) -> False:
   ;   error("syncing '%_': out of sync with your slm.lock" % [name(d)])
 
 public defn fetch-dependency-pkgver (d: PkgDependency) -> False:
-  throw $ InvalidPkgDependency(name(d), "TODO FIXME implement")
-  ; info("cloning %_ at %_" % [colored-name?(d), hash(d)])
+  info("fetching %_ at %_" % [colored-name?(d), colored-version?(d)])
+  info("fetching with options: \"%_\"" % [options(d)])
 
-  ; if empty?(hash(d)): fatal("internal error")
-
-  ; val url = full-url-from-locator(locator(d))
-  ; shallow-clone-git-repo(url, path(d))
-
-  ; run-git-command-in-dir(path(d), ["fetch", "--quiet", "origin", hash(d)])
-  ; run-git-command-in-dir(path(d), ["checkout", "--quiet", "--force", hash(d)])
-
-  ; false
+  ; PkgDependency version may have revision and package_id components, so use string constructor for ConanVersion
+  val cv = ConanVersion(to-string("%_/%_" % [name(d), version(d)]))
+  val filename = conan-download-package(cv, options = options(d), target_directory = ".")
+  val dest = ".slm/deps/%_" % [name(d)]
+  debug("extracting \"%_\" to \"%_\"" % [filename, dest])
+  ; TODO convert to use slm/process-utils
+  ; FIXME XXX using a bash shell command string with user-provided data is dangerous
+  ; TODO safety check dest or filename contains chars other than [alphanum, '-', '_']
+  val ret = call-system(["bash" "-c" to-string("D=\"%_\" ; mkdir -p \"$D\" ; echo extracting into \"$D\" ; tar zxvf \"%_\" -C \"$D\"" % [dest, filename])])
+  debug("extract returned %_" % [ret])
+  
+  false

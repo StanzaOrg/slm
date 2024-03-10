@@ -106,8 +106,7 @@ public defn parse-slm-toml (f:InputStream -- env-sub-enable:True|False = true) -
           debug("parse-slm-toml: calling parse-git-dependency(\"%_\", \"%_\")" % [name, legacy])
           parse-git-dependency(name, legacy)
         (table:TomlTable):
-          debug("parse-slm-toml: dependency table: \"%_\"" % [table])
-          debug("parse-slm-toml: calling parse-dependency(\"%_\", table, %_)" % [name, env-sub-enable])
+          debug("parse-slm-toml: calling parse-dependency(\"%_\", %_, %_)" % [name, table, env-sub-enable])
           parse-dependency(name, table, env-sub-enable)
 
   SlmToml(name, version, compiler?, stanza-version?, dependencies)
@@ -122,7 +121,7 @@ defmethod print (o:OutputStream, e:InvalidDependencyConfigError) :
 defn parse-dependency (name:String, table:TomlTable, env-sub-enable:True|False) -> Dependency :
   val gitAttr = get-str?(table, "git")
   val pathAttr = get-str?(table, "path")
-  val pkgAttr = get-table?(table, "pkg")
+  val pkgAttr = get-str?(table, "pkg")
   val taskAttr = get-table?(table, "task")
   val version = get-str?(table, "version")
 
@@ -139,7 +138,7 @@ defn parse-dependency (name:String, table:TomlTable, env-sub-enable:True|False) 
     (p:None, g:One<String>, k: None, t:None): ; Git Dependency
       debug("parse-dependency: calling parse-git-dependency(\"%_\", ...)" % [name])
       parse-git-dependency(name, value(g), version)
-    (p:None, g:None, k: One, t:None): ; Pkg Dependency
+    (p:None, g:None, k: One<String>, t:None): ; Pkg Dependency
       debug("parse-dependency: calling parse-pkg-dependency(\"%_\", ...)" % [name])
       parse-pkg-dependency(name, table, env-sub-enable = env-sub-enable)
     (p:None, g:None, k: None, t:One): ; Task Dependency

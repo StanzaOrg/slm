@@ -39,6 +39,8 @@ deftest(toml) test-find-dependency:
   "basic", "0.2.1", [
     "git-dep" => GitDependency("git-dep", "StanzaOrg/stanza-toml", SemanticVersion(1, 2, 3), "")
     "path-dep" => PathDependency("path-dep", "/home/john/src/sqlite")
+    "pkg-dep" => PkgDependency("pkg-dep", "5.6.7", "conan")
+    "pkg-dep-opts" => PkgDependency("pkg-dep-opts", "12.34.56", "conan", ["opt_one" => "first", "opt_two" => "second"])
     "find-me" => GitDependency("find-me", "sqlite/sqlite", SemanticVersion(2, 0, 2), "")
     "task-me" => TaskDependency("task-me", task = Task("xeyes"))
   ])
@@ -62,7 +64,7 @@ deftest(toml) test-parse-slm-toml:
   #EXPECT(compiler?(uut) == One("jstanza"))
 
   val deps = dependencies(uut)
-  #EXPECT(length(to-tuple(deps)) ==  4)
+  #EXPECT(length(to-tuple(deps)) ==  6)
 
   val dep1 = deps["stanza-toml"]
   match(dep1):
@@ -93,6 +95,22 @@ deftest(toml) test-parse-slm-toml:
       val [name, t] = [key(ptasks[0]), value(ptasks[0])]
       #EXPECT(name == "windows")
       #EXPECT(command(t) == "build_libtask.ps1")
+
+  val dep5 = deps["pkg-dep"]
+  match(dep5):
+    (pkg-dep:PkgDependency):
+      #EXPECT(name(pkg-dep) == "pkg-dep")
+      #EXPECT(version(pkg-dep) == "5.6.7")
+      #EXPECT(type(pkg-dep) == "conan")
+      #EXPECT(options(pkg-dep) == [])
+
+  val dep6 = deps["pkg-dep-opts"]
+  match(dep6):
+    (pkg-dep:PkgDependency):
+      #EXPECT(name(pkg-dep) == "pkg-dep-opts")
+      #EXPECT(version(pkg-dep) == "12.34.56")
+      #EXPECT(type(pkg-dep) == "conan")
+      #EXPECT(options(pkg-dep) == ["opt_one" => "first", "opt_two" => "second"])
 
 
 deftest(toml) test-parse-mutex-error:
