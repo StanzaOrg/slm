@@ -9,7 +9,7 @@ include "../jitx-client/stanza-utils/stanza.proj"
 include "../jitx-client/jitpcb/src/lib-curl/stanza.proj"
 
 ; TODO convert json to slm package and remove this hack
-include "../jitx-client/jitpcb/src/lib-json/stanza.proj"
+;include "../jitx-client/jitpcb/src/lib-json/stanza.proj"
 
 pkg-cache: ".slm/pkg-cache"
 
