@@ -20,11 +20,16 @@ defpackage slm/dependencies:
 
 public defn fetch-and-sync (cfg:SlmToml, force:True|False) -> Tuple<Dependency>:
 
+  debug("fetch-and-sync: calling ensure-slm-dir-structure-exists")
   ensure-slm-dir-structure-exists()
 
+  debug("fetch-and-sync: calling resolve-deps")
   val deps = resolve-deps(cfg)
+
+  debug("fetch-and-sync: calling check-stanza-compatible-deps")
   check-stanza-compatible-deps(cfg, deps, force)
 
+  debug("fetch-and-sync: returning deps")
   deps
 
 defn resolve-deps (cfg:SlmToml) -> Tuple<Dependency> :
@@ -35,18 +40,24 @@ defn resolve-deps (cfg:SlmToml) -> Tuple<Dependency> :
   ; 2. Otherwise we use the slm.toml
   if file-exists?(SLM_LOCK_NAME):
     val lock-cfg = within f = open(SLM_LOCK_NAME):
+      debug("resolve-deps: calling parse-slm-lock-file")
       parse-slm-lock-file(f)
+    debug("resolve-deps: calling parse-slm-lock-and-resolve-dependencies")
     parse-slm-lock-and-resolve-dependencies(cfg, lock-cfg)
   else:
+    debug("resolve-deps: calling parse-slm-toml-and-resolve-dependencies")
     val deps = parse-slm-toml-and-resolve-dependencies(cfg)
 
     ; We only write this
     within f = open(SLM_STANZA_PROJ, false):
+      debug("resolve-deps: calling write-build-stanza-proj")
       write-build-stanza-proj(f, deps)
 
     within f = open(SLM_LOCK_NAME, false):
+      debug("resolve-deps: calling write-slm-lock-file")
       write-slm-lock-file(f, deps)
 
+    debug("resolve-deps: returning deps")
     deps
 
 defn check-stanza-compatible-deps (cfg:SlmToml, deps:Tuple<Dependency>, force:True|False) :
@@ -75,14 +86,23 @@ defn ensure-slm-dir-structure-exists () -> False:
   false
 
 public-when(TESTING) defn write-build-stanza-proj (f:OutputStream, dependencies: Tuple<Dependency>) -> False:
-  val deps* = recursive-deps-only(dependencies)
-  for dep in deps* do:
-    val dep-path = path-join(path(dep), "stanza.proj")
-    val stanza-proj? = resolve-path(dep-path)
-    val dep-stanza-proj = un-norm-path $ match(stanza-proj?):
-      (x:False): throw $ Exception("Failed to Resolve Path %_. Double check path dependencies and confirm expected git repos in '.slm/deps'" % [dep-path])
-      (x:String): x
-    println(f, to-string(\<>include "%_"<> % [dep-stanza-proj]))
+  label<False> return:
+    val deps* = recursive-deps-only(dependencies)
+    for dep in deps* do:
+      val dep-path = path-join(path(dep), "stanza.proj")
+      val stanza-proj? = resolve-path(dep-path)
+      val dep-stanza-proj = un-norm-path $ match(stanza-proj?):
+        (x:False):
+          ; pkg dependencies may or may not have a stanza.proj
+          match(dep):
+            (pkgdep:PkgDependency):
+              if not file-exists?(dep-path): 
+                debug("stanza.proj doesn't exist for pkg \"%_\", skipping dep-path = \"%_\"" % [name(dep), dep-path])
+                return(false)
+            (d): false
+          throw $ Exception("Failed to Resolve Path %_. Double check path dependencies and confirm expected git repos in '.slm/deps'" % [dep-path])
+        (x:String): x
+      println(f, to-string(\<>include "%_"<> % [dep-stanza-proj]))
 
 
 defn parse-slm-lock-and-resolve-dependencies (cfg:SlmToml, lock-cfg:Tuple<LockedDependency>):
@@ -130,14 +150,12 @@ defn parse-slm-lock-and-resolve-dependencies (cfg:SlmToml, lock-cfg:Tuple<Locked
           val slm-toml-dep? = get?(slm-toml-dependencies, name(dep))
           match(slm-toml-dep?):
             (slm-toml-dep:PkgDependency):
-              val tomlver = version(value-or-throw(pkg?(slm-toml-dep), InvalidPkgDependency(name(dep), "No 'pkg' key found")))
-              val lockver = version(value-or-throw(pkg?(pkg-dep), InvalidPkgDependency(name(dep), "No 'pkg' key found")))
-              if not compatible?(tomlver, lockver):
+              if version(slm-toml-dep) != version(pkg-dep):
                 error("'%_' (version %_) specified in 'slm.toml'.\n\
                        This conflicts with locked version ('%_') from 'slm.lock'\n\
                        If you wish to use the version from your 'slm.toml', \
                        run 'slm clean', then re-run this command."
-                       % [name(dep), tomlver, lockver])
+                       % [name(dep), version(slm-toml-dep), version(pkg-dep)])
               else:
                 fetch-or-sync-pkgver(pkg-dep)
                 pkg-dep
@@ -263,9 +281,11 @@ defn parse-slm-toml-and-resolve-dependencies (cfg:SlmToml) -> Tuple<Dependency>:
                    You can't have path dependencies in dependencies \
                    (path dependencies can only be specified in a top-level slm.toml)"
                    % [/name(dep), parent-name])
+        (dep: PkgDependency):
+          fetch-or-sync-pkgver(dep, parent-name, dep-path)
         (dep: TaskDependency):
           run-task-dep(dep, parent-name, dep-path)
-        (_): fatal("unreachable")
+        (_): fatal("parse-slm-toml-and-resolve-dependencies: unexpected dependency type: %_" % [dep])
 
     debug("done resolving '%_'" % [parent-name])
 
@@ -277,12 +297,15 @@ defn parse-slm-toml-and-resolve-dependencies (cfg:SlmToml) -> Tuple<Dependency>:
     val resolved* = recursive-deps-only(resolved)
     for dep in resolved* do:
       val next-slm-toml = path-join(path(dep), SLM_TOML_NAME)
-      debug("parsing '%_'" % [next-slm-toml])
-      val [dep-path, _] = split-filepath(next-slm-toml)
-      debug("dep-path: %_" % [dep-path])
-      val next-cfg = within f = open(next-slm-toml):
-        parse-slm-toml(f)
-      loop(next-cfg, dep-path, false)
+      if not file-exists?(next-slm-toml):
+        debug("skipping '%_': does not exist" % [next-slm-toml])
+      else:
+        debug("parsing '%_'" % [next-slm-toml])
+        val [dep-path, _] = split-filepath(next-slm-toml)
+        debug("dep-path: %_" % [dep-path])
+        val next-cfg = within f = open(next-slm-toml):
+          parse-slm-toml(f)
+        loop(next-cfg, dep-path, false)
 
   debug("done parsing dependency graph")
   for dep in values(resolved-dependencies) do:

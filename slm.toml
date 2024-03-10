@@ -1,5 +1,5 @@
 name = "slm"
-version = "0.5.6"
+version = "0.5.9"
 
 [dependencies]
 stanza-toml = { git = "StanzaOrg/stanza-toml", version = "0.4.0" }

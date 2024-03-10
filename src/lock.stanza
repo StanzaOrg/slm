@@ -41,7 +41,7 @@ with:
 
 public defstruct LockedPkgDependency <: LockedDependency:
   name: String with: (as-method => true)
-  version: SemanticVersion
+  version: String
   type: String
   options: Tuple<KeyValue<String, String>>
 with:
@@ -66,7 +66,7 @@ public defn parse-slm-lock-file (f:InputStream) -> Tuple<LockedDependency>:
           LockedGitDependency(name, locator, version, hash)
         (locator?: None, type?: One, version?: One, options?: One, hash?: None):
           val type    = value!(type?) as String
-          val version = value!(version?) $> parse-semver $> value!
+          val version = value!(version?) as String
           val options = value!(options?) as Tuple<KeyValue<String, String>>
           LockedPkgDependency(name, version, type, options)
         (locator?: None, type?: None, version?: None, options?: None, hash?: One):
@@ -86,9 +86,8 @@ public defn write-slm-lock-file (f:OutputStream, dependencies: Tuple<Dependency>
           println(f, "%_={locator=%~,version=%~,hash=%~}"
                   % [name(dep), locator(dep), to-string(version(dep)), hash(dep)])
         (dep: PkgDependency):
-          val pkg = value-or-throw(pkg?(dep), InvalidPkgDependency(name(dep), "No 'pkg' key found"))
           println(f, "%_={version=%~,type=%~,options=%~}"
-                  % [name(dep), to-string(version(pkg)), type(pkg), to-string(options(pkg))])
+                  % [name(dep), to-string(version(dep)), type(dep), to-string(options(dep))])
         (dep: PathDependency):
           println(f, "%_={}" % [name(dep)])
         (dep: TaskDependency):

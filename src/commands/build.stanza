@@ -56,8 +56,10 @@ public defn build (cmd-args:CommandArgs) -> False:
   val platform = get-platform()
   set-env("SLM_PLATFORM", platform)
 
+  debug("calling slm/dependencies/fetch-and-sync")
   val dependencies = slm/dependencies/fetch-and-sync(cfg, force-build)
 
+  debug("calling get-cwd")
   val slm-dir = path-join(get-cwd(), SLM_DIR)
 
   val stanza-exe = get-stanza-exe(compiler?(cfg))
