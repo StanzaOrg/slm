@@ -1,11 +1,10 @@
 name = "slm"
-version = "0.5.10"
+version = "0.5.20"
 
 [dependencies]
 stanza-toml = { git = "StanzaOrg/stanza-toml", version = "0.4.0" }
 semver      = { git = "StanzaOrg/semver", version = "0.1.6" }
 maybe-utils = { git = "StanzaOrg/maybe-utils", version = "0.1.4" }
 term-colors = { git = "StanzaOrg/term-colors", version = "0.1.1" }
-#curl        = { git = "StanzaOrg/slm_curl", version = "0.0.0" }
-json        = { git = "StanzaOrg/slm_json", version = "0.0.0" }
-
+curl_static = { git = "StanzaOrg/slm_curl", version = "0.0.1" }
+json_static = { git = "StanzaOrg/slm_json", version = "0.0.1" }
