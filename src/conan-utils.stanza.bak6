@@ -1,0 +1,363 @@
+defpackage slm/conan-utils:
+  import core
+  import collections
+
+  import curl
+  import json
+  import maybe-utils
+  import semver
+
+  import slm/utils
+  import slm/logging
+  import slm/file-utils
+  import slm/process-utils
+
+val DEFAULT-CONAN-URL = "http://conan.jitx.com:8081/artifactory/api/conan/conan-local"
+
+doc: \<DOC>
+A structure for holding all of the components of a fully-qualified conan version
+https://docs.conan.io/2/tutorial/versioning/revisions.html
+
+@throws InvalidVersionError If we fail to parse the version string from stanza
+<DOC>
+public defstruct ConanVersion <: Equalable :
+  name:String with: ( ensure => ensure-not-empty! )
+  version: String with: ( ensure => ensure-not-empty! )
+  recipe_revision: String|False
+  package_id: String|False
+  package_revision: String|False
+
+
+doc: \<DOC>
+A constructor to parse a fully-qualified conan version string into a ConanVersion
+
+@param s string in the form "a/b#cccccccccccccccccccccccccccccccc:dddddddddddddddddddddddddddddddddddddddd#eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+         where only "a/b" is mandatory
+@throws InvalidVersionError If we fail to parse the version string from stanza
+<DOC>
+public defn ConanVersion (s:String) -> ConanVersion :
+  debug("ConanVersion: s==\"%_\"" % [s])
+  ; name before slash
+  val nvslash = index-of-char(s, '/')
+  val name = s[0 to nvslash]
+  var verrev
+  match(nvslash):
+    (i:Int) : verrev = s[(i + 1) to false]
+    (i:False) : throw(Exception("Version string must contain a slash character"))
+  var version = ""
+  var recipe_rev:String|False = false
+  var package_id:String|False = false
+  var package_rev:String|False = false
+  ; split after slash and before colon
+  val vpcolon = index-of-char(verrev, ':')
+  debug("ConanVersion: name==\"%_\"" % [name])
+  debug("ConanVersion: verrev==\"%_\"" % [verrev])
+  debug("ConanVersion: vpcolon==%_" % [vpcolon])
+  match(vpcolon):
+    (i:Int) :
+      debug("ConanVersion: before colon: \"%_\"" % [verrev[0 to i]])
+      debug("               after colon: \"%_\"" % [verrev[(i + 1) to false]])
+      val rhash = index-of-char(verrev[0 to i], '#')
+      debug("ConanVersion: rhash1==%_" % [rhash])
+      match(rhash):
+        (j:Int) :
+          version = verrev[0 to rhash]
+          recipe_rev = verrev[(j + 1) to i]
+        (False) :
+          version = verrev[0 to i]
+      ; split after colon
+      val pidrev = verrev[(i + 1) to false]
+      debug("ConanVersion: pidrev==\"%_\"" % [pidrev])
+      val phash = index-of-char(pidrev, '#')
+      debug("ConanVersion: phash==%_" % [phash])
+      package_id = pidrev[0 to phash]
+      match(phash):
+        (j:Int) : package_rev = pidrev[(j + 1) to false]
+        (False) : false
+    (i:False) :
+      val rhash = index-of-char(verrev, '#')
+      debug("ConanVersion: rhash2==%_" % [rhash])
+      version = verrev[0 to rhash]
+      match(rhash):
+        (j:Int) : recipe_rev = verrev[(j + 1) to false]
+        (False) : false
+
+  debug("ConanVersion( \"%_\", \"%_\", \"%_\", \"%_\", \"%_\" )" % [name, version, recipe_rev, package_id, package_rev])
+  ConanVersion(name, version, recipe_rev, package_id, package_rev)
+
+
+public defmethod to-string (cv:ConanVersion) -> String :
+  val s = StringBuffer()
+  add-all(s, name(cv))
+  add(s, '/')
+  add-all(s, version(cv))
+  if recipe_revision(cv) != false:
+    add(s, '#')
+    add-all(s, recipe_revision(cv) as String)
+  if package_id(cv) != false:
+    add(s, ':')
+    add-all(s, package_id(cv) as String)
+    ; only use package_revision if there was a package_id
+    if package_revision(cv) != false:
+      add(s, '#')
+      add-all(s, package_revision(cv) as String)
+  to-string(s)
+
+
+;------------------------
+;--- Conan API syntax ---
+;------------------------
+;--- Search for package by name
+; curl $APIBASE/conans/search?q=pcre
+; {
+;   "results" : [ "pcre/8.45@_/_" ]
+; }
+;
+;--- Use results to search for binary packages:
+; curl $APIBASE/conans/pcre/8.45/_/_/search
+; {
+;   "139391a944851d9dacf1138cff94b3320d5775dd" : {
+;     "settings" : {
+;       "os" : "Windows",
+;       "compiler.threads" : "posix",
+;       "compiler.exception" : "seh",
+;       "arch" : "x86_64",
+;       "compiler" : "gcc",
+;       "build_type" : "Release",
+;       "compiler.version" : "11.2"
+;     },
+; (...)
+;
+; ; list revisions of a package for a specific recipe revision
+; curl -v 'http://conan.jitx.com:8081/artifactory/api/conan/conan-local/v2/conans/pcre/8.45/_/_/revisions/125d5f684fea10391ff4cbcd809a5c74/packages/6f7dea16aa97d9ca0f6b67b413781234ab190708/revisions'
+; 
+;--- Use hash to get download url
+; curl $APIBASE/conans/pcre/8.45/_/_/packages/139391a944851d9dacf1138cff94b3320d5775dd/download_urls
+; {
+;   "conaninfo.txt" : "http://localhost:8082/artifactory/api/conan/conan-local/v2/files/_/pcre/8.45/_/125d5f684fea10391ff4cbcd809a5c74/package/139391a944851d9dacf1138cff94b3320d5775dd/ce6f2349e761f6350cbde62b02a687c7/conaninfo.txt",
+;   "conan_package.tgz" : "http://localhost:8082/artifactory/api/conan/conan-local/v2/files/_/pcre/8.45/_/125d5f684fea10391ff4cbcd809a5c74/package/139391a944851d9dacf1138cff94b3320d5775dd/ce6f2349e761f6350cbde62b02a687c7/conan_package.tgz",
+;   "conanmanifest.txt" : "http://localhost:8082/artifactory/api/conan/conan-local/v2/files/_/pcre/8.45/_/125d5f684fea10391ff4cbcd809a5c74/package/139391a944851d9dacf1138cff94b3320d5775dd/ce6f2349e761f6350cbde62b02a687c7/conanmanifest.txt"
+; }
+;
+;--- Use the url for "conan_package.tgz"
+; http://localhost:8082/artifactory/api/conan/conan-local/v2/files/_/pcre/8.45/_/125d5f684fea10391ff4cbcd809a5c74/package/139391a944851d9dacf1138cff94b3320d5775dd/ce6f2349e761f6350cbde62b02a687c7/conan_package.tgz
+
+doc: \<DOC>
+search for the given package name on the conan server
+@throws JSONParseException on invalid json returned
+@throws CurlException
+<DOC>
+public defn conan-search-package-name (package_name:String, -- repourl:String = DEFAULT-CONAN-URL) -> JObject :
+  var jresult
+  ; search for package name
+  val queryurl = to-string("%_/v2/conans/search?q=%_" % [repourl, package_name])
+  val headers = ["Content-Type: application/json"]
+  val curl = Curl()
+  try:
+    val response  = read-url(curl, headers, queryurl)
+    jresult = parse(response) as JObject
+  catch (e: JSONParseException):
+    free(curl)
+    throw(e)
+  catch (e:CurlException):
+    free(curl)
+    throw(e)
+  free(curl)
+  jresult
+
+
+doc: \<DOC>
+search for the available recipe revisions for the given package name on the conan server
+@params curl: an OPEN curl handle.  This function does not free the given handle.
+@throws JSONParseException on invalid json returned
+<DOC>
+defn conan-get-recipe-revisions (package_name:String, package_version:String, curl:Curl, -- headers:Tuple<String> = [], repourl:String = DEFAULT-CONAN-URL) -> Tuple<JSON>:
+  var queryurl = to-string("%_/v2/conans/%_/%_/_/_/revisions" % [repourl, url-encode(package_name), url-encode(package_version)])
+  var response = read-url(curl, headers, queryurl)
+  val jresult = parse(response) as JObject
+  if key?(jresult, "errors"):
+    throw(Exception("Conan error while getting recipe revisions for \"%_/%_\": \"%_\"" % [package_name, package_version, to-json-string(jresult)]))
+  jresult["revisions"] as Tuple<JSON>
+
+
+doc: \<DOC>
+search for the available package_ids for the given package name and recipe revision on the conan server
+@params curl: an OPEN curl handle.  This function does not free the given handle.
+@throws JSONParseException on invalid json returned
+<DOC>
+defn conan-get-package-ids-for-revision (package_name:String, package_version:String, recipe_revision:String,
+                                         curl:Curl, -- headers:Tuple<String> = [], repourl:String = DEFAULT-CONAN-URL) -> Tuple<KeyValue<String, JSON>>:
+  ; search for available package_ids of the recipe revision
+  val queryurl = to-string("%_/v2/conans/%_/%_/_/_/revisions/%_/search" % [repourl, url-encode(package_name), url-encode(package_version), url-encode(recipe_revision)])
+  val response = read-url(curl, headers, queryurl)
+  val jresult = parse(response) as JObject
+  if key?(jresult, "errors"):
+    throw(Exception("Conan error while getting package_ids for recipe revision \"%_/%_#%_\": \"%_\"" % [package_name, package_version, recipe_revision, to-json-string(jresult)]))
+  entries(jresult)
+
+
+defn conan-get-package-revisions (package_name:String, package_version:String, recipe_revision:String, package_id:String,
+                                  curl:Curl, -- headers:Tuple<String> = [], repourl:String = DEFAULT-CONAN-URL) -> Tuple<JSON>:
+  ; search for available package revisions of the given recipe revision and package_id
+  val queryurl = to-string("%_/v2/conans/%_/%_/_/_/revisions/%_/packages/%_/revisions" % [
+                           repourl, url-encode(package_name), url-encode(package_version), url-encode(recipe_revision), url-encode(package_id)])
+  val response = read-url(curl, headers, queryurl)
+  val jresult = parse(response) as JObject
+  if key?(jresult, "errors"):
+    throw(Exception("Conan error while getting package revisions for package_id \"%_/%_#%_\": \"%_\"" % [package_name, package_version, recipe_revision, to-json-string(jresult)]))
+  jresult["revisions"] as Tuple<JSON>
+
+
+doc: \<DOC>
+Searches the given conan repository for the latest package matching the given ConanVersion and options.
+@throws Exception on failure or package not found
+<DOC>
+public defn conan-fully-qualify-latest-version (cv:ConanVersion, -- options:Tuple<KeyValue<String, String>> = [], repourl:String = DEFAULT-CONAN-URL) -> ConanVersion :
+  label<ConanVersion> return :
+    debug("conan-fully-qualify-latest-version: qualifying version: %_" % [to-string(cv)])
+    ; If the cv has already has all of the parts, then return it unchanged
+    if not (package_id(cv) == false or recipe_revision(cv) == false or package_revision(cv) == false):
+      cv
+    else:
+      ; cv was missing a revision or package_id, so search the server for the latest matching package
+      ; curl $APIBASE/conans/pcre/8.45/_/_/search
+      val headers = ["Content-Type: application/json"]
+      var curl
+      try :
+        curl = Curl()
+
+        val package_name = name(cv)
+        val package_version = version(cv)
+        
+        val current_conan_os = match(CURRENT-PLATFORM) :
+          (p:Linux) : "Linux"
+          (p:OS-X) : "Macos"
+          (p:Windows) : "Windows"
+
+        ; search for available recipe revisions using just the name and version
+        for rr in conan-get-recipe-revisions(package_name, package_version, curl, headers = headers, repourl = repourl) do:
+          val recipe_revision = to-string((rr as JObject)["revision"])
+          val recipe_revision_time = to-string((rr as JObject)["time"])
+          debug("conan-fully-qualify-latest-version: recipe_revision: \"%_\" on \"%_\"" % [recipe_revision, recipe_revision_time])
+
+          for p in conan-get-package-ids-for-revision(package_name, package_version, recipe_revision, curl, headers = headers, repourl = repourl) do:
+            val package_id = key(p)
+            val package_info = value(p) as JObject
+                    ;;; package_info format:
+                    ; {
+                    ; "settings":     {
+                    ;         "os":   "Windows",
+                    ;         "compiler.threads":     "posix",
+                    ;         "compiler.exception":   "seh",
+                    ;         "arch": "x86_64",
+                    ;         "compiler":     "gcc",
+                    ;         "build_type":   "Release",
+                    ;         "compiler.version":     "11.2"
+                    ; },
+                    ; "options":      {
+                    ;         "build_pcrecpp":        "False",
+                    ;         "build_pcre_16":        "False",
+                    ;         "build_pcre_8": "True",
+                    ;         "shared":       "True",
+                    ;         "with_stack_for_recursion":     "True",
+                    ;         "build_pcregrep":       "False",
+                    ;         "build_pcre_32":        "False",
+                    ;         "with_utf":     "True",
+                    ;         "with_unicode_properties":      "True",
+                    ;         "with_jit":     "False"
+                    ; }
+
+            ; look for packages compiled for the current os we're running on
+            ; TODO this could be improved with arch and compiler checks
+            ;      but for now just check os
+            val package_settings_os = to-string((package_info["settings"] as JObject)["os"])
+            if package_settings_os != current_conan_os:
+              ; not our os
+              debug("conan-fully-qualify-latest-version: package \"%_\" os = \"%_\" [SKIP]" % [package_id, package_settings_os])
+            else:
+              debug("conan-fully-qualify-latest-version: package \"%_\" os = \"%_\" [ok]" % [package_id, package_settings_os])
+
+              ; convert package options to hashtable
+              val package_options = package_info["options"] as JObject
+              val htpo = HashTable<String,String>()
+              for o in package_options do:
+                ;debug("conan-fully-qualify-latest-version: package \"%_\" option \"%_\" = \"%_\"" % [package_id, key(o), value(o)])
+                htpo[to-string(key(o))] = to-string(value(o))
+              ; convert requested options to hashtable
+              val htro = HashTable<String,String>()
+              for o in options do:
+                htro[to-string(key(o))] = to-string(value(o))
+
+              ; compare hashtables by value
+              if same-contents?(htpo,htro):
+                ; this package matches our os and the requested options
+                ; get the latest revision for this package
+                for pr in conan-get-package-revisions(package_name, package_version, recipe_revision, package_id, curl, headers = headers, repourl = repourl) do:
+                  val package_revision = to-string((pr as JObject)["revision"])
+                  val package_revision_time = to-string((pr as JObject)["time"])
+                  debug("conan-fully-qualify-latest-version: package_revision: \"%_\" on \"%_\"" % [package_revision, package_revision_time])
+
+                  ; NOTE: assuming that the most recent revision is listed first
+                  ; if this turns out not to be the case, then sort by package_revision_time
+                  val fqcv = ConanVersion(package_name, package_version, recipe_revision, package_id, package_revision)
+                  debug("conan-fully-qualify-latest-version: found \"%_\"" % [to-string(fqcv)])
+                  return(fqcv)
+        ; if we reach here, we didn't find a match
+        throw(Exception("conan search could not find matching package for options"))
+      finally :
+        free(curl)
+
+doc: \<DOC>
+returns path to downloaded file
+@throws Exception on failure or package not found
+<DOC>
+public defn conan-download-package (cv:ConanVersion, -- options:Tuple<KeyValue<String, String>> = [], repourl:String = DEFAULT-CONAN-URL, target_directory:String = ".") -> String :
+  debug("conan-download-package: downloading version: %_" % [to-string(cv)])
+  val headers = ["Content-Type: application/json"]
+  var curl
+  try :
+    curl = Curl()
+
+    val fqcv = conan-fully-qualify-latest-version(cv, repourl = repourl)
+
+  ;curl -v 'http://conan.jitx.com:8081/artifactory/api/conan/conan-local/v2/conans/pcre/8.45/_/_'
+  ;        '/revisions/125d5f684fea10391ff4cbcd809a5c74/packages/6f7dea16aa97d9ca0f6b67b413781234ab190708/revisions'
+  ; conans/pcre/8.45/_/_/revisions/125d5f684fea10391ff4cbcd809a5c74/packages/22df55d12fd0a729491762b4508bc4ddf8b50a38/revisions/5a5560f797885024ff7e6a48b3b7543e/files/conan_package.tg
+    val queryurl = to-string("%_/v2/conans/%_/%_/_/_/revisions/%_/packages/%_/revisions/%_/download_urls" % [
+                   repourl, url-encode(name(fqcv)), url-encode(to-string(version(fqcv))), url-encode(to-string(package_id(fqcv)))])
+  
+    ; Download fully specified package
+    val queryurl = to-string("%_/v2/conans/%_/%_/_/_/revisions/%_/packages/%_/revisions/%_/download_urls" % [
+                   repourl, url-encode(name(fqcv)), url-encode(to-string(version(fqcv))), url-encode(to-string(package_id(fqcv)))])
+    debug("conan-download-package: queryurl: \"%_\"" % [queryurl])
+    var response = read-url(curl, headers, queryurl)
+    val jresult = parse(response) as JObject
+
+    ; check response for errors, most likely 404 Not found
+    if key?(jresult, "errors"):
+      throw(Exception("Conan error while fetching \"%_\": \"%_\"" % [to-string(fqcv), to-json-string(jresult)]))
+      ; TODO nicer errors
+      ;if length(jresult["errors"]) > 0:
+      ;  println("conan-download-package: jresult[\"errors\"]: %_: %_" % [jresult["errors"][0]["status"], jresult["errors"][0]["message"]])
+
+    ; check response for download url in key "conan_package.tgz"
+    debug("conan-download-package: jresult:\n%_" % [to-json-string(jresult)])
+    var downloadurl
+    if key?(jresult, "conan_package.tgz"):
+      downloadurl = to-string(jresult["conan_package.tgz"])
+    else:
+      throw(Exception("Failed to find download url while fetching \"%_\": \"%_\"" % [to-string(fqcv), to-json-string(jresult)]))
+
+    ; returned download url may point to server "localhost:8082", so replace the beginning of the url with the real server
+    if matches?(downloadurl, 0, "http://localhost:8082/"):
+      downloadurl = append("http://conan.jitx.com:8081/", downloadurl[22 to false])
+    debug("conan-download-package: downloadurl: \"%_\"" % [downloadurl])
+    
+    val outfile = append(target_directory, to-string("/conan_package_%__%__%_.tgz" % [name(fqcv), version(fqcv), package_id(fqcv)]))
+    debug("conan-download-package: outfile: \"%_\"" % [outfile])
+
+    read-url-to-file(curl, headers, downloadurl, outfile)
+    outfile
+
+  finally :
+    free(curl)
