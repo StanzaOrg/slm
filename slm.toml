@@ -1,10 +1,62 @@
 name = "slm"
 version = "0.5.20"
 
+# keep these dependencies in sync with the list in bootstrap.py
+# note that the slm bootstrap.py script doesn't recursively resolve dependencies
+# so define a flat list of all required dependencies here
 [dependencies]
-stanza-toml = { git = "StanzaOrg/stanza-toml", version = "0.4.0" }
-semver      = { git = "StanzaOrg/semver", version = "0.1.6" }
-maybe-utils = { git = "StanzaOrg/maybe-utils", version = "0.1.4" }
-term-colors = { git = "StanzaOrg/term-colors", version = "0.1.1" }
-curl_static = { git = "StanzaOrg/slm_curl", version = "0.0.1" }
-json_static = { git = "StanzaOrg/slm_json", version = "0.0.1" }
+curl_static =       { git = "StanzaOrg/slm_curl",       version = "0.0.1" }
+json_static =       { git = "StanzaOrg/slm_json",       version = "0.0.1" }
+lang_utils_static = { git = "StanzaOrg/slm_lang_utils", version = "0.0.1" }
+maybe-utils =       { git = "StanzaOrg/maybe-utils",    version = "0.1.4" }
+semver      =       { git = "StanzaOrg/semver",         version = "0.1.6" }
+stanza-toml =       { git = "StanzaOrg/stanza-toml",    version = "0.4.0" }
+term-colors =       { git = "StanzaOrg/term-colors",    version = "0.1.1" }
+
+[dependencies.libcurl]
+pkg="libcurl"
+version="8.6.0"
+type="conan"
+options.fPIC = "True"
+options.shared = "False"
+options.with_brotli = "False"
+options.with_c_ares = "False"
+options.with_ca_bundle = "auto"
+options.with_ca_fallback = "False"
+options.with_ca_path = "auto"
+options.with_cookies = "True"
+options.with_crypto_auth = "True"
+options.with_dict = "True"
+options.with_docs = "False"
+options.with_file = "True"
+options.with_ftp = "True"
+options.with_gopher = "True"
+options.with_http = "True"
+options.with_imap = "True"
+options.with_ipv6 = "True"
+options.with_largemaxwritesize = "False"
+options.with_ldap = "False"
+options.with_libgsasl = "False"
+options.with_libidn = "False"
+options.with_libpsl = "False"
+options.with_librtmp = "False"
+options.with_libssh2 = "False"
+options.with_mqtt = "True"
+options.with_nghttp2 = "False"
+options.with_ntlm = "True"
+options.with_ntlm_wb = "True"
+options.with_pop3 = "True"
+options.with_proxy = "True"
+options.with_rtsp = "True"
+options.with_smb = "True"
+options.with_smtp = "True"
+options.with_ssl = "openssl"
+options.with_symbol_hiding = "False"
+options.with_telnet = "True"
+options.with_tftp = "True"
+options.with_threaded_resolver = "True"
+options.with_unix_sockets = "True"
+options.with_verbose_debug = "True"
+options.with_verbose_strings = "True"
+options.with_zlib = "True"
+options.with_zstd = "False"
