@@ -217,7 +217,7 @@ public defn conan-fully-qualify-latest-version (cv:ConanVersion, -- options:Tupl
     debug("conan-fully-qualify-latest-version: qualifying version: %_" % [to-string(cv)])
     ; If the cv has already has all of the parts, then return it unchanged
     if not (package_id(cv) == false or recipe_revision(cv) == false or package_revision(cv) == false):
-      cv
+      return cv
     else:
       ; cv was missing a revision or package_id, so search the server for the latest matching package
       ; curl $APIBASE/conans/pcre/8.45/_/_/search
@@ -303,10 +303,10 @@ public defn conan-fully-qualify-latest-version (cv:ConanVersion, -- options:Tupl
                   val fqcv = ConanVersion(package_name, package_version, recipe_revision, package_id, package_revision)
                   debug("conan-fully-qualify-latest-version: found \"%_\"" % [to-string(fqcv)])
                   return(fqcv)
-        ; if we reach here, we didn't find a match
-        throw(Exception("conan search could not find matching package for options"))
       finally :
         free(curl)
+    ; if we reach here, we didn't find a match
+    throw(Exception("conan search could not find matching package for options"))
 
 doc: \<DOC>
 returns path to downloaded file
