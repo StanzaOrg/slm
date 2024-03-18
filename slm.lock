@@ -4,6 +4,6 @@ curl_static={locator="StanzaOrg/slm_curl",version="0.0.3",hash="abbfe4a19254f26d
 stanza-toml={locator="StanzaOrg/stanza-toml",version="0.4.0",hash="acde96ed74455556e9da9df80c20a4a41aaaec75"}
 json_static={locator="StanzaOrg/slm_json",version="0.0.2",hash="23e3728be4cb8150aed0d71cbdbe8214f75b98dd"}
 semver={locator="StanzaOrg/semver",version="0.1.6",hash="13f3eba0e1cfc5bf926134ef8b43bd7d07981ea4"}
-file_system_utils_static={locator="StanzaOrg/slm_file_system_utils",version="0.0.2",hash="cab006f0b5afbe89bfda1c0790629e12956a1617"}
+file_system_utils_static={locator="StanzaOrg/slm_file_system_utils",version="0.0.3",hash="ae621cf32e3e772c2ef1a105f91c2711aaedf97b"}
 maybe-utils={locator="StanzaOrg/maybe-utils",version="0.1.4",hash="9a364ff7b7e041451cdf29c9dafed945230868e4"}
 lang_utils_static={locator="StanzaOrg/slm_lang_utils",version="0.0.4",hash="f74641e831ce9ad054542700b43c112b1f088f7b"}
