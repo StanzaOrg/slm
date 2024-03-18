@@ -19,10 +19,59 @@ if sys.version_info[0] == 3 and sys.version_info[1] < 11:
     #  the bootstrap.
     # Keep in sync with `slm.toml`
     DEPENDENCIES = {
-        "stanza-toml": {"git": "StanzaOrg/stanza-toml", "version": "0.4.0"},
-        "maybe-utils": {"git": "StanzaOrg/maybe-utils", "version": "0.1.4"},
-        "semver": {"git" : "StanzaOrg/semver", "version" : "0.1.6"},
-        "term-colors": { "git": "StanzaOrg/term-colors", "version" : "0.1.1"},
+        "curl_static": { "git": "StanzaOrg/slm_curl",       "version": "0.0.1" },
+        "json_static": { "git": "StanzaOrg/slm_json",       "version": "0.0.1" },
+        "maybe-utils": { "git": "StanzaOrg/maybe-utils",    "version": "0.1.4" },
+        "semver":      { "git": "StanzaOrg/semver",         "version": "0.1.6" },
+        "stanza-toml": { "git": "StanzaOrg/stanza-toml",    "version": "0.4.0" },
+        "term-colors": { "git": "StanzaOrg/term-colors",    "version": "0.1.1" },
+        "libcurl":     { "pkg": "libcurl", "type": "conan", "version": "8.6.0",
+                         "options": {
+                             "fPIC": "True",
+                             "shared": "False",
+                             "with_brotli": "False",
+                             "with_c_ares": "False",
+                             "with_ca_bundle": "auto",
+                             "with_ca_fallback": "False",
+                             "with_ca_path": "auto",
+                             "with_cookies": "True",
+                             "with_crypto_auth": "True",
+                             "with_dict": "True",
+                             "with_docs": "False",
+                             "with_file": "True",
+                             "with_ftp": "True",
+                             "with_gopher": "True",
+                             "with_http": "True",
+                             "with_imap": "True",
+                             "with_ipv6": "True",
+                             "with_largemaxwritesize": "False",
+                             "with_ldap": "False",
+                             "with_libgsasl": "False",
+                             "with_libidn": "False",
+                             "with_libpsl": "False",
+                             "with_librtmp": "False",
+                             "with_libssh2": "False",
+                             "with_mqtt": "True",
+                             "with_nghttp2": "False",
+                             "with_ntlm": "True",
+                             "with_ntlm_wb": "True",
+                             "with_pop3": "True",
+                             "with_proxy": "True",
+                             "with_rtsp": "True",
+                             "with_smb": "True",
+                             "with_smtp": "True",
+                             "with_ssl": "openssl",
+                             "with_symbol_hiding": "False",
+                             "with_telnet": "True",
+                             "with_tftp": "True",
+                             "with_threaded_resolver": "True",
+                             "with_unix_sockets": "True",
+                             "with_verbose_debug": "True",
+                             "with_verbose_strings": "True",
+                             "with_zlib": "True",
+                             "with_zstd": "False"
+                       }
+        }
     }
 else:
     import tomllib
@@ -61,11 +110,24 @@ def fetch_package_into(path, package, version):
     url = package_to_url(package)
 
     try:
+        eprint(f"slm bootstrap: fetching {package} {version} into {path}")
         check_run(["git", "clone", "--depth", "1", "--quiet", url, path])
         check_run(["git", "fetch", "--tags", "--quiet"], cwd=path)
         check_run(["git", "checkout", "--quiet", "--force", rev], cwd=path)
     except CalledProcessError:
         error(f"failed fetching package {package}")
+
+def download_conan_package_into(path, package, version, options):
+    import bootstrap_conan_utils as bcu
+    import tarfile
+
+    eprint(f"slm bootstrap: downloading \"{package}/{version}\" with options \"{options}\"")
+    cv = bcu.ConanVersion(package, version)
+    cv = bcu.conan_fully_qualify_latest_version(cv, options=options)
+    pfilename = bcu.conan_download_package(cv)
+    eprint(f"downloaded \"{pfilename}\", extracting to {path}")
+
+    tarfile.open(pfilename).extractall(path)
 
 def generate_stanza_proj():
     dep_proj_files = []
@@ -79,7 +141,7 @@ def generate_stanza_proj():
       dep_proj_files.append(dep_unnorm)
 
     with open(os.path.join(SLM_DIR, "stanza.proj"), "w") as f:
-        f.writelines([f'include "{proj_file}"\n' for proj_file in dep_proj_files])
+        f.writelines([f'include? "{proj_file}"\n' for proj_file in dep_proj_files])
 
 def bootstrap(args):
     # Create bootstrap dir structure
@@ -90,10 +152,19 @@ def bootstrap(args):
 
     # Clone dependencies
     for dependency, specifier in DEPENDENCIES.items():
-        package = specifier["git"]
-        version = specifier["version"]
+        eprint(f"dep \"{dependency}\" = \"{specifier}\"")
         path = os.path.join(SLM_DEPS_DIR, dependency)
-        fetch_package_into(path, package, version)
+        if "git" in specifier:
+            package = specifier["git"]
+            version = specifier["version"]
+            fetch_package_into(path, package, version)
+        elif "pkg" in specifier and "type" in specifier and specifier["type"]=="conan":
+            package = specifier["pkg"]
+            version = specifier["version"]
+            options = specifier["options"]
+            download_conan_package_into(path, package, version, options)
+        else:
+            raise Exception(f"unknown dependency type: \"{dependency}\" = \"{specifier}\"")
 
     # Generate stanza.proj for build
     generate_stanza_proj()
