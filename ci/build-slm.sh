@@ -19,6 +19,7 @@ echo "                  VER:" "${VER:=$(git -C ${REPODIR} describe --tags --abbr
 
 # special case - if STANZA_CONFIG starts with "./", then replace it with the full path
 [[ ${STANZA_CONFIG::2} == "./" ]] && STANZA_CONFIG=${PWD}/${STANZA_CONFIG:2}
+[[ ! -e "${STANZA_CONFIG}/include" ]] && echo "ERROR: this build script requires $STANZA_CONFIG/include to point to stanza include files" && exit -1
 export STANZA_CONFIG
 
 PLATFORM_DESC="unknown"
