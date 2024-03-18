@@ -1,5 +1,5 @@
 name = "slm"
-version = "0.5.22"
+version = "0.5.23"
 
 # keep these dependencies in sync with the list in bootstrap.py
 # note that the slm bootstrap.py script doesn't recursively resolve dependencies
@@ -8,7 +8,7 @@ version = "0.5.22"
 curl_static =              { git = "StanzaOrg/slm_curl",              version = "0.0.3" }
 file_system_utils_static = { git = "StanzaOrg/slm_file_system_utils", version = "0.0.2" }
 json_static =              { git = "StanzaOrg/slm_json",              version = "0.0.2" }
-lang_utils_static =        { git = "StanzaOrg/slm_lang_utils",        version = "0.0.3" }
+lang_utils_static =        { git = "StanzaOrg/slm_lang_utils",        version = "0.0.4" }
 maybe-utils =              { git = "StanzaOrg/maybe-utils",           version = "0.1.4" }
 semver      =              { git = "StanzaOrg/semver",                version = "0.1.6" }
 stanza-toml =              { git = "StanzaOrg/stanza-toml",           version = "0.4.0" }
