@@ -19,13 +19,13 @@ if sys.version_info[0] == 3 and sys.version_info[1] < 11:
     #  the bootstrap.
     # Keep in sync with `slm.toml`
     DEPENDENCIES = {
-        "curl_static":               { "git": "StanzaOrg/slm_curl",              "version": "0.0.1" },
-        "file_system_utils_static" = { "git": "StanzaOrg/slm_file_system_utils", "version": "0.0.1" },
-        "json_static":               { "git": "StanzaOrg/slm_json",              "version": "0.0.1" },
-        "maybe-utils":               { "git": "StanzaOrg/maybe-utils",           "version": "0.1.4" },
-        "semver":                    { "git": "StanzaOrg/semver",                "version": "0.1.6" },
-        "stanza-toml":               { "git": "StanzaOrg/stanza-toml",           "version": "0.4.0" },
-        "term-colors":               { "git": "StanzaOrg/term-colors",           "version": "0.1.1" },
+        "curl_static":              { "git": "StanzaOrg/slm_curl",              "version": "0.0.1" },
+        "file_system_utils_static": { "git": "StanzaOrg/slm_file_system_utils", "version": "0.0.1" },
+        "json_static":              { "git": "StanzaOrg/slm_json",              "version": "0.0.1" },
+        "maybe-utils":              { "git": "StanzaOrg/maybe-utils",           "version": "0.1.4" },
+        "semver":                   { "git": "StanzaOrg/semver",                "version": "0.1.6" },
+        "stanza-toml":              { "git": "StanzaOrg/stanza-toml",           "version": "0.4.0" },
+        "term-colors":              { "git": "StanzaOrg/term-colors",           "version": "0.1.1" },
         "libcurl": { "pkg": "libcurl", "type": "conan", "version": "8.6.0",
             "options": {
                 "fPIC": "True",
