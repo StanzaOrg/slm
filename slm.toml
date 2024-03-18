@@ -5,7 +5,7 @@ version = "0.5.21"
 # note that the slm bootstrap.py script doesn't recursively resolve dependencies
 # so define a flat list of all required dependencies here
 [dependencies]
-curl_static =              { git = "StanzaOrg/slm_curl",              version = "0.0.2" }
+curl_static =              { git = "StanzaOrg/slm_curl",              version = "0.0.3" }
 file_system_utils_static = { git = "StanzaOrg/slm_file_system_utils", version = "0.0.2" }
 json_static =              { git = "StanzaOrg/slm_json",              version = "0.0.2" }
 lang_utils_static =        { git = "StanzaOrg/slm_lang_utils",        version = "0.0.3" }
