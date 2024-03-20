@@ -291,7 +291,7 @@ def conan_fully_qualify_latest_version(cv: ConanVersion, **kwargs) -> ConanVersi
                     debug(f"conan_fully_qualify_latest_version: package \"{package_id}\" os = \"{package_settings_os}\" [ok]")
 
                     # ensure the desired options match this package's options
-                    if options == package_info["settings"]:
+                    if options == package_info["options"]:
                         # this package matches our os and the requested options
                         # get the latest revision for this package
                         for pr in conan_get_package_revisions(package_name, package_version, recipe_revision, package_id, **kwargs):
@@ -305,7 +305,7 @@ def conan_fully_qualify_latest_version(cv: ConanVersion, **kwargs) -> ConanVersi
                             debug(f"conan_fully_qualify_latest_version: found \"{fqcv}\"")
                             return(fqcv)
                     else:
-                        debug(f"conan_fully_qualify_latest_version: options \"{options}\" doesn't match \"{package_info['settings']}\"")
+                        debug(f"conan_fully_qualify_latest_version: options \"{options}\" doesn't match \"{package_info['options']}\"")
 
 
     # if we reach here, we didn't find a match
