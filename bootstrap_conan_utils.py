@@ -243,6 +243,7 @@ def conan_fully_qualify_latest_version(cv: ConanVersion, **kwargs) -> ConanVersi
     else:
         package_name = cv.name
         package_version = cv.version
+        options = kwargs["options"] if "options" in kwargs else {}
 
         current_conan_os = platform.system()
         if current_conan_os == "Darwin":
@@ -289,18 +290,23 @@ def conan_fully_qualify_latest_version(cv: ConanVersion, **kwargs) -> ConanVersi
                 else:
                     debug(f"conan_fully_qualify_latest_version: package \"{package_id}\" os = \"{package_settings_os}\" [ok]")
 
-                # this package matches our os and the requested options
-                # get the latest revision for this package
-                for pr in conan_get_package_revisions(package_name, package_version, recipe_revision, package_id, **kwargs):
-                    package_revision = pr["revision"]
-                    package_revision_time = pr["time"]
-                    debug(f"conan_fully_qualify_latest_version: package_revision: \"{package_revision}\" on \"{package_revision_time}\"")
+                    # ensure the desired options match this package's options
+                    if options == package_info["settings"]:
+                        # this package matches our os and the requested options
+                        # get the latest revision for this package
+                        for pr in conan_get_package_revisions(package_name, package_version, recipe_revision, package_id, **kwargs):
+                            package_revision = pr["revision"]
+                            package_revision_time = pr["time"]
+                            debug(f"conan_fully_qualify_latest_version: package_revision: \"{package_revision}\" on \"{package_revision_time}\"")
 
-                    # NOTE: assuming that the most recent revision is listed first
-                    # if this turns out not to be the case, then sort by package_revision_time
-                    fqcv = ConanVersion(package_name, package_version, recipe_revision, package_id, package_revision)
-                    debug(f"conan_fully_qualify_latest_version: found \"{fqcv}\"")
-                    return(fqcv)
+                            # NOTE: assuming that the most recent revision is listed first
+                            # if this turns out not to be the case, then sort by package_revision_time
+                            fqcv = ConanVersion(package_name, package_version, recipe_revision, package_id, package_revision)
+                            debug(f"conan_fully_qualify_latest_version: found \"{fqcv}\"")
+                            return(fqcv)
+                    else:
+                        debug(f"conan_fully_qualify_latest_version: options \"{options}\" doesn't match \"{package_info["settings"]}\"")
+
 
     # if we reach here, we didn't find a match
     raise Exception("conan search could not find matching package for options")
@@ -317,14 +323,12 @@ def conan_download_package(cv: ConanVersion, **kwargs) -> str :
         package_id
     kwargs:
       target_directory: directory to save the downloaded file into. Optional, Default current directory.
-      options: dictionary of key/value options.  Optional, Default empty dictionary.
       repourl: str The repo to search.  Optional, Default DEFAULT_CONAN_URL.
 
     throws Exception on failure or package not found
     """
     debug(f"conan_download_package: downloading version: {cv.to_string()}")
     target_directory = kwargs["target_directory"] if "target_directory" in kwargs else "."
-    options = kwargs["options"] if "options" in kwargs else {}
     repourl = kwargs["repourl"] if "repourl" in kwargs else DEFAULT_CONAN_URL
 
     fqcv = conan_fully_qualify_latest_version(cv, **kwargs)
@@ -511,9 +515,15 @@ class TestConanVersion(unittest.TestCase):
     @unittest.skipUnless(online==True, "not online")
     def test_conan_fully_qualify_latest_version(self):
         # note: results dependent on what is on the server
-        r = conan_fully_qualify_latest_version(ConanVersion.from_string("pcre/8.45"))
+        r = conan_fully_qualify_latest_version(ConanVersion.from_string("pcre/8.45"),
+                                               options = {
+                                                   'os': 'Linux',
+                                                   'arch': 'x86_64',
+                                                   'compiler': 'gcc',
+                                                   'build_type': 'Release',
+                                                   'compiler.version': '11'})
         self.assertEqual(r,
-            ConanVersion( "pcre", "8.45", "125d5f684fea10391ff4cbcd809a5c74", "139391a944851d9dacf1138cff94b3320d5775dd", "ce6f2349e761f6350cbde62b02a687c7")
+            ConanVersion( "pcre", "8.45", "125d5f684fea10391ff4cbcd809a5c74", "22df55d12fd0a729491762b4508bc4ddf8b50a38", "5a5560f797885024ff7e6a48b3b7543e")
         )
 
     @unittest.skipUnless(online==True, "not online")
@@ -521,12 +531,19 @@ class TestConanVersion(unittest.TestCase):
         # note: results dependent on what is on the server
         n = "pcre"
         v = "8.45"
-        pid = "139391a944851d9dacf1138cff94b3320d5775dd"
+        pid = "22df55d12fd0a729491762b4508bc4ddf8b50a38"
         expected_name = f"./conan_package_{n}_{v}_{pid}.tgz"
         if os.path.exists(expected_name):
             os.remove(expected_name)
         self.assertFalse( os.path.isfile(expected_name) )
-        dlp = conan_download_package(conan_fully_qualify_latest_version(ConanVersion.from_string(f"{n}/{v}:{pid}")))
+        cv = conan_fully_qualify_latest_version(ConanVersion.from_string(f"{n}/{v}:{pid}"),
+                                                options = {
+                                                    'os': 'Linux',
+                                                    'arch': 'x86_64',
+                                                    'compiler': 'gcc',
+                                                    'build_type': 'Release',
+                                                    'compiler.version': '11'})
+        dlp = conan_download_package(cv)
         self.assertEqual(dlp, expected_name)
         self.assertTrue( os.path.isfile(dlp) and os.stat(dlp).st_size > 0 )
         os.remove(dlp)
