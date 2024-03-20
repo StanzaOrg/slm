@@ -17,7 +17,7 @@ def eprint(msg):
 
 def debug(msg):
     pass
-    #eprint(msg)
+    eprint(msg)
 
 if sys.version_info[0] < 3:
     eprint("This script requires python version 3 or greater")
@@ -305,7 +305,7 @@ def conan_fully_qualify_latest_version(cv: ConanVersion, **kwargs) -> ConanVersi
                             debug(f"conan_fully_qualify_latest_version: found \"{fqcv}\"")
                             return(fqcv)
                     else:
-                        debug(f"conan_fully_qualify_latest_version: options \"{options}\" doesn't match \"{package_info["settings"]}\"")
+                        debug(f"conan_fully_qualify_latest_version: options \"{options}\" doesn't match \"{package_info['settings']}\"")
 
 
     # if we reach here, we didn't find a match
