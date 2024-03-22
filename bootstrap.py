@@ -70,7 +70,18 @@ if sys.version_info[0] == 3 and sys.version_info[1] < 11:
                 "with_verbose_debug": "True",
                 "with_verbose_strings": "True",
                 "with_zlib": "True",
-                "with_zstd": "False"
+                "with_zstd": "False",
+                "linux": {
+                    "with_ssl": "openssl"
+                },
+                "macos": {
+                    "with_ssl": "darwinssl"
+                },
+                "windows": {
+                    "fPIC": "False",
+                    "with_ssl": "schannel",
+                    "with_unix_sockets": "False"
+                }
             }
         }
     }
