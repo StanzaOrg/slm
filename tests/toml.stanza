@@ -4,6 +4,7 @@ defpackage slm/tests/toml:
   import collections
 
   import semver
+  import toml
 
   import slm/toml
   import slm/dep-types
@@ -40,7 +41,7 @@ deftest(toml) test-find-dependency:
     "git-dep" => GitDependency("git-dep", "StanzaOrg/stanza-toml", SemanticVersion(1, 2, 3), "")
     "path-dep" => PathDependency("path-dep", "/home/john/src/sqlite")
     "pkg-dep" => PkgDependency("pkg-dep", "5.6.7", "conan")
-    "pkg-dep-opts" => PkgDependency("pkg-dep-opts", "12.34.56", "conan", ["opt_one" => "first", "opt_two" => "second"])
+    "pkg-dep-opts" => PkgDependency("pkg-dep-opts", "12.34.56", "conan", TomlTable(to-seq(["opt_one" => "first", "opt_two" => "second"])))
     "find-me" => GitDependency("find-me", "sqlite/sqlite", SemanticVersion(2, 0, 2), "")
     "task-me" => TaskDependency("task-me", task = Task("xeyes"))
   ])
@@ -102,7 +103,7 @@ deftest(toml) test-parse-slm-toml:
       #EXPECT(name(pkg-dep) == "pkg-dep")
       #EXPECT(version(pkg-dep) == "5.6.7")
       #EXPECT(type(pkg-dep) == "conan")
-      #EXPECT(options(pkg-dep) == [])
+      #EXPECT(length(to-tuple(to-seq(options(pkg-dep)))) == 0)
 
   val dep6 = deps["pkg-dep-opts"]
   match(dep6):
@@ -110,7 +111,7 @@ deftest(toml) test-parse-slm-toml:
       #EXPECT(name(pkg-dep) == "pkg-dep-opts")
       #EXPECT(version(pkg-dep) == "12.34.56")
       #EXPECT(type(pkg-dep) == "conan")
-      #EXPECT(options(pkg-dep) == ["opt_one" => "first", "opt_two" => "second"])
+      #EXPECT(to-tuple(to-seq(options(pkg-dep))) == ["opt_one" => "first", "opt_two" => "second"])
 
 
 deftest(toml) test-parse-mutex-error:

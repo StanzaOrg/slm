@@ -58,7 +58,7 @@ public defn PkgDependency (
   version: String  ; may not always be a SemanticVersion
   type: String
   --
-  options:TomlTable
+  options:TomlTable = TomlTable()
   ) -> PkgDependency :
   PkgDependency(name, version, type, options)
 
