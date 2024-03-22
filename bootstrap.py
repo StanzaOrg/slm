@@ -28,7 +28,6 @@ if sys.version_info[0] == 3 and sys.version_info[1] < 11:
         "term-colors":              { "git": "StanzaOrg/term-colors",           "version": "0.1.1" },
         "libcurl": { "pkg": "libcurl", "type": "conan", "version": "8.6.0",
             "options": {
-                "fPIC": "True",
                 "shared": "False",
                 "with_brotli": "False",
                 "with_c_ares": "False",
@@ -72,13 +71,14 @@ if sys.version_info[0] == 3 and sys.version_info[1] < 11:
                 "with_zlib": "True",
                 "with_zstd": "False",
                 "linux": {
+                    "fPIC": "True",
                     "with_ssl": "openssl"
                 },
                 "macos": {
+                    "fPIC": "True",
                     "with_ssl": "darwinssl"
                 },
                 "windows": {
-                    "fPIC": "False",
                     "with_ssl": "schannel",
                     "with_unix_sockets": "False"
                 }
