@@ -251,14 +251,14 @@ public defn conan-fully-qualify-latest-version (cv:ConanVersion, -- options:Toml
         ; Look for platform-specific options (if any) and apply them to the
         ; requested options hashtable, overrding existing values.  Ignore other platforms.
         debug("conan-fully-qualify-latest-version: looking for platform-specific options")
-        match(get-table?(options, lower-case(current_conan_os))):
+        match(get-table?(options, current_conan_os_lc)):
           (osopts:One<TomlTable>):
             debug("conan-fully-qualify-latest-version: found platform-specific options: \"%_\"" % [to-string(entries(value(osopts)))])
             for o in entries(value(osopts)) do:
               debug("conan-fully-qualify-latest-version: platform-specific option \"%_\" = \"%_\"" % [key(o), value(o)])
               set(htro, to-string(key(o)), to-string(value(o)))
           (_):
-            debug("conan-fully-qualify-latest-version: no platform-specific options found")
+            debug("conan-fully-qualify-latest-version: no platform-specific options found for platform \"%_\"" % [current_conan_os_lc])
             false
 
         ; search for available recipe revisions using just the name and version
