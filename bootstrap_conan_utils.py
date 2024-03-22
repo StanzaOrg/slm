@@ -249,6 +249,15 @@ def conan_fully_qualify_latest_version(cv: ConanVersion, **kwargs) -> ConanVersi
         if current_conan_os == "Darwin":
             current_conan_os = "Macos"
 
+        # look for platform-specific options (if any) and apply them to the requested options list.  Remove options for other platforms.
+        oslc = current_conan_os.lower()
+        if oslc in options:
+            overrides = options[oslc].items()
+            for plat in ("linux", "macos", "windows"):
+                del options[plat]
+            for k, v in overrides:
+                options[k] = v
+
         # search for available recipe revisions using just the name and version
         for rr in conan_get_recipe_revisions(package_name, package_version, **kwargs):
             recipe_revision = rr["revision"]
@@ -342,7 +351,7 @@ def conan_download_package(cv: ConanVersion, **kwargs) -> str :
     debug(f"conan_download_package: downloadurl: \"{downloadurl}\"")
 
     outfile = f"{target_directory}/conan_package_{fqcv.name}_{fqcv.version}_{fqcv.package_id}.tgz"
-    debug("conan_download_package: outfile: \"{outfile}\"")
+    debug(f"conan_download_package: outfile: \"{outfile}\"")
 
     # download url to file
     r = requests.get(downloadurl, stream=True)

@@ -6,6 +6,7 @@ defpackage slm/conan-utils:
   import json
   import maybe-utils
   import semver
+  import toml
 
   import slm/utils
   import slm/logging
@@ -212,7 +213,7 @@ doc: \<DOC>
 Searches the given conan repository for the latest package matching the given ConanVersion and options.
 @throws Exception on failure or package not found
 <DOC>
-public defn conan-fully-qualify-latest-version (cv:ConanVersion, -- options:Tuple<KeyValue<String, String>> = [], repourl:String = DEFAULT-CONAN-URL) -> ConanVersion :
+public defn conan-fully-qualify-latest-version (cv:ConanVersion, -- options:TomlTable = TomlTable(), repourl:String = DEFAULT-CONAN-URL) -> ConanVersion :
   label<ConanVersion> return :
     debug("conan-fully-qualify-latest-version: qualifying version: %_" % [to-string(cv)])
     ; If the cv has already has all of the parts, then return it unchanged
@@ -229,16 +230,36 @@ public defn conan-fully-qualify-latest-version (cv:ConanVersion, -- options:Tupl
         val package_name = name(cv)
         val package_version = version(cv)
 
-        ; convert requested options to hashtable
-        val htro = HashTable<String,String>()
-        for o in options do:
-          debug("conan-fully-qualify-latest-version: requested option \"%_\" = \"%_\"" % [key(o), value(o)])
-          htro[to-string(key(o))] = to-string(value(o))
-
         val current_conan_os = match(CURRENT-PLATFORM) :
           (p:Linux) : "Linux"
           (p:OS-X) : "Macos"
           (p:Windows) : "Windows"
+        val current_conan_os_lc = lower-case(current_conan_os)
+
+        ; convert requested options to hashtable
+        val htro = HashTable<String,String>()
+        for o in entries(options) do:
+          switch(key(o)):
+            ; ignore any platform-specific options tables at this point
+            "linux": false
+            "macos": false
+            "windows": false
+            else:
+              debug("conan-fully-qualify-latest-version: requested option \"%_\" = \"%_\"" % [key(o), value(o)])
+              htro[to-string(key(o))] = to-string(value(o))
+
+        ; Look for platform-specific options (if any) and apply them to the
+        ; requested options hashtable, overrding existing values.  Ignore other platforms.
+        debug("conan-fully-qualify-latest-version: looking for platform-specific options")
+        match(get-table?(options, lower-case(current_conan_os))):
+          (osopts:One<TomlTable>):
+            debug("conan-fully-qualify-latest-version: found platform-specific options: \"%_\"" % [to-string(entries(value(osopts)))])
+            for o in entries(value(osopts)) do:
+              debug("conan-fully-qualify-latest-version: platform-specific option \"%_\" = \"%_\"" % [key(o), value(o)])
+              set(htro, to-string(key(o)), to-string(value(o)))
+          (_):
+            debug("conan-fully-qualify-latest-version: no platform-specific options found")
+            false
 
         ; search for available recipe revisions using just the name and version
         for rr in conan-get-recipe-revisions(package_name, package_version, curl, headers = headers, repourl = repourl) do:
@@ -312,7 +333,7 @@ doc: \<DOC>
 returns path to downloaded file
 @throws Exception on failure or package not found
 <DOC>
-public defn conan-download-package (cv:ConanVersion, -- options:Tuple<KeyValue<String, String>> = [], repourl:String = DEFAULT-CONAN-URL, target_directory:String = ".") -> String :
+public defn conan-download-package (cv:ConanVersion, -- options:TomlTable = TomlTable(), repourl:String = DEFAULT-CONAN-URL, target_directory:String = ".") -> String :
   debug("conan-download-package: downloading version: %_" % [to-string(cv)])
   val headers = ["Content-Type: application/json"]
   var curl

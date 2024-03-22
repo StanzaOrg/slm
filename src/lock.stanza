@@ -43,9 +43,9 @@ public defstruct LockedPkgDependency <: LockedDependency:
   name: String with: (as-method => true)
   version: String
   type: String
-  options: Tuple<KeyValue<String, String>>
+  options: TomlTable
 with:
-  equalable => true
+  equalable => false
 
 public defstruct LockedTaskDependency <: LockedDependency:
   name: String with: (as-method => true)
@@ -67,7 +67,7 @@ public defn parse-slm-lock-file (f:InputStream) -> Tuple<LockedDependency>:
         (locator?: None, type?: One, version?: One, options?: One, hash?: None):
           val type    = value!(type?) as String
           val version = value!(version?) as String
-          val options = value!(options?) as Tuple<KeyValue<String, String>>
+          val options = value!(options?) as TomlTable
           LockedPkgDependency(name, version, type, options)
         (locator?: None, type?: None, version?: None, options?: None, hash?: One):
           val hash = value!(hash?) as String
