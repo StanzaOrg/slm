@@ -1,11 +1,27 @@
 include? ".slm/stanza.proj"
+pkg-cache: ".slm/pkg-cache"
 
 packages slm/* defined-in "src/"
 packages slm/tests/* defined-in "tests/"
 
-pkg-cache: ".slm/pkg-cache"
+;;; These shouldn't be necessary when libcurl is linked in statically
+; package slm/file-utils requires :
+;   dynamic-libraries:
+;     on-platform:
+;       ;windows: "/somewhere/libc.dll"
+;       linux: ("/lib/x86_64-linux-gnu/libc.so.6" "/lib/x86_64-linux-gnu/libcurl.so.4")
+;       ;os-x: "/somewhere/libc.dylib"
+; package slm/pkg-dep requires :
+;   dynamic-libraries:
+;    on-platform:
+;      ;windows: "/somewhere/libc.dll"
+;      linux: ("/lib/x86_64-linux-gnu/libc.so.6" "/lib/x86_64-linux-gnu/libcurl.so.4")
+;      ;os-x: "/somewhere/libc.dylib"
 
 build main:
+  supported-vm-packages:
+    curl
+    json
   inputs: slm/main
   pkg: ".slm/pkgs"
   o: "slm"
@@ -23,3 +39,9 @@ build-test tests:
     slm/tests/commands/remove
   pkg: "test-pkgs"
   o: "slm-tests"
+
+build-test test_conan:
+  inputs:
+    slm/tests/conan-utils
+  pkg: "test-pkgs"
+  o: "test_conan"

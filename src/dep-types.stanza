@@ -4,4 +4,5 @@ defpackage slm/dep-types:
   forward slm/dependency
   forward slm/git-dep
   forward slm/path-dep
+  forward slm/pkg-dep
   forward slm/task

@@ -11,3 +11,11 @@ build-task.task = {
 build-task.task.windows = {
   command = "build_libtask.ps1"
 }
+pkg-dep = { pkg = "pkg-dep", version = "5.6.7", type = "conan" }
+
+[dependencies.pkg-dep-opts]
+pkg = "pkg-dep-opts"
+version = "12.34.56"
+type = "conan"
+options.opt_one = "first"
+options.opt_two = "second"

@@ -7,6 +7,7 @@ defpackage slm/dependencies:
   import term-colors
   import toml
 
+  import slm/errors
   import slm/flags
   import slm/dep-types
   import slm/file-utils
@@ -19,11 +20,16 @@ defpackage slm/dependencies:
 
 public defn fetch-and-sync (cfg:SlmToml, force:True|False) -> Tuple<Dependency>:
 
+  debug("fetch-and-sync: calling ensure-slm-dir-structure-exists")
   ensure-slm-dir-structure-exists()
 
+  debug("fetch-and-sync: calling resolve-deps")
   val deps = resolve-deps(cfg)
+
+  debug("fetch-and-sync: calling check-stanza-compatible-deps")
   check-stanza-compatible-deps(cfg, deps, force)
 
+  debug("fetch-and-sync: returning deps")
   deps
 
 defn resolve-deps (cfg:SlmToml) -> Tuple<Dependency> :
@@ -34,18 +40,24 @@ defn resolve-deps (cfg:SlmToml) -> Tuple<Dependency> :
   ; 2. Otherwise we use the slm.toml
   if file-exists?(SLM_LOCK_NAME):
     val lock-cfg = within f = open(SLM_LOCK_NAME):
+      debug("resolve-deps: calling parse-slm-lock-file")
       parse-slm-lock-file(f)
+    debug("resolve-deps: calling parse-slm-lock-and-resolve-dependencies")
     parse-slm-lock-and-resolve-dependencies(cfg, lock-cfg)
   else:
+    debug("resolve-deps: calling parse-slm-toml-and-resolve-dependencies")
     val deps = parse-slm-toml-and-resolve-dependencies(cfg)
 
     ; We only write this
     within f = open(SLM_STANZA_PROJ, false):
+      debug("resolve-deps: calling write-build-stanza-proj")
       write-build-stanza-proj(f, deps)
 
     within f = open(SLM_LOCK_NAME, false):
+      debug("resolve-deps: calling write-slm-lock-file")
       write-slm-lock-file(f, deps)
 
+    debug("resolve-deps: returning deps")
     deps
 
 defn check-stanza-compatible-deps (cfg:SlmToml, deps:Tuple<Dependency>, force:True|False) :
@@ -74,14 +86,26 @@ defn ensure-slm-dir-structure-exists () -> False:
   false
 
 public-when(TESTING) defn write-build-stanza-proj (f:OutputStream, dependencies: Tuple<Dependency>) -> False:
-  val deps* = recursive-deps-only(dependencies)
+  debug("write-build-stanza-proj(\"%_\", \"%_\")" % [f, dependencies])
+  val deps* = recursive-deps-only(dependencies)  ; everything except TaskDeps
   for dep in deps* do:
-    val dep-path = path-join(path(dep), "stanza.proj")
-    val stanza-proj? = resolve-path(dep-path)
-    val dep-stanza-proj = un-norm-path $ match(stanza-proj?):
-      (x:False): throw $ Exception("Failed to Resolve Path %_. Double check path dependencies and confirm expected git repos in '.slm/deps'" % [dep-path])
-      (x:String): x
-    println(f, to-string(\<>include "%_"<> % [dep-stanza-proj]))
+    label<False> continue:
+      debug("write-build-stanza-proj for dep \"%_\"" % [dep])
+      val dep-path = path-join(path(dep), "stanza.proj")
+      val stanza-proj? = resolve-path(dep-path)
+      val dep-stanza-proj = un-norm-path $ match(stanza-proj?):
+        (x:False):
+          ; pkg dependencies may or may not have a stanza.proj
+          match(dep):
+            (pkgdep:PkgDependency):
+              if not file-exists?(dep-path): 
+                debug("stanza.proj doesn't exist for pkg \"%_\", skipping dep-path = \"%_\"" % [name(dep), dep-path])
+                continue(false)
+            (d): false
+          throw $ Exception("Failed to Resolve Path %_. Double check path dependencies and confirm expected git repos in '.slm/deps'" % [dep-path])
+        (x:String): x
+      debug("write-build-stanza-proj: adding \"%_\" to stanza.proj at \"%_\"" % [dep-stanza-proj, f])
+      println(f, to-string("include \"%_\"" % [dep-stanza-proj]))
 
 
 defn parse-slm-lock-and-resolve-dependencies (cfg:SlmToml, lock-cfg:Tuple<LockedDependency>):
@@ -124,10 +148,45 @@ defn parse-slm-lock-and-resolve-dependencies (cfg:SlmToml, lock-cfg:Tuple<Locked
               ; TODO - It may also be a removed dependency. There is no way for me to
               ;  distinguish between the two
               git-dep
+        (dep: LockedPkgDependency):
+          val pkg-dep = PkgDependency(name(dep), version(dep), type(dep), options = options(dep))
+          val slm-toml-dep? = get?(slm-toml-dependencies, name(dep))
+          match(slm-toml-dep?):
+            (slm-toml-dep:PkgDependency):
+              if version(slm-toml-dep) != version(pkg-dep):
+                error("'%_' (version %_) specified in 'slm.toml'.\n\
+                       This conflicts with locked version ('%_') from 'slm.lock'\n\
+                       If you wish to use the version from your 'slm.toml', \
+                       run 'slm clean', then re-run this command."
+                       % [name(dep), version(slm-toml-dep), version(pkg-dep)])
+              else:
+                fetch-or-sync-pkgver(pkg-dep)
+                pkg-dep
+            (g-or-p:GitDependency|PathDependency):
+              error("'%_' is specified as a git/path dependency in 'slm.toml'.\n\
+                    This conflicts with locked version ('%_') from 'slm.lock'\n\
+                    If you wish to use the version from your 'slm.toml', \
+                    run 'slm clean', then re-run this command."
+                    % [name(g-or-p), version(dep)])
+            (slm-toml-dep:TaskDependency):
+              ; To re-run, the user needs to run `slm clean` and then `slm build`
+              ;  again
+              error("'%_' is specified as a task dependency in 'slm.toml'.\n\
+                    This conflicts with the locked version ('%_') from 'slm.lock'\n\
+                    If you wish to use the version from your 'slm.toml', \
+                    run 'slm clean', then re-run this command." % [name(slm-toml-dep), version(dep)]
+                    )
+            (x:False):
+              ; This dependency was found in the lock file but not in our slm.toml file.
+              ;  This likely means it is a "grand-child" or further decendent
+              ;  dependency. We just want to let it ride
+              ; TODO - It may also be a removed dependency. There is no way for me to
+              ;  distinguish between the two
+              pkg-dep
         (dep: LockedPathDependency):
           val slm-toml-dep = get?(slm-toml-dependencies, name(dep))
           match(slm-toml-dep):
-            (git-dep:GitDependency|TaskDependency):
+            (g-or-t:GitDependency|TaskDependency):
               error("'%_' is specified as a git/task dependency in 'slm.toml'.\n\
                     This conflicts with locked (path) version from 'slm.lock'\n\
                     If you wish to use the version from your 'slm.toml', \
@@ -225,9 +284,11 @@ defn parse-slm-toml-and-resolve-dependencies (cfg:SlmToml) -> Tuple<Dependency>:
                    You can't have path dependencies in dependencies \
                    (path dependencies can only be specified in a top-level slm.toml)"
                    % [/name(dep), parent-name])
+        (dep: PkgDependency):
+          fetch-or-sync-pkgver(dep, parent-name, dep-path)
         (dep: TaskDependency):
           run-task-dep(dep, parent-name, dep-path)
-        (_): fatal("unreachable")
+        (_): fatal("parse-slm-toml-and-resolve-dependencies: unexpected dependency type: %_" % [dep])
 
     debug("done resolving '%_'" % [parent-name])
 
@@ -239,12 +300,15 @@ defn parse-slm-toml-and-resolve-dependencies (cfg:SlmToml) -> Tuple<Dependency>:
     val resolved* = recursive-deps-only(resolved)
     for dep in resolved* do:
       val next-slm-toml = path-join(path(dep), SLM_TOML_NAME)
-      debug("parsing '%_'" % [next-slm-toml])
-      val [dep-path, _] = split-filepath(next-slm-toml)
-      debug("dep-path: %_" % [dep-path])
-      val next-cfg = within f = open(next-slm-toml):
-        parse-slm-toml(f)
-      loop(next-cfg, dep-path, false)
+      if not file-exists?(next-slm-toml):
+        debug("skipping '%_': does not exist" % [next-slm-toml])
+      else:
+        debug("parsing '%_'" % [next-slm-toml])
+        val [dep-path, _] = split-filepath(next-slm-toml)
+        debug("dep-path: %_" % [dep-path])
+        val next-cfg = within f = open(next-slm-toml):
+          parse-slm-toml(f)
+        loop(next-cfg, dep-path, false)
 
   debug("done parsing dependency graph")
   for dep in values(resolved-dependencies) do:
