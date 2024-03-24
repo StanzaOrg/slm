@@ -6,8 +6,8 @@ version = "0.5.25"
 # so define a flat list of all required dependencies here
 [dependencies]
 curl_static =              { git = "StanzaOrg/slm_curl",              version = "0.0.4" }
-file_system_utils_static = { git = "StanzaOrg/slm_file_system_utils", version = "0.0.3" }
-json_static =              { git = "StanzaOrg/slm_json",              version = "0.0.2" }
+file_system_utils_static = { git = "StanzaOrg/slm_file_system_utils", version = "0.0.4" }
+json_static =              { git = "StanzaOrg/slm_json",              version = "0.0.3" }
 lang_utils_static =        { git = "StanzaOrg/slm_lang_utils",        version = "0.0.4" }
 maybe-utils =              { git = "StanzaOrg/maybe-utils",           version = "0.1.4" }
 semver      =              { git = "StanzaOrg/semver",                version = "0.1.6" }
