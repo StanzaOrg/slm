@@ -15,8 +15,5 @@ esac
 ./slm build -verbose -- -verbose
 
 # Build the tests
-
-rm slm.lock  # FIXME remove after slm.lock code can parse options array
-
 ./slm build tests
 ./slm-tests
