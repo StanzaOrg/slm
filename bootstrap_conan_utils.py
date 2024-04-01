@@ -254,7 +254,8 @@ def conan_fully_qualify_latest_version(cv: ConanVersion, **kwargs) -> ConanVersi
         if oslc in options:
             overrides = options[oslc].items()
             for plat in ("linux", "macos", "windows"):
-                del options[plat]
+                if plat in options:
+                    del options[plat]
             for k, v in overrides:
                 options[k] = v
 
