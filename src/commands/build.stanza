@@ -12,7 +12,7 @@ defpackage slm/commands/build:
   import slm/dep-types
   import slm/dependencies
   import slm/file-utils
-  import slm/lock
+  ;JITX-8200;import slm/lock
   import slm/logging
   import slm/process-utils
   import slm/flags
