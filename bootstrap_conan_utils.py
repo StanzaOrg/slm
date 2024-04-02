@@ -252,12 +252,13 @@ def conan_fully_qualify_latest_version(cv: ConanVersion, **kwargs) -> ConanVersi
         # look for platform-specific options (if any) and apply them to the requested options list.  Remove options for other platforms.
         oslc = current_conan_os.lower()
         if oslc in options:
-            overrides = options[oslc].items()
-            for plat in ("linux", "macos", "windows"):
-                if plat in options:
-                    del options[plat]
-            for k, v in overrides:
+            # copy the platform-specific options to the top level
+            for k, v in options[oslc].items():
                 options[k] = v
+        # remove all other platforms
+        for plat in ("linux", "macos", "windows"):
+            if plat in options:
+                del options[plat]
 
         # search for available recipe revisions using just the name and version
         for rr in conan_get_recipe_revisions(package_name, package_version, **kwargs):
