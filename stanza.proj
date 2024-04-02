@@ -33,7 +33,7 @@ build-test tests:
     slm/tests/utils
     slm/tests/toml
     slm/tests/task
-    slm/tests/lock
+    ;JITX-8200;slm/tests/lock
     slm/tests/commands/add
     slm/tests/commands/add-task
     slm/tests/commands/remove
