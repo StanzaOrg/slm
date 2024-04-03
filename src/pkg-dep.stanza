@@ -32,6 +32,8 @@ public defstruct PkgDependency <: Dependency & Hashable & Equalable:
   version: String
   type: String
   options: TomlTable
+with:
+  hashable => true
 
 defmethod recursive (d:PkgDependency) -> True|False :
   ; a pkg can have recursive deps
@@ -42,16 +44,6 @@ defmethod path (d:PkgDependency) -> String:
 
 defmethod equal? (a:PkgDependency, b:PkgDependency) -> True|False :
   name(a) == name(b) and version(a) == version(b) and type(a) == type(b) and to-string(options(a)) == to-string(options(b))
-
-defmethod hash (x:PkgDependency) -> Int :
-  defn toml-hash (t:TomlTable|TomlValue) -> Int:
-    match(t):
-      (i:Int): hash(i)
-      (s:String): hash(s)
-      (tt:TomlTable):
-        sum $ for kvp in tt seq:
-          toml-hash(key(kvp)) + toml-hash(value(kvp))
-  hash(name(x)) + hash(version(x)) + hash(type(x)) + toml-hash(options(x))
 
 public defn PkgDependency (
   name: String
