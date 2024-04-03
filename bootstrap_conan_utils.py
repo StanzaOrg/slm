@@ -123,6 +123,12 @@ def urlenc(s: str) -> str:
     """Urlencode the given string"""
     return urllib.parse.quote_plus(s)
 
+def repourl_from_kwargs(**kwargs) -> str:
+    return kwargs["repourl"] if "repourl" in kwargs else DEFAULT_CONAN_URL
+
+def target_directory_from_kwargs(**kwargs) -> str:
+    return kwargs["target_directory"] if "target_directory" in kwargs else "."
+
 def conan_search_package_name(package_name: str, **kwargs) -> json:
     """
     Search for the given package name on the conan server
@@ -136,7 +142,7 @@ def conan_search_package_name(package_name: str, **kwargs) -> json:
 
     throws Exception on invalid json returned
     """
-    repourl = kwargs["repourl"] if "repourl" in kwargs else DEFAULT_CONAN_URL
+    repourl = repourl_from_kwargs(**kwargs)
     queryurl = f"{repourl}/v2/conans/search"
     headers = {"Content-Type": "application/json"}
     params = {"q": package_name}
@@ -157,7 +163,7 @@ def conan_get_recipe_revisions(package_name: str, package_version: str, **kwargs
 
     throws Exception on invalid json returned
     """
-    repourl = kwargs["repourl"] if "repourl" in kwargs else DEFAULT_CONAN_URL
+    repourl = repourl_from_kwargs(**kwargs)
     queryurl = f"{repourl}/v2/conans/{urlenc(package_name)}/{urlenc(package_version)}/_/_/revisions"
     headers = {"Content-Type": "application/json"}
 
@@ -181,7 +187,7 @@ def conan_get_package_ids_for_revision(package_name: str, package_version: str, 
 
     throws Exception on invalid json returned
     """
-    repourl = kwargs["repourl"] if "repourl" in kwargs else DEFAULT_CONAN_URL
+    repourl = repourl_from_kwargs(**kwargs)
     # search for available package_ids of the recipe revision
     queryurl = f"{repourl}/v2/conans/{urlenc(package_name)}/{urlenc(package_version)}/_/_/revisions/{urlenc(recipe_revision)}/search"
     headers = {"Content-Type": "application/json"}
@@ -207,7 +213,7 @@ def conan_get_package_revisions(package_name: str, package_version: str, recipe_
 
     throws Exception on invalid json returned
     """
-    repourl = kwargs["repourl"] if "repourl" in kwargs else DEFAULT_CONAN_URL
+    repourl = repourl_from_kwargs(**kwargs)
     # search for available package_ids of the recipe revision
     queryurl = f"{repourl}/v2/conans/{urlenc(package_name)}/{urlenc(package_version)}/_/_/" + \
                f"revisions/{urlenc(recipe_revision)}/packages/{urlenc(package_id)}/revisions"
@@ -339,8 +345,8 @@ def conan_download_package(cv: ConanVersion, **kwargs) -> str :
     throws Exception on failure or package not found
     """
     debug(f"conan_download_package: downloading version: {cv.to_string()}")
-    target_directory = kwargs["target_directory"] if "target_directory" in kwargs else "."
-    repourl = kwargs["repourl"] if "repourl" in kwargs else DEFAULT_CONAN_URL
+    target_directory = target_directory_from_kwargs(**kwargs)
+    repourl = repourl_from_kwargs(**kwargs)
 
     fqcv = conan_fully_qualify_latest_version(cv, **kwargs)
 
