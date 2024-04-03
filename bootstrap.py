@@ -9,7 +9,7 @@ from subprocess import CalledProcessError
 def eprint(msg):
     print(msg, file=sys.stderr)
 
-if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and sys.version_info[1] < 11)
+if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and sys.version_info[1] < 11):
     eprint("This script requires python version 3.11 or greater")
     exit(1)
 
