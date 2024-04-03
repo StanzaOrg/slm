@@ -92,20 +92,6 @@ defn options-to-string (d:PkgDependency) -> String :
     to-string("%~ = %~" % [key(kvp), value(kvp)])
   to-string("{ %, }" % [elems])
 
-; defn parse-options (table:TomlTable -- env-sub-enable:True|False = false) -> TomlTable :
-;   to-tuple $ for kvp in table seq:
-;     val [k, v] = if env-sub-enable:
-;       [
-;         env-var-substitute $ key(kvp)
-;         match(value(kvp)):
-;           (v:String): env-var-substitute $ v
-;           (v:TomlTable): parse-options(v, env-sub-enable = env-sub-enable)
-;           (v): to-string(v)
-;       ]
-;     else:
-;       [key(kvp), value(kvp)]
-;     KeyValue(k, v)
-
 defn sub-vars? (v:Maybe<String>, enable:True|False) -> Maybe<String> :
   if enable : env-var-substitute(v)
   else: v
@@ -137,21 +123,8 @@ public defn parse-pkg-dependency (name:String, table:TomlTable -- env-sub-enable
   PkgDependency(name, version, type, options)
 
 public defn fetch-or-sync-pkgver (d: PkgDependency, parent-name:String|False = false, dep-path:String|False = false) -> Maybe<PkgDependency>:
-  ;if file-exists?(path(d)):
-  ;  sync-dependency-pkgver(d)
-  ;else:
   fetch-dependency-pkgver(d)
   to-maybe(d)
-
-public defn sync-dependency-pkgver (d: PkgDependency) -> False:
-  ;throw $ InvalidPkgDependency(name(d), "TODO FIXME implement")
-  false
-  ; debug("syncing '%_' at %_" % [name(d), hash(d)])
-
-  ; if empty?(hash(d)): fatal("internal error")
-
-  ; if git-rev-parse!(path(d), "HEAD") != hash(d):
-  ;   error("syncing '%_': out of sync with your slm.lock" % [name(d)])
 
 public defn fetch-dependency-pkgver (d: PkgDependency) -> False:
   info("fetching %_ at %_" % [colored-name?(d), colored-version?(d)])
