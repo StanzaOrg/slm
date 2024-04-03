@@ -104,7 +104,7 @@ def bootstrap(args):
             options = specifier["options"]
             download_conan_package_into(path, package, version, options)
         else:
-            raise Exception(f"unknown dependency type: \"{dependency}\" = \"{specifier}\"")
+            error(f"unknown dependency type: \"{dependency}\" = \"{specifier}\"")
 
     # Generate stanza.proj for build
     generate_stanza_proj()
