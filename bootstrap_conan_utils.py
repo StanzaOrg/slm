@@ -45,7 +45,6 @@ class ConanVersion:
             s: str in the form "a/b#cccccccccccccccccccccccccccccccc:dddddddddddddddddddddddddddddddddddddddd#eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
                    where only "a/b" is mandatory
 
-        Throws Exception If we fail to parse the version string
         """
         debug(f"ConanVersion: s==\"{s}\"")
         # name before slash
@@ -140,7 +139,7 @@ def conan_search_package_name(package_name: str, **kwargs) -> json:
 
     Returns: json results
 
-    throws Exception on invalid json returned
+    throws Exception (from 'requests') on invalid json returned
     """
     repourl = repourl_from_kwargs(**kwargs)
     queryurl = f"{repourl}/v2/conans/search"
@@ -161,7 +160,7 @@ def conan_get_recipe_revisions(package_name: str, package_version: str, **kwargs
     kwargs:
       repourl: str The repo to search.  Optional, Default DEFAULT_CONAN_URL.
 
-    throws Exception on invalid json returned
+    throws RuntimeError on invalid json returned
     """
     repourl = repourl_from_kwargs(**kwargs)
     queryurl = f"{repourl}/v2/conans/{urlenc(package_name)}/{urlenc(package_version)}/_/_/revisions"
@@ -170,7 +169,7 @@ def conan_get_recipe_revisions(package_name: str, package_version: str, **kwargs
     response = requests.get(queryurl, headers=headers)
     jresult = json.loads(response.text)
     if "errors" in jresult:
-      raise Exception("Conan error while getting recipe revisions for \"{package_name}/{package_version}\": \"{jresult}\"")
+      raise RuntimeError("Conan error while getting recipe revisions for \"{package_name}/{package_version}\": \"{jresult}\"")
     return jresult["revisions"]
 
 
@@ -185,7 +184,7 @@ def conan_get_package_ids_for_revision(package_name: str, package_version: str, 
     kwargs:
       repourl: str The repo to search.  Optional, Default DEFAULT_CONAN_URL.
 
-    throws Exception on invalid json returned
+    throws RuntimeError on invalid json returned
     """
     repourl = repourl_from_kwargs(**kwargs)
     # search for available package_ids of the recipe revision
@@ -195,7 +194,7 @@ def conan_get_package_ids_for_revision(package_name: str, package_version: str, 
     response = requests.get(queryurl, headers=headers)
     jresult = json.loads(response.text)
     if "errors" in jresult:
-      raise Exception("Conan error while getting package_ids for recipe revision \"{package_name}/{package_version}#{recipe_revision}\": \"{jresult}\"")
+      raise RuntimeError("Conan error while getting package_ids for recipe revision \"{package_name}/{package_version}#{recipe_revision}\": \"{jresult}\"")
     return jresult
 
 
@@ -211,7 +210,8 @@ def conan_get_package_revisions(package_name: str, package_version: str, recipe_
     kwargs:
       repourl: str The repo to search.  Optional, Default DEFAULT_CONAN_URL.
 
-    throws Exception on invalid json returned
+    throws Exception (from 'requests') on invalid json returned
+    throws RuntimeError on error finding package
     """
     repourl = repourl_from_kwargs(**kwargs)
     # search for available package_ids of the recipe revision
@@ -222,7 +222,7 @@ def conan_get_package_revisions(package_name: str, package_version: str, recipe_
     response = requests.get(queryurl, headers=headers)
     jresult = json.loads(response.text)
     if "errors" in jresult:
-      raise Exception("Conan error while getting package revisions for package_id \"{package_name}/{package_version}#{recipe_revision}\": \"{jresult}\"")
+      raise RuntimeError("Conan error while getting package revisions for package_id \"{package_name}/{package_version}#{recipe_revision}\": \"{jresult}\"")
     return jresult["revisions"]
 
 
@@ -239,7 +239,8 @@ def conan_fully_qualify_latest_version(cv: ConanVersion, **kwargs) -> ConanVersi
       options: dictionary of key/value options.  Optional, Default empty dictionary.
       repourl: str The repo to search.  Optional, Default DEFAULT_CONAN_URL.
 
-    throws Exception on failure or package not found
+    throws Exception (from 'requests') on failure
+    throws RuntimeError package not found
     """
 
     debug(f"conan_fully_qualify_latest_version: qualifying version: {cv.to_string()}")
@@ -326,7 +327,7 @@ def conan_fully_qualify_latest_version(cv: ConanVersion, **kwargs) -> ConanVersi
 
 
     # if we reach here, we didn't find a match
-    raise Exception("conan search could not find matching package for options")
+    raise RuntimeError("conan search could not find matching package for options")
 
 
 def conan_download_package(cv: ConanVersion, **kwargs) -> str :
@@ -342,7 +343,8 @@ def conan_download_package(cv: ConanVersion, **kwargs) -> str :
       target_directory: directory to save the downloaded file into. Optional, Default current directory.
       repourl: str The repo to search.  Optional, Default DEFAULT_CONAN_URL.
 
-    throws Exception on failure or package not found
+    throws Exception (from 'requests') on failure or package not found
+    throws RuntimeError on invalid arguments
     """
     debug(f"conan_download_package: downloading version: {cv.to_string()}")
     target_directory = target_directory_from_kwargs(**kwargs)
@@ -351,7 +353,7 @@ def conan_download_package(cv: ConanVersion, **kwargs) -> str :
     fqcv = conan_fully_qualify_latest_version(cv, **kwargs)
 
     if cv.package_id is None or cv.recipe_revision is None or cv.package_revision is None:
-      raise Exception("conan version must be fully specified with revisions and package_ids")
+      raise RuntimeError("conan version must be fully specified with revisions and package_ids")
 
     downloadurl = f"{repourl}/v2/conans/{urlenc(cv.name)}/{urlenc(cv.version)}/_/_/" + \
                   f"revisions/{urlenc(cv.recipe_revision)}/packages/{urlenc(cv.package_id)}/revisions/{urlenc(cv.package_revision)}/files/conan_package.tgz"
