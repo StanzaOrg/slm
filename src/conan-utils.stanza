@@ -144,30 +144,6 @@ public defmethod to-string (cv:ConanVersion) -> String :
 ; http://localhost:8082/artifactory/api/conan/conan-local/v2/files/_/pcre/8.45/_/125d5f684fea10391ff4cbcd809a5c74/package/139391a944851d9dacf1138cff94b3320d5775dd/ce6f2349e761f6350cbde62b02a687c7/conan_package.tgz
 
 doc: \<DOC>
-search for the given package name on the conan server
-@throws JSONParseException on invalid json returned
-@throws CurlException
-<DOC>
-public defn conan-search-package-name (package_name:String, -- repourl:String = DEFAULT-CONAN-URL) -> JObject :
-  var jresult
-  ; search for package name
-  val queryurl = to-string("%_/v2/conans/search?q=%_" % [repourl, package_name])
-  val headers = ["Content-Type: application/json"]
-  val curl = Curl()
-  try:
-    val response  = read-url(curl, headers, queryurl)
-    jresult = parse(response) as JObject
-  catch (e: JSONParseException):
-    free(curl)
-    throw(e)
-  catch (e:CurlException):
-    free(curl)
-    throw(e)
-  free(curl)
-  jresult
-
-
-doc: \<DOC>
 search for the available recipe revisions for the given package name on the conan server
 @params curl: an OPEN curl handle.  This function does not free the given handle.
 @throws JSONParseException on invalid json returned

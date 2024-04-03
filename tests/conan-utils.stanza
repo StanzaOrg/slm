@@ -74,11 +74,6 @@ deftest(conan) test-conan-version:
     false
   
 
-deftest(conan) test-fetch-conan-package:
-  val json = conan-search-package-name("pcre")
-  println("test-fetch-conan-package:\n%_" % [json])
-
-
 deftest(conan online) test-fetch-conan-package:
 
   val cv = ConanVersion("pcre", "8.45", "125d5f684fea10391ff4cbcd809a5c74", "139391a944851d9dacf1138cff94b3320d5775dd", "ce6f2349e761f6350cbde62b02a687c7")
