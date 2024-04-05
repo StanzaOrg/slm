@@ -185,6 +185,122 @@ defn conan-get-package-revisions (package_name:String, package_version:String, r
   jresult["revisions"] as Tuple<JSON>
 
 
+defn conan-get-latest-revision (package_name:String, package_version:String, recipe_revision:String, package_id:String,
+                                curl:Curl, -- headers:Tuple<String> = [], repourl:String = DEFAULT-CONAN-URL) -> Maybe<ConanVersion>:
+  label<Maybe<ConanVersion>> return :
+    for pr in conan-get-package-revisions(package_name, package_version, recipe_revision, package_id, curl, headers = headers, repourl = repourl) do:
+      val package_revision = to-string((pr as JObject)["revision"])
+      val package_revision_time = to-string((pr as JObject)["time"])
+      debug("conan-fully-qualify-latest-version: package_revision: \"%_\" on \"%_\"" % [package_revision, package_revision_time])
+
+      ; NOTE: assuming that the most recent revision is listed first
+      ; if this turns out not to be the case, then sort by package_revision_time
+      val fqcv = ConanVersion(package_name, package_version, recipe_revision, package_id, package_revision)
+      debug("conan-fully-qualify-latest-version: found \"%_\"" % [to-string(fqcv)])
+      return(One $ fqcv)
+
+    ; if we reach here, we didn't find a match
+    None()
+
+doc: \<DOC>
+Returns the current platform os string as expected by Conan.
+"Linux", "Macos", or "Windows"
+<DOC>
+defn conan-get-current-os () -> String :
+  match(CURRENT-PLATFORM) :
+    (p:Linux) : "Linux"
+    (p:OS-X) : "Macos"
+    (p:Windows) : "Windows"
+
+doc: \<DOC>
+Convert TomlTable of conan package options to a hashtable, and remove the platform-specific option trees along the way.
+<DOC>
+defn toml-options-to-hashtable-without-platform-options (options:TomlTable = TomlTable()) -> HashTable<String,String> :
+  val hto = HashTable<String,String>()
+  for o in entries(options) do:
+    switch(key(o)):
+      ; ignore any platform-specific options tables at this point
+      "linux": false
+      "macos": false
+      "windows": false
+      else:
+        debug("toml-options-to-hashtable-without-platform-options: requested option \"%_\" = \"%_\"" % [key(o), value(o)])
+        hto[to-string(key(o))] = to-string(value(o))
+  hto
+
+doc: \<DOC>
+Convert json list of conan package options to a hashtable.
+<DOC>
+defn json-options-to-hashtable (json-options:JObject) -> HashTable<String,String> :
+  val hto = HashTable<String,String>()
+  for o in json-options do:
+    debug("toml-options-to-hashtable: package \"%_\" option \"%_\" = \"%_\"" % [package_id, key(o), value(o)])
+    hto[to-string(key(o))] = to-string(value(o))
+  hto
+
+doc: \<DOC>
+Apply any options given in platform-options to the existing options in the given hashtable.
+<DOC>
+defn apply-platform-options-to-hashtable (platform-options: TomlTable, hto: HashTable<String,String>) -> HashTable<String,String> :
+  debug("apply-platform-options-to-hashtable: found platform-specific options: \"%_\"" % [to-string(entries(platform-options))])
+  for o in entries(platform-options) do:
+    debug("apply-platform-options-to-hashtable: platform-specific option \"%_\" = \"%_\"" % [key(o), value(o)])
+    set(hto, to-string(key(o)), to-string(value(o)))
+  hto
+
+defn conan-get-full-version-for-package-with-platform-and-options (package_name:String, package_version:String, recipe_revision:String,
+                                         current_conan_os: String, ht-requested-options: HashTable<String,String>,
+                                         curl:Curl, -- headers:Tuple<String> = [], repourl:String = DEFAULT-CONAN-URL) -> Maybe<ConanVersion> :
+  label<Maybe<ConanVersion>> return :
+    for p in conan-get-package-ids-for-revision(package_name, package_version, recipe_revision, curl, headers = headers, repourl = repourl) do:
+      val package_id = key(p)
+      val package_info = value(p) as JObject
+              ;;; package_info format:
+              ; {
+              ; "settings":     {
+              ;         "os":   "Windows",
+              ;         "compiler.threads":     "posix",
+              ;         "compiler.exception":   "seh",
+              ;         "arch": "x86_64",
+              ;         "compiler":     "gcc",
+              ;         "build_type":   "Release",
+              ;         "compiler.version":     "11.2"
+              ; },
+              ; "options":      {
+              ;         "build_pcrecpp":        "False",
+              ;         "build_pcre_16":        "False",
+              ;         "build_pcre_8": "True",
+              ;         "shared":       "True",
+              ;         "with_stack_for_recursion":     "True",
+              ;         "build_pcregrep":       "False",
+              ;         "build_pcre_32":        "False",
+              ;         "with_utf":     "True",
+              ;         "with_unicode_properties":      "True",
+              ;         "with_jit":     "False"
+              ; }
+
+      ; look for packages compiled for the current os we're running on
+      ; TODO this could be improved with arch and compiler checks
+      ;      but for now just check os
+      val package_settings_os = to-string((package_info["settings"] as JObject)["os"])
+      if package_settings_os != current_conan_os:
+        ; not our os
+        debug("conan-get-full-version-for-package-with-platform-and-options: package \"%_\" os = \"%_\" [SKIP]" % [package_id, package_settings_os])
+      else:
+        debug("conan-get-full-version-for-package-with-platform-and-options: package \"%_\" os = \"%_\" [ok]" % [package_id, package_settings_os])
+
+        ; convert package options to hashtable
+        val htpo = json-options-to-hashtable(package_info["options"] as JObject)
+
+        ; compare hashtables by value
+        if same-contents?(htpo,ht-requested-options):
+          ; this package matches our os and the requested options
+          ; get the latest revision for this package
+          return(conan-get-latest-revision(package_name, package_version, recipe_revision, package_id, curl, headers = headers, repourl = repourl))
+
+    ; if we reach here, we didn't find a match
+    None()
+
 doc: \<DOC>
 Searches the given conan repository for the latest package matching the given ConanVersion and options.
 @throws Exception on failure or package not found
@@ -199,107 +315,38 @@ public defn conan-fully-qualify-latest-version (cv:ConanVersion, -- options:Toml
       ; cv was missing a revision or package_id, so search the server for the latest matching package
       ; curl $APIBASE/conans/pcre/8.45/_/_/search
       val headers = ["Content-Type: application/json"]
-      var curl
+      var curl = Curl()
       try :
-        curl = Curl()
-
         val package_name = name(cv)
         val package_version = version(cv)
 
-        val current_conan_os = match(CURRENT-PLATFORM) :
-          (p:Linux) : "Linux"
-          (p:OS-X) : "Macos"
-          (p:Windows) : "Windows"
+        ; get the current os as expected by conan
+        val current_conan_os = conan-get-current-os()
         val current_conan_os_lc = lower-case(current_conan_os)
 
         ; convert requested options to hashtable
-        val htro = HashTable<String,String>()
-        for o in entries(options) do:
-          switch(key(o)):
-            ; ignore any platform-specific options tables at this point
-            "linux": false
-            "macos": false
-            "windows": false
-            else:
-              debug("conan-fully-qualify-latest-version: requested option \"%_\" = \"%_\"" % [key(o), value(o)])
-              htro[to-string(key(o))] = to-string(value(o))
+        var htro = toml-options-to-hashtable-without-platform-options(options)
 
         ; Look for platform-specific options (if any) and apply them to the
         ; requested options hashtable, overrding existing values.  Ignore other platforms.
         debug("conan-fully-qualify-latest-version: looking for platform-specific options")
         match(get-table?(options, current_conan_os_lc)):
-          (osopts:One<TomlTable>):
-            debug("conan-fully-qualify-latest-version: found platform-specific options: \"%_\"" % [to-string(entries(value(osopts)))])
-            for o in entries(value(osopts)) do:
-              debug("conan-fully-qualify-latest-version: platform-specific option \"%_\" = \"%_\"" % [key(o), value(o)])
-              set(htro, to-string(key(o)), to-string(value(o)))
+          (platform-options: One<TomlTable>):
+            htro = apply-platform-options-to-hashtable(value!(platform-options), htro)
           (_):
-            debug("conan-fully-qualify-latest-version: no platform-specific options found for platform \"%_\"" % [current_conan_os_lc])
-            false
+            debug("apply-platform-options-to-hashtable: no platform-specific options found for platform \"%_\"" % [current_conan_os_lc])
 
-        ; search for available recipe revisions using just the name and version
+        ; search for available recipe revisions
         for rr in conan-get-recipe-revisions(package_name, package_version, curl, headers = headers, repourl = repourl) do:
           val recipe_revision = to-string((rr as JObject)["revision"])
           val recipe_revision_time = to-string((rr as JObject)["time"])
           debug("conan-fully-qualify-latest-version: recipe_revision: \"%_\" on \"%_\"" % [recipe_revision, recipe_revision_time])
 
-          for p in conan-get-package-ids-for-revision(package_name, package_version, recipe_revision, curl, headers = headers, repourl = repourl) do:
-            val package_id = key(p)
-            val package_info = value(p) as JObject
-                    ;;; package_info format:
-                    ; {
-                    ; "settings":     {
-                    ;         "os":   "Windows",
-                    ;         "compiler.threads":     "posix",
-                    ;         "compiler.exception":   "seh",
-                    ;         "arch": "x86_64",
-                    ;         "compiler":     "gcc",
-                    ;         "build_type":   "Release",
-                    ;         "compiler.version":     "11.2"
-                    ; },
-                    ; "options":      {
-                    ;         "build_pcrecpp":        "False",
-                    ;         "build_pcre_16":        "False",
-                    ;         "build_pcre_8": "True",
-                    ;         "shared":       "True",
-                    ;         "with_stack_for_recursion":     "True",
-                    ;         "build_pcregrep":       "False",
-                    ;         "build_pcre_32":        "False",
-                    ;         "with_utf":     "True",
-                    ;         "with_unicode_properties":      "True",
-                    ;         "with_jit":     "False"
-                    ; }
+          match(conan-get-full-version-for-package-with-platform-and-options(package_name, package_version, recipe_revision, current_conan_os, htro,
+                                                                             curl, headers = headers, repourl = repourl)):
+            (cv: One<ConanVersion>): return(value!(cv))
+            (_): false
 
-            ; look for packages compiled for the current os we're running on
-            ; TODO this could be improved with arch and compiler checks
-            ;      but for now just check os
-            val package_settings_os = to-string((package_info["settings"] as JObject)["os"])
-            if package_settings_os != current_conan_os:
-              ; not our os
-              debug("conan-fully-qualify-latest-version: package \"%_\" os = \"%_\" [SKIP]" % [package_id, package_settings_os])
-            else:
-              debug("conan-fully-qualify-latest-version: package \"%_\" os = \"%_\" [ok]" % [package_id, package_settings_os])
-
-              ; convert package options to hashtable
-              val package_options = package_info["options"] as JObject
-              val htpo = HashTable<String,String>()
-              for o in package_options do:
-                debug("conan-fully-qualify-latest-version: package \"%_\" option \"%_\" = \"%_\"" % [package_id, key(o), value(o)])
-                htpo[to-string(key(o))] = to-string(value(o))
-              ; compare hashtables by value
-              if same-contents?(htpo,htro):
-                ; this package matches our os and the requested options
-                ; get the latest revision for this package
-                for pr in conan-get-package-revisions(package_name, package_version, recipe_revision, package_id, curl, headers = headers, repourl = repourl) do:
-                  val package_revision = to-string((pr as JObject)["revision"])
-                  val package_revision_time = to-string((pr as JObject)["time"])
-                  debug("conan-fully-qualify-latest-version: package_revision: \"%_\" on \"%_\"" % [package_revision, package_revision_time])
-
-                  ; NOTE: assuming that the most recent revision is listed first
-                  ; if this turns out not to be the case, then sort by package_revision_time
-                  val fqcv = ConanVersion(package_name, package_version, recipe_revision, package_id, package_revision)
-                  debug("conan-fully-qualify-latest-version: found \"%_\"" % [to-string(fqcv)])
-                  return(fqcv)
       finally :
         free(curl)
     ; if we reach here, we didn't find a match
@@ -312,10 +359,8 @@ returns path to downloaded file
 public defn conan-download-package (cv:ConanVersion, -- options:TomlTable = TomlTable(), repourl:String = DEFAULT-CONAN-URL, target_directory:String = ".") -> String :
   debug("conan-download-package: downloading version: %_" % [to-string(cv)])
   val headers = ["Content-Type: application/json"]
-  var curl
+  var curl = Curl()
   try :
-    curl = Curl()
-
     val fqcv = conan-fully-qualify-latest-version(cv, options = options, repourl = repourl)
 
     if package_id(fqcv) == false or recipe_revision(fqcv) == false or package_revision(fqcv) == false:
