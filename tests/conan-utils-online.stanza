@@ -1,5 +1,5 @@
 #use-added-syntax(tests)
-defpackage slm/tests/conan-utils:
+defpackage slm/tests/conan-utils-online:
   import core
   import slm/conan-utils
 
