@@ -2,6 +2,7 @@
 defpackage slm/tests/conan-utils-online:
   import core
   import slm/conan-utils
+  import toml
 
 deftest(conan online) test-fetch-conan-package:
 
@@ -15,7 +16,8 @@ deftest(conan online) test-fetch-conan-package:
 
 deftest(conan online) test-qualify-conan-package:
   val cv = ConanVersion("pcre/8.45")
-  val options = ["build_pcre_16" => "True"
+  val options = TomlTable(to-seq([
+                 "build_pcre_16" => "True"
                  "build_pcre_32" => "True"
                  "build_pcre_8" => "True"
                  "build_pcrecpp" => "False"
@@ -27,7 +29,7 @@ deftest(conan online) test-qualify-conan-package:
                  "with_stack_for_recursion" => "True"
                  "with_unicode_properties" => "True"
                  "with_utf" => "True"
-                 "with_zlib" => "True"]
+                 "with_zlib" => "True"] ))
   val fqcv = conan-fully-qualify-latest-version(cv, options = options)
 
   ; note that this is very dependent on what packages and revisions the server has

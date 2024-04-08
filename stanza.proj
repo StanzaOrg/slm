@@ -30,8 +30,8 @@ build-test tests:
 
 ; note that these online tests are very dependent on the platform used
 ; and what packages and revisions the server has available
-build-test test-conan-online:
+build-test test-conan-utils-online:
   inputs:
     slm/tests/conan-utils-online
   pkg: "test-pkgs"
-  o: "test_conan"
+  o: "test-conan-utils-online"
