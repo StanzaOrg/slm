@@ -126,10 +126,9 @@ public defn fetch-dependency-pkgver (d: PkgDependency) -> False:
   val cv = ConanVersion(to-string("%_/%_" % [name(d), version(d)]))
   val filename = conan-download-package(cv, options = options(d), target_directory = ".")
 
-  val slm-deps-dir = ".slm/deps"
-  create-dir-recursive(slm-deps-dir)
+  val dest = to-string(".slm/deps/%_" % [name(d)])
+  create-dir-recursive(dest)
 
-  val dest = to-string("%_/%_" % [slm-deps-dir, name(d)])
   debug("extracting \"%_\" to \"%_\"" % [filename, dest])
   val untar-cmd = ["tar", "zxf", filename, "-C", dest]
   val p = ProcessBuilder(untar-cmd)
