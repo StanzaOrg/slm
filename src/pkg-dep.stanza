@@ -128,9 +128,8 @@ public defn fetch-dependency-pkgver (d: PkgDependency) -> False:
 
   val dest = to-string(".slm/deps/%_" % [name(d)])
   debug("extracting \"%_\" to \"%_\"" % [filename, dest])
-  val untar-cmd = ["tar", "zxf", filename]
+  val untar-cmd = ["tar", "zxf", filename, "-C", dest]
   val p = ProcessBuilder(untar-cmd)
-    $> in-dir{_, dest}
     $> with-output
     $> build
   wait-process-throw-on-nonzero(p, "Error extracting conan archive")
