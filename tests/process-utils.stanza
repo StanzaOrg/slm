@@ -1,0 +1,14 @@
+
+#use-added-syntax(tests)
+defpackage slm/tests/process-utils:
+  import core
+  import slm/logging
+  import slm/process-utils
+
+deftest(process-utils) test-process-builder:
+  ; run a command that will produce the same result every time on all platforms
+  val args = ["bash", "-c", "echo 2 + 3 | bc"]
+  val expected = "5"
+
+  val result = command-output-in-dir(".", args)
+  #EXPECT(expected == result)

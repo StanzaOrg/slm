@@ -22,11 +22,16 @@ build-test tests:
     slm/tests/commands/add
     slm/tests/commands/add-task
     slm/tests/commands/remove
+    slm/tests/conan-utils
+    slm/tests/process-utils
   pkg: "test-pkgs"
   o: "slm-tests"
 
-build-test test_conan:
+
+; note that these online tests are very dependent on the platform used
+; and what packages and revisions the server has available
+build-test test-conan-online:
   inputs:
-    slm/tests/conan-utils
+    slm/tests/conan-utils-online
   pkg: "test-pkgs"
   o: "test_conan"
