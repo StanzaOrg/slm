@@ -10,23 +10,35 @@
 
 # Installation
 
-Just download a release from [releases](https://github.com/StanzaOrg/slm/releases), and put it on your `$PATH` somewhere.
+1. Download an slm release from [releases](https://github.com/StanzaOrg/slm/releases), and put it on your `$PATH` somewhere.
+2. Some slm packages with C dependencies need to access the stanza include files distributed with the stanza installation.  
+   For these slm packages, the include files will be expected to be found using the `STANZA_CONFIG` environment variable
+   at the path `$STANZA_CONFIG/include`. When you installed stanza, it should have created a `.stanza` config file. Copy
+   that `.stanza` config file into the stanza install directory, and set the environment variable `STANZA_CONFIG` to that
+   same stanza install directory so that referencing `$STANZA_CONFIG/include` points to the include files.
 
 ## Building from Source
 
 To build SLM from source you will need to bootstrap the build environment. The
-`bootstrap.py` file contains a python3 script that will setup the dependencies
+`bootstrap.py` file contains a python script that will setup the dependencies
 for the build and call `stanza`
 
 Requirements:
 
-1.  Python 3.11 or greater available on your system.
+1.  Python 3.11 or greater available on your system, in the `$PATH`, and usable as the command `python`
 2.  Stanza 0.18.52 availble on the `$PATH`
+3.  The python requirements in `requirements.txt`, possibly in a python venv.
+    To create a python venv and load the requirements.txt:
+    ```
+    python -m venv venv
+    source venv/bin/activate
+    pip install requirements.txt
+    ```
 
 Then you can run:
 
 ```
-$> python3 bootstrap.py
+$> python bootstrap.py
 slm bootstrapped: run `slm build` to finish building.
 $> ./slm build
 slm: syncing semver to 0.1.6
@@ -102,7 +114,7 @@ To build the Conan2 package for binary distribution of `slm`:
 1.  Build the `slm` utility as described above.
 1.  Setup the Python Environment
     1.  Use python 3.11 or higher
-    2.  `python3 -m venv venv`
+    2.  `python -m venv venv`
     3.  `source venv/bin/activate`
     4.  `pip install -r requirements.txt`
 2.  Setup the conan build:
@@ -122,3 +134,11 @@ To build the Conan2 package for binary distribution of `slm`:
     2.  `conan remote login <NAME> <USER> -p <PASSWD>`
     3.  `conan upload -r <NAME> slm/<VERSION>`
 
+# Building tests
+
+To build and run the test program for `slm`:
+
+```
+stanza build tests
+./slm-tests
+```
