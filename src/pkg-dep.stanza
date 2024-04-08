@@ -125,12 +125,13 @@ public defn fetch-dependency-pkgver (d: PkgDependency) -> False:
   ; PkgDependency version may have revision and package_id components, so use string constructor for ConanVersion
   val cv = ConanVersion(to-string("%_/%_" % [name(d), version(d)]))
   val filename = conan-download-package(cv, options = options(d), target_directory = ".")
+
   val dest = ".slm/deps/%_" % [name(d)]
   debug("extracting \"%_\" to \"%_\"" % [filename, dest])
-  ; TODO convert to use slm/process-utils
-  ; FIXME XXX using a bash shell command string with user-provided data is dangerous
-  ; TODO safety check dest or filename contains chars other than [alphanum, '-', '_']
-  val ret = call-system(["bash" "-c" to-string("D=\"%_\" ; mkdir -p \"$D\" ; echo extracting into \"$D\" ; tar zxvf \"%_\" -C \"$D\"" % [dest, filename])])
-  debug("extract returned %_" % [ret])
-  
+  val untar-cmd = ["tar", "zxf", filename]
+  val p = ProcessBuilder(untar-cmd)
+    $> in-dir{_, dest}
+    $> with-output
+    $> build
+  wait-process-throw-on-nonzero(p, "Error extracting conan archive")
   false
