@@ -19,6 +19,7 @@ defn setup-opts ():
   add(CMDS, setup-publish-cmd())
   add(CMDS, setup-remove-cmd())
   add(CMDS, setup-repl-cmd())
+  add(CMDS, setup-run-cmd())
   add(CMDS, setup-version-cmd())
 
 val SLM-DESCR = \<MSG>

@@ -15,6 +15,7 @@ defpackage slm/commands:
     only => (setup-remove-cmd)
   forward slm/commands/repl with:
     only => (setup-repl-cmd)
+  forward slm/commands/run with:
+    only => (setup-run-cmd)
   forward slm/commands/version with:
     only => (setup-version-cmd)
-
