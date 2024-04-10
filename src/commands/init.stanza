@@ -130,9 +130,9 @@ public defn init (cmd-args:CommandArgs) -> False:
     val content = MAIN-TEMPLATE % [main-package]
     spit(project-main-path, content)
 
-  ; Initialize Git repo in .git
-  val git-dir = path-join(project-dir, ".git")
-  if has-git?() and not file-exists?(git-dir):
+  ; Initialize Git repo if we aren't already inside
+  ;  a git repo.
+  if has-git?() and not git-status(project-dir):
     git-init(project-dir)
 
   println("slm: init: package `%_` initialized in `%_`"
