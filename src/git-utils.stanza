@@ -120,19 +120,21 @@ public defn to-version-table (tag-hash:HashTable<String,String>) -> HashTable<Se
       (x:One<SemanticVersion>):
         One(value(x) => hash-str)
 
-public defn run-git-command-in-dir (work-tree?: Maybe<String>, args0: Tuple<String>) -> Int:
+public defn run-git-command-in-dir (args0: Tuple<String> -- work-tree?:Maybe<String> = None(), quiet:True|False = false) -> Int:
   val args = to-tuple $ cat(["git"], args0)
   val work-tree = work-tree? $> value-or{_, get-cwd()}
-  val process = ProcessBuilder(args)
+  var b = ProcessBuilder(args)
     $> in-dir{_, work-tree}
-    $> build
+  if quiet:
+    b = with-output(b) $> with-error-stream{_}
+  val process = build(b)
   wait-process-throw-on-nonzero(process, "'%_' failed!" % [string-join(args, " ")])
 
 public defn run-git-command-in-dir (work-tree: String, args0: Tuple<String>) -> Int:
-  run-git-command-in-dir(One(work-tree), args0)
+  run-git-command-in-dir(args0, work-tree? = One(work-tree))
 
-public defn run-git-command (args0: Tuple<String>) -> Int:
-  run-git-command-in-dir(None(), args0)
+defn run-git-command (args0: Tuple<String>) -> Int:
+  run-git-command-in-dir(args0)
 
 public defn shallow-clone-git-repo (
   url: String,
@@ -145,3 +147,9 @@ public defn git-init (path: String) -> Int:
   run-command-throw-on-error(["git", "init", "--quiet", path],
                              "'git init %_' failed!" % [path])
 
+public defn git-status (work-tree:String = ?) -> True|False :
+  try:
+    run-git-command-in-dir(["status"], work-tree? = work-tree, quiet = true)
+    true
+  catch (e:Exception):
+    false
