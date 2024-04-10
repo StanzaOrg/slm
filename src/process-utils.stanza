@@ -14,6 +14,10 @@ public defstruct ProcessBuilder:
     default => false,
     updater => sub-output?
     )
+  error-stream? : True|False with: (
+    default => false,
+    updater => sub-error-stream?
+  )
   env-vars: Tuple<KeyValue<String, String>> with: (
     default => [],
     updater => sub-env-vars
@@ -21,6 +25,9 @@ public defstruct ProcessBuilder:
 
 public defn with-output (builder: ProcessBuilder) -> ProcessBuilder:
   sub-output?(builder, true)
+
+public defn with-error-stream (builder: ProcessBuilder) -> ProcessBuilder :
+  sub-error-stream?(builder, true)
 
 public defn in-dir (builder: ProcessBuilder, dir: String) -> ProcessBuilder:
   sub-working-dir?(builder, One(dir))
@@ -31,12 +38,16 @@ public defn with-env-vars (builder:ProcessBuilder, env-vars:Tuple<KeyValue<Strin
 public defn build (builder: ProcessBuilder) -> Process:
   val args = args(builder)
   val output-stream = if output?(builder): (PROCESS-OUT) else: (STANDARD-OUT)
+  val err-stream = if error-stream?(builder): (PROCESS-OUT) else: (STANDARD-ERR)
   val workdir = value-or(working-dir?(builder), false)
   val env-vars = env-vars(builder)
-  Process(args[0], args, STANDARD-IN, output-stream, STANDARD-ERR, workdir, env-vars)
+  Process(args[0], args, STANDARD-IN, output-stream, err-stream, workdir, env-vars)
 
 public defn get-output (p: Process) -> String:
   slurp-stream(output-stream(p))
+
+public defn get-error-stream (p:Process) -> String:
+  slurp-stream(error-stream(p))
 
 public defn wait-process-throw-on-nonzero (
   process: Process
