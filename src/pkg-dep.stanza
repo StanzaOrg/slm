@@ -9,6 +9,7 @@ defpackage slm/pkg-dep:
   import slm/conan-utils
   import slm/dependency
   import slm/errors
+  import slm/file-utils
   import slm/flags
   import slm/logging
   import slm/platforms
@@ -124,14 +125,15 @@ public defn fetch-dependency-pkgver (d: PkgDependency) -> False:
 
   ; PkgDependency version may have revision and package_id components, so use string constructor for ConanVersion
   val cv = ConanVersion(to-string("%_/%_" % [name(d), version(d)]))
-  val filename = conan-download-package(cv, options = options(d), target_directory = ".")
+  val filename = conan-download-package(cv, options = options(d), target_directory = get-cwd())
 
-  val dest = to-string(".slm/deps/%_" % [name(d)])
+  val dest = to-string("$_/.slm/deps/%_" % [get-cwd(), name(d)])
   create-dir-recursive(dest)
 
   debug("extracting \"%_\" to \"%_\"" % [filename, dest])
-  val untar-cmd = ["tar", "zxf", filename, "-C", dest]
+  val untar-cmd = ["tar", "zxf", filename]
   val p = ProcessBuilder(untar-cmd)
+    $> in-dir{_, dest}
     $> with-output
     $> build
   wait-process-throw-on-nonzero(p, "Error extracting conan archive")
