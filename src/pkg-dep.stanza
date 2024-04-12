@@ -131,7 +131,8 @@ public defn fetch-dependency-pkgver (d: PkgDependency) -> False:
   create-dir-recursive(dest)
 
   debug("extracting \"%_\" to \"%_\"" % [filename, dest])
-  val untar-cmd = ["tar", "zxf", filename]
+  ; windows has problems (Cannot extract through symlink) untarring across symlinks in CI, so wrap this in bash
+  val untar-cmd = ["bash" "-c" "tar zxf %_" % [filename]]
   val p = ProcessBuilder(untar-cmd)
     $> in-dir{_, dest}
     $> with-output
