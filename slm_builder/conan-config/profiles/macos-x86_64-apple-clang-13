@@ -1,0 +1,12 @@
+# macOS "host" profile - specify tool_requires
+
+[tool_requires]
+ninja/[>1.11]
+
+[settings]
+os=Macos
+arch=x86_64
+compiler=apple-clang
+compiler.version=13
+compiler.libcxx=libc++
+build_type=Release

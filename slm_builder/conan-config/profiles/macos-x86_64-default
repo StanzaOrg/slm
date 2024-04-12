@@ -1,0 +1,9 @@
+# macOS "build" profile - no tool_requires
+
+[settings]
+os=Macos
+arch=x86_64
+compiler=apple-clang
+compiler.version=13
+compiler.libcxx=libc++
+build_type=Release
