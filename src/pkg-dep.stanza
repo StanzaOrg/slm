@@ -127,7 +127,7 @@ public defn fetch-dependency-pkgver (d: PkgDependency) -> False:
   val cv = ConanVersion(to-string("%_/%_" % [name(d), version(d)]))
   val filename = conan-download-package(cv, options = options(d), target_directory = get-cwd())
 
-  val dest = to-string("$_/.slm/deps/%_" % [get-cwd(), name(d)])
+  val dest = to-string("%_/.slm/deps/%_" % [get-cwd(), name(d)])
   create-dir-recursive(dest)
 
   debug("extracting \"%_\" to \"%_\"" % [filename, dest])
