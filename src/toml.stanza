@@ -70,7 +70,7 @@ values if they exist.
 <DOC>
 public defn parse-slm-toml (path:String -- env-sub-enable:True|False = true) -> SlmToml:
   within f = open(path):
-    parse-slm-toml(f)
+    parse-slm-toml(f, env-sub-enable = env-sub-enable)
 
 doc: \<DOC>
 Parse the SLM TOML configuration file
@@ -84,16 +84,16 @@ values if they exist.
 public defn parse-slm-toml (f:InputStream -- env-sub-enable:True|False = true) -> SlmToml:
   val content = slurp-stream(f)
   val table = content $> parse-string $> table
-  
+
   val name = table["name"] as String
   debug("parse-slm-toml: name: \"%_\"" % [name])
-  
+
   val version = table["version"] as String
   debug("parse-slm-toml: version: \"%_\"" % [version])
-  
+
   val compiler? = get-str?(table, "compiler")
   debug("parse-slm-toml: compiler?: \"%_\"" % [compiler?])
-  
+
   val stanza-version? = get-str?(table, "stanza-version")
   debug("parse-slm-toml: stanza-version?: \"%_\"" % [stanza-version?])
 
