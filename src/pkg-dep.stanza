@@ -125,10 +125,17 @@ public defn fetch-dependency-pkgver (d: PkgDependency) -> False:
 
   ; PkgDependency version may have revision and package_id components, so use string constructor for ConanVersion
   val cv = ConanVersion(to-string("%_/%_" % [name(d), version(d)]))
-  val filename = conan-download-package(cv, options = options(d), target_directory = get-cwd())
+  var filename = conan-download-package(cv, options = options(d), target_directory = get-cwd())
 
-  val dest = to-string("%_/.slm/deps/%_" % [get-cwd(), name(d)])
+  var dest = to-string("%_/.slm/deps/%_" % [get-cwd(), name(d)])
   create-dir-recursive(dest)
+
+  ; HACK: convert windows-style Z:\foo paths to msys-style /z/foo path
+  ; the tar command from msys has issues with windows-style paths over windows symlinks
+  if filename[1] == ':':
+      filename = to-string("/%_/%_" % [filename[0], filename[3 to false]])
+  if dest[1] == ':':
+      dest = to-string("/%_/%_" % [dest[0], dest[3 to false]])
 
   debug("extracting \"%_\" to \"%_\"" % [filename, dest])
   ; windows has problems (Cannot extract through symlink) untarring across symlinks in CI, so wrap this in bash
