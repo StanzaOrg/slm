@@ -132,7 +132,7 @@ public defn fetch-dependency-pkgver (d: PkgDependency) -> False:
 
   debug("extracting \"%_\" to \"%_\"" % [filename, dest])
   ; windows has problems (Cannot extract through symlink) untarring across symlinks in CI, so wrap this in bash
-  val untar-cmd = ["bash" "-c" "tar zxf %_" % [filename]]
+  val untar-cmd = ["bash" "-c" to-string("tar zxf %_" % [filename])]
   val p = ProcessBuilder(untar-cmd)
     $> in-dir{_, dest}
     $> with-output
