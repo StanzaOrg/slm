@@ -22,11 +22,11 @@ defn setup-opts ():
   add(CMDS, setup-run-cmd())
   add(CMDS, setup-version-cmd())
 
-val SLM-DESCR = \<MSG>
+val SLM-DESCR-TMP = \<MSG>
 slm - Stanza Library Manager
 
 Invocation:
-slm [build|clean|init|repl|publish|version|help]
+slm [%_]
 
 This tool provides a means of creating, building, and publishing
 stanza libraries and tools. Think of it as something similar to
@@ -166,6 +166,12 @@ defn main ():
   ;   - Build the project
 
   setup-opts()
+
+  val cmd_list = to-tuple $ for cmd in CMDS seq:
+    name(cmd)
+  val cmd_list_str = string-join(cmd_list, '|')
+
+  val SLM-DESCR = to-string(SLM-DESCR-TMP % [cmd_list_str])
 
   simple-command-line-cli(
     description = SLM-DESCR,
