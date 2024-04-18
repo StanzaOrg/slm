@@ -1,7 +1,6 @@
 name = "slm"
 version = "0.6.2"
 
-# keep these dependencies in sync with the list in bootstrap.py
 # note that the slm bootstrap.py script doesn't recursively resolve dependencies
 # so define a flat list of all required dependencies here
 [dependencies]
@@ -9,6 +8,7 @@ curl-static =              { git = "StanzaOrg/slm-curl",              version = 
 file-system-utils-static = { git = "StanzaOrg/slm-utils-file-system", version = "0.0.10" }
 json-static =              { git = "StanzaOrg/slm-json",              version = "0.0.5" }
 lang-utils-static =        { git = "StanzaOrg/slm-lang-utils",        version = "0.0.8" }
+slm-libarchive-static =    { git = "StanzaOrg/slm-libarchive",        version = "0.0.3" }
 maybe-utils =              { git = "StanzaOrg/maybe-utils",           version = "0.1.5" }
 semver      =              { git = "StanzaOrg/semver",                version = "0.1.7" }
 slm-toml    =              { git = "StanzaOrg/slm-toml",              version = "0.4.2" }
@@ -141,5 +141,39 @@ pkg="zlib"
 version="1.3.1"
 type="conan"
 options.shared = "False"
+options.linux.fPIC = "True"
+options.macos.fPIC = "True"
+
+[dependencies.libiconv]
+pkg="libiconv"
+version="1.17"
+type="conan"
+options.shared = "False"
+options.linux.fPIC = "True"
+options.macos.fPIC = "True"
+
+[dependencies.libarchive]
+pkg="libarchive"
+version="3.7.3"
+type="conan"
+options.shared = "False"
+options.with_acl = "True"
+options.with_bzip2 = "False"
+options.with_cng = "False"
+options.with_expat = "False"
+options.with_iconv = "True"
+options.with_libb2 = "False"
+options.with_libxml2 = "False"
+options.with_lz4 = "False"
+options.with_lzma = "False"
+options.with_lzo = "False"
+options.with_mbedtls = "False"
+options.with_nettle = "False"
+options.with_openssl = "False"
+options.with_pcre2 = "False"
+options.with_pcreposix = "False"
+options.with_xattr = "False"
+options.with_zlib = "True"
+options.with_zstd = "False"
 options.linux.fPIC = "True"
 options.macos.fPIC = "True"
