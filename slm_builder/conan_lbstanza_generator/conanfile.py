@@ -35,13 +35,13 @@ class LBStanzaGenerator:
         self._conanfile.output.trace(f"        - get_libs_from_component(\"{compname}\", inst) -> \"{libdict}\"")
         return libdict
 
-    def write_package_fragment(self, is_shared_lib: bool, complist: dict, outfilename: str):
+    def write_package_fragment(self, is_shared_lib: bool, include_dirs: list[str], libs: dict, outfilename: str):
         self._conanfile.output.trace(f"  > write_package_fragment({is_shared_lib},")
-        self._conanfile.output.trace(f"      complist[\"linux\"] = \"{complist['linux']}\",")
-        self._conanfile.output.trace(f"      complist[\"macos\"] = \"{complist['macos']}\",")
-        self._conanfile.output.trace(f"      complist[\"windows\"] = \"{complist['windows']}\",")
+        self._conanfile.output.trace(f"      libs[\"linux\"] = \"{libs['linux']}\",")
+        self._conanfile.output.trace(f"      libs[\"macos\"] = \"{libs['macos']}\",")
+        self._conanfile.output.trace(f"      libs[\"windows\"] = \"{libs['windows']}\",")
         self._conanfile.output.trace(f"      \"{outfilename}\")")
-        outerlibname = self._conanfile.name
+        outerlibname = self._conanfile.name.removeprefix("slm-")
         with open(outfilename, 'w') as outf:
             # look for a file called "template-stanza-{outerlibname}.proj", and include its contents if it exists.
             # this is because all "package requires" statements for a stanza package must be in the same file.
@@ -79,22 +79,25 @@ class LBStanzaGenerator:
             if is_shared_lib:
                 outf.write(f'  dynamic-libraries:\n')
                 outf.write(f'    on-platform:\n')
-                s = " ".join([f'"{str(p)}"' for p in complist["linux"]])
+                s = " ".join([f'"{str(p)}"' for p in libs["linux"]])
                 outf.write(f'      linux: ( {s} )\n')
-                s = " ".join([f'"{str(p)}"' for p in complist["macos"]])
+                s = " ".join([f'"{str(p)}"' for p in libs["macos"]])
                 outf.write(f'      os-x: ( {s} )\n')
-                s = " ".join([f'"{str(p)}"' for p in complist["windows"]])
+                s = " ".join([f'"{str(p)}"' for p in libs["windows"]])
                 outf.write(f'      windows: ( {s} )\n')
             else:  # static
                 pass
             outf.write(f'  ccflags:\n')
             outf.write(f'    on-platform:\n')
-            s = " ".join([f'"{str(p)}"' for p in complist["linux"]])
-            outf.write(f'      linux: ( {startgrp} {s} {extralibslnx} {endgrp} )\n')
-            s = " ".join([f'"{str(p)}"' for p in complist["macos"]])
-            outf.write(f'      os-x: ( {s} {extralibsmac} )\n')
-            s = " ".join([f'"{str(p)}"' for p in complist["windows"]])
-            outf.write(f'      windows: ( {startgrp} {s} {extralibswin} {endgrp} )\n')
+            incdirall = ""
+            for incdir in include_dirs:
+                incdirall += f" \"-I{incdir}\" "
+            s = " ".join([f'"{str(p)}"' for p in libs["linux"]])
+            outf.write(f'      linux: ( {incdirall} {startgrp} {s} {extralibslnx} {endgrp} )\n')
+            s = " ".join([f'"{str(p)}"' for p in libs["macos"]])
+            outf.write(f'      os-x: ( {incdirall} {s} {extralibsmac} )\n')
+            s = " ".join([f'"{str(p)}"' for p in libs["windows"]])
+            outf.write(f'      windows: ( {incdirall} {startgrp} {s} {extralibswin} {endgrp} )\n')
 
             outf.write(f'\n')
 
@@ -103,22 +106,22 @@ class LBStanzaGenerator:
             if is_shared_lib:
                 outf.write(f'  dynamic-libraries:\n')
                 outf.write(f'    on-platform:\n')
-                s = " ".join([f'"{str(p)}"' for p in complist["linux"]])
+                s = " ".join([f'"{str(p)}"' for p in libs["linux"]])
                 outf.write(f'      linux: ( {s} )\n')
-                s = " ".join([f'"{str(p)}"' for p in complist["macos"]])
+                s = " ".join([f'"{str(p)}"' for p in libs["macos"]])
                 outf.write(f'      os-x: ( {s} )\n')
-                s = " ".join([f'"{str(p)}"' for p in complist["windows"]])
+                s = " ".join([f'"{str(p)}"' for p in libs["windows"]])
                 outf.write(f'      windows: ( {s} )\n')
             else:  # static
                 pass
             outf.write(f'  ccflags:\n')
             outf.write(f'    on-platform:\n')
-            s = " ".join([f'"{str(p)}"' for p in complist["linux"]])
-            outf.write(f'      linux: ( {startgrp} {s} {extralibslnx} {endgrp} )\n')
-            s = " ".join([f'"{str(p)}"' for p in complist["macos"]])
-            outf.write(f'      os-x: ( {s} {extralibsmac} )\n')
-            s = " ".join([f'"{str(p)}"' for p in complist["windows"]])
-            outf.write(f'      windows: ( {startgrp} {s} {extralibswin} {endgrp} )\n')
+            s = " ".join([f'"{str(p)}"' for p in libs["linux"]])
+            outf.write(f'      linux: ( {incdirall} {startgrp} {s} {extralibslnx} {endgrp} )\n')
+            s = " ".join([f'"{str(p)}"' for p in libs["macos"]])
+            outf.write(f'      os-x: ( {incdirall} {s} {extralibsmac} )\n')
+            s = " ".join([f'"{str(p)}"' for p in libs["windows"]])
+            outf.write(f'      windows: ( {incdirall} {startgrp} {s} {extralibswin} {endgrp} )\n')
 
 
     def get_component_libs_from_dependency(self, depname: str, depinst: ConanFileInterface) -> list:
@@ -141,9 +144,9 @@ class LBStanzaGenerator:
         self._conanfile.output.trace(f"    - get_component_libs_from_dependency(\"{depname}\", inst) -> \"{complist}\"")
         return complist
 
-    def write_component_libs_to_fragment(self, is_shared_lib: bool, compliblist: list):
-        self._conanfile.output.trace(f"  > write_component_libs_to_fragment({is_shared_lib}, \"{compliblist}\"")
-        outerlibname = self._conanfile.name
+    def write_cpp_info_to_fragment(self, is_shared_lib: bool, include_dirs: list[str], libs: list):
+        self._conanfile.output.trace(f"  > write_component_libs_to_fragment({is_shared_lib}, \"{libs}\"")
+        outerlibname = self._conanfile.name.removeprefix("slm-")
         relative_path = Path(f"{{.}}/../{outerlibname}/lib")
 
         # lfn["relative"]["linux"] = ["a", "b"]
@@ -153,7 +156,7 @@ class LBStanzaGenerator:
             for os in ["linux", "macos", "windows"]:
                 libfilenames[tp][os] = []
 
-        for d in compliblist:
+        for d in libs:
             for l, p in d.items():
                 # calculate filenames
                 if is_shared_lib:
@@ -179,15 +182,16 @@ class LBStanzaGenerator:
         # Write stanza.proj fragment with full library paths for dependencies in conan cache
         outfilename = f"stanza-{outerlibname}.proj"
         self._conanfile.output.trace(f"Generating {outfilename} for {outerlibname}")
-        self.write_package_fragment(is_shared_lib, libfilenames["full"], outfilename)
+        self.write_package_fragment(is_shared_lib, include_dirs, libfilenames["full"], outfilename)
 
         # Write stanza.proj fragment with relative library paths for dependencies in an slm package
         outfilename = f"stanza-{outerlibname}-relative.proj"
         self._conanfile.output.trace(f"Generating {outfilename} for {outerlibname}")
-        self.write_package_fragment(is_shared_lib, libfilenames["relative"], outfilename)
+        self.write_package_fragment(is_shared_lib, [], libfilenames["relative"], outfilename)
 
     def create_stanza_proj_fragment(self):
-        compliblist = []
+        incdirs = []
+        libs = []
         is_shared_lib = False
         for dep in self._conanfile.dependencies.items():
             dreq = dep[0]
@@ -203,14 +207,29 @@ class LBStanzaGenerator:
             if not dreq.libs:
                 self._conanfile.output.trace(f"    - dep \"{dreq.ref}\" is not a lib, skipping")
                 continue
-            if not len(dinst.cpp_info.components) > 0:
-                self._conanfile.output.trace(f"    - dep \"{dreq.ref}\" has no components, skipping")
-                continue
+            if len(dinst.cpp_info.components) > 0:
+                self._conanfile.output.trace(f"    - dep \"{dreq.ref}\" components:")
+                for cl in self.get_component_libs_from_dependency(str(dreq.ref), dinst):
+                    self._conanfile.output.trace(f"    - dep \"{dreq.ref}\" component \"{cl}\"")
+                    libs.extend(cl)
+            else:
+                self._conanfile.output.trace(f"    - dep \"{dreq.ref}\" include dirs: {dinst.cpp_info.includedirs}")
+                self._conanfile.output.trace(f"    - dep \"{dreq.ref}\" lib dirs: {dinst.cpp_info.libdirs}")
+                self._conanfile.output.trace(f"    - dep \"{dreq.ref}\" libs: {dinst.cpp_info.libs}")
+                incdirs.extend(dinst.cpp_info.includedirs)
+                if len(dinst.cpp_info.libdirs) > 1:
+                    self._conanfile.output.error(f"Dependency \"{dreq.ref}\" has more than one libdir.  This generator currently doesn't handle that.")
+                if len(dinst.cpp_info.libdirs) > 0:
+                    libdir = dinst.cpp_info.libdirs[0]
+                    d = {}
+                    for l in dinst.cpp_info.libs:
+                        d[l] = libdir
+                    libs.append(d)
+                else:
+                    self._conanfile.output.error(f"Dependency \"{dreq.ref}\" defined libs with no libdirs")
 
-            for cl in self.get_component_libs_from_dependency(str(dreq.ref), dinst):
-                compliblist.append(cl)
 
-        self.write_component_libs_to_fragment(is_shared_lib, compliblist)
+        self.write_cpp_info_to_fragment(is_shared_lib, incdirs, libs)
 
     def generate(self):
         self._conanfile.output.trace(f"---- LBStanzaGenerator.generate() ----")

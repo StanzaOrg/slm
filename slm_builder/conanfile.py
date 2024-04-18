@@ -144,6 +144,7 @@ class ConanSlmPackage(ConanFile):
     if not self.conf.get("tools.build:skip_test", default=False):
       d="build"
       t="test"
+      self.run(f"stanza clean", cwd=self.source_folder, scope="build")
       self.run(f"stanza build {t} -o {d}/{t} -verbose", cwd=self.source_folder, scope="build")
       if platform.system()=="Windows":
         t="test.exe"
@@ -153,9 +154,10 @@ class ConanSlmPackage(ConanFile):
   # package(): Copies files from build folder to the package folder.
   def package(self):
     self.output.info("conanfile.py: package()")
+    outerlibname = self.name.removeprefix("slm-")
 
     copy2(os.path.join(self.source_folder, "slm.toml"), self.package_folder)
     #copy2(os.path.join(self.source_folder, "slm.lock"), self.package_folder)
-    copy2(os.path.join(self.source_folder, f"stanza-{self.name}-relative.proj"), os.path.join(self.package_folder, f"stanza-{self.name}.proj"))
+    copy2(os.path.join(self.source_folder, f"stanza-{outerlibname}-relative.proj"), os.path.join(self.package_folder, f"stanza-{outerlibname}.proj"))
     copy2(os.path.join(self.source_folder, "stanza.proj"), os.path.join(self.package_folder, "stanza.proj"))
     copytree(os.path.join(self.source_folder, "src"), os.path.join(self.package_folder, "src"))
