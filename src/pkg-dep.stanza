@@ -132,10 +132,10 @@ public defn fetch-dependency-pkgver (d: PkgDependency) -> False:
   create-dir-recursive(dest)
 
   ; HACK: convert windows-style Z:\foo paths to msys-style /z/foo path
-  if filename[1] == ':':
-      filename = to-string("/%_/%_" % [filename[0], filename[3 to false]])
-  if dest[1] == ':':
-      dest = to-string("/%_/%_" % [dest[0], dest[3 to false]])
+  ;if filename[1] == ':':
+  ;    filename = to-string("/%_/%_" % [filename[0], filename[3 to false]])
+  ;if dest[1] == ':':
+  ;    dest = to-string("/%_/%_" % [dest[0], dest[3 to false]])
 
   debug("extracting \"%_\" to \"%_\"" % [filename, dest])
   val r = untar(filename, dest)
