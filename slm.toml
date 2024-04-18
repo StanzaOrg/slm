@@ -1,5 +1,5 @@
 name = "slm"
-version = "0.6.2"
+version = "0.6.3"
 
 # note that the slm bootstrap.py script doesn't recursively resolve dependencies
 # so define a flat list of all required dependencies here
