@@ -2,6 +2,7 @@ defpackage slm/pkg-dep:
   import core
   import collections
 
+  import libarchive
   import maybe-utils
   import term-colors
   import toml
@@ -131,18 +132,13 @@ public defn fetch-dependency-pkgver (d: PkgDependency) -> False:
   create-dir-recursive(dest)
 
   ; HACK: convert windows-style Z:\foo paths to msys-style /z/foo path
-  ; the tar command from msys has issues with windows-style paths over windows symlinks
   if filename[1] == ':':
       filename = to-string("/%_/%_" % [filename[0], filename[3 to false]])
   if dest[1] == ':':
       dest = to-string("/%_/%_" % [dest[0], dest[3 to false]])
 
   debug("extracting \"%_\" to \"%_\"" % [filename, dest])
-  ; windows has problems (Cannot extract through symlink) untarring across symlinks in CI, so wrap this in bash
-  val untar-cmd = ["bash" "-c" to-string("tar zxf %_" % [filename])]
-  val p = ProcessBuilder(untar-cmd)
-    $> in-dir{_, dest}
-    $> with-output
-    $> build
-  wait-process-throw-on-nonzero(p, "Error extracting conan archive")
+  val r = untar(filename, dest)
+  if r != 0:
+    throw(Exception("Error extracting \"%_\"" % [filename]))
   false
