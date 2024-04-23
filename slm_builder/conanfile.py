@@ -146,9 +146,13 @@ class ConanSlmPackage(ConanFile):
       t="test"
       self.run(f"stanza clean", cwd=self.source_folder, scope="build")
       self.run(f"stanza build {t} -o {d}/{t} -verbose", cwd=self.source_folder, scope="build")
+      update_path_cmd=""
       if platform.system()=="Windows":
         t="test.exe"
-      self.run(f"bash -c 'export PATH=$PWD:$PATH ; {d}/{t}'", cwd=self.source_folder, scope="build")
+        # on windows, find all dlls in the current directory recursively, and add their directories to the PATH so that the dlls can be loacated at runtime
+        update_path_cmd="/usr/bin/find $PWD -name \*.dll -exec dirname \"{}\" \; | /usr/bin/sort -u | xargs -d \"\n\" -I {} export PATH={}:$PATH ; "
+      self.run(f"bash -c '{update_path_cmd} {d}/{t}'",
+               cwd=self.source_folder, scope="build")
 
 
   # package(): Copies files from build folder to the package folder.
@@ -161,3 +165,14 @@ class ConanSlmPackage(ConanFile):
     copy2(os.path.join(self.source_folder, f"stanza-{outerlibname}-relative.proj"), os.path.join(self.package_folder, f"stanza-{outerlibname}.proj"))
     copy2(os.path.join(self.source_folder, "stanza.proj"), os.path.join(self.package_folder, "stanza.proj"))
     copytree(os.path.join(self.source_folder, "src"), os.path.join(self.package_folder, "src"))
+
+    # copy any libraries from the build directory to /lib/
+    Path(os.path.join(self.package_folder, "lib")).mkdir(parents=True, exist_ok=True)
+    for f in Path("build").glob("*.a"):
+        copy2(os.path.join(self.source_folder, f), os.path.join(self.package_folder, "lib"))
+    for f in Path("build").glob("*.dll"):
+        copy2(os.path.join(self.source_folder, f), os.path.join(self.package_folder, "lib"))
+    for f in Path("build").glob("*.dylib"):
+        copy2(os.path.join(self.source_folder, f), os.path.join(self.package_folder, "lib"))
+    for f in Path("build").glob("*.so"):
+        copy2(os.path.join(self.source_folder, f), os.path.join(self.package_folder, "lib"))
