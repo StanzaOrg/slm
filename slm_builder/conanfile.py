@@ -93,7 +93,6 @@ class ConanSlmPackage(ConanFile):
                 # only apply our platform, skip others
                 if k==psys:
                   for k2, v2 in v.items():
-                    breakpoint()
                     self.options[pkgname]._set(k2,v2)
               else:
                 self.options[pkgname]._set(k,v)
