@@ -183,13 +183,13 @@ class ConanSlmPackage(ConanFile):
     copy2(os.path.join(self.source_folder, "stanza.proj"), os.path.join(self.package_folder, "stanza.proj"))
     copytree(os.path.join(self.source_folder, "src"), os.path.join(self.package_folder, "src"))
 
-    # copy any libraries to /lib/
+    # copy any libraries from the lib build directory to /lib/
     Path(os.path.join(self.package_folder, "lib")).mkdir(parents=True, exist_ok=True)
-    for f in Path(".").glob("*.a"):
+    for f in Path("lib").glob("*.a"):
         copy2(os.path.join(self.source_folder, f), os.path.join(self.package_folder, "lib"))
-    for f in Path(".").glob("*.dll"):
+    for f in Path("lib").glob("*.dll"):
         copy2(os.path.join(self.source_folder, f), os.path.join(self.package_folder, "lib"))
-    for f in Path(".").glob("*.dylib"):
+    for f in Path("lib").glob("*.dylib"):
         copy2(os.path.join(self.source_folder, f), os.path.join(self.package_folder, "lib"))
-    for f in Path(".").glob("*.so"):
+    for f in Path("lib").glob("*.so"):
         copy2(os.path.join(self.source_folder, f), os.path.join(self.package_folder, "lib"))
