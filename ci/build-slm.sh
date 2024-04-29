@@ -76,11 +76,7 @@ esac
 cd "${REPODIR}"
 echo "Building slm version ${VER} in ${PWD}"
 
-# call the script to build slm
-ci/build.sh
-# verify that expected output file exists
-ls slm
-
+make
 
 if [ "$CREATE_PACKAGE" == "true" ] ; then
   #VERU=${VER//./_}  # convert dots to underscores
