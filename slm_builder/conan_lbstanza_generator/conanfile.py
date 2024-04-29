@@ -195,19 +195,19 @@ class LBStanzaGenerator:
         for dep in self._conanfile.dependencies.items():
             dreq = dep[0]
             dinst = dep[1]
-            is_shared_lib = dinst.package_type is PackageType.SHARED  # assumption: accept the last value because they should all be the same
             self._conanfile.output.trace(f"")
             #self._conanfile.output.trace(f"  checking dep \"{dreq.serialize()}\"")
             self._conanfile.output.trace(f"  - dependency: {dreq.ref}")
             self._conanfile.output.trace(f"    - pref: {dinst.pref}")
             self._conanfile.output.trace(f"    - package_type: {dinst.package_type}")
-            self._conanfile.output.trace(f"    - package_path: {dinst.package_path}")
+            self._conanfile.output.trace(f"    - package_path: {dinst.package_path if dinst.package_folder else 'None'}")
 
             if not dreq.libs:
                 self._conanfile.output.trace(f"    - dep \"{dreq.ref}\" is not a lib, skipping")
                 continue
             if len(dinst.cpp_info.components) > 0:
                 self._conanfile.output.trace(f"    - dep \"{dreq.ref}\" components:")
+                is_shared_lib = dinst.package_type is PackageType.SHARED  # assumption: accept the last value because they should all be the same
                 for cl in self.get_component_libs_from_dependency(str(dreq.ref), dinst):
                     self._conanfile.output.trace(f"    - dep \"{dreq.ref}\" component \"{cl}\"")
                     # cl is a dictionary {name: path}
@@ -220,6 +220,7 @@ class LBStanzaGenerator:
                 if len(dinst.cpp_info.libdirs) > 1:
                     self._conanfile.output.error(f"Dependency \"{dreq.ref}\" has more than one libdir.  This generator currently doesn't handle that.")
                 if len(dinst.cpp_info.libdirs) > 0:
+                    is_shared_lib = dinst.package_type is PackageType.SHARED  # assumption: accept the last value because they should all be the same
                     libdir = dinst.cpp_info.libdirs[0]
                     d = {}
                     for l in dinst.cpp_info.libs:
