@@ -124,7 +124,6 @@ class ConanSlmPackage(ConanFile):
   
     # use stanza provided by conan
     self.tool_requires("lbstanza/[>=0.18.58]")
-    self.tool_requires("slm/[>=0.6.0]")
     
     # use cmake and ninja provided by conan
     # necessary if compiling non-stanza dependencies
@@ -191,6 +190,10 @@ class ConanSlmPackage(ConanFile):
     copy2(os.path.join(self.source_folder, f"stanza-{outerlibname}-relative.proj"), os.path.join(self.package_folder, f"stanza-{outerlibname}.proj"))
     copy2(os.path.join(self.source_folder, "stanza.proj"), os.path.join(self.package_folder, "stanza.proj"))
     copytree(os.path.join(self.source_folder, "src"), os.path.join(self.package_folder, "src"))
+
+    # copy slm executable from the build directory to /bin/
+    Path(os.path.join(self.package_folder, "bin")).mkdir(parents=True, exist_ok=True)
+    copy2(os.path.join(self.source_folder, "slm"), os.path.join(self.package_folder, "bin"))
 
     # copy any libraries from the lib build directory to /lib/
     Path(os.path.join(self.package_folder, "lib")).mkdir(parents=True, exist_ok=True)
