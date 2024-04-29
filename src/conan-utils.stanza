@@ -234,7 +234,7 @@ Convert json list of conan package options to a hashtable.
 defn json-options-to-hashtable (json-options:JObject) -> HashTable<String,String> :
   val hto = HashTable<String,String>()
   for o in json-options do:
-    debug("toml-options-to-hashtable: package \"%_\" option \"%_\" = \"%_\"" % [package_id, key(o), value(o)])
+    debug("toml-options-to-hashtable: option \"%_\" = \"%_\"" % [key(o), value(o)])
     hto[to-string(key(o))] = to-string(value(o))
   hto
 
@@ -247,6 +247,25 @@ defn apply-platform-options-to-hashtable (platform-options: TomlTable, hto: Hash
     debug("apply-platform-options-to-hashtable: platform-specific option \"%_\" = \"%_\"" % [key(o), value(o)])
     set(hto, to-string(key(o)), to-string(value(o)))
   hto
+
+defn log-table-diffs (logfn, a:Table, b:Table) :
+  if length(a) != length(b) :
+    logfn("log-table-diffs: length %_ vs %_" % [length(a), length(b)])
+    for ak in keys(a) do: if not key?(b, ak): logfn("log-table-diffs: A missing %_" % [ak])
+    for bk in keys(b) do: if not key?(a, bk): logfn("log-table-diffs: B missing %_" % [bk])
+  else:
+    for entry in b do :
+      val bkey = key(entry)
+      val bval = value(entry)
+      if key?(a, bkey) :
+        val aval = a[bkey]
+        match(bval):
+          (t:Table): same-contents?(aval, bval)
+          (_):
+            if not equal?(aval, bval):
+              logfn("log-table-diffs: values differ for key \"%_\": \"%_\" vs \"%_\"" % [bkey, aval, bval])
+      else:
+        logfn("log-table-diffs: missing key %_" % [bkey])
 
 defn conan-get-full-version-for-package-with-platform-and-options (package_name:String, package_version:String, recipe_revision:String,
                                          current_conan_os: String, ht-requested-options: HashTable<String,String>,
@@ -297,6 +316,9 @@ defn conan-get-full-version-for-package-with-platform-and-options (package_name:
           ; this package matches our os and the requested options
           ; get the latest revision for this package
           return(conan-get-latest-revision(package_name, package_version, recipe_revision, package_id, curl, headers = headers, repourl = repourl))
+        else:
+          ; debug log the diffs
+          log-table-diffs(debug, htpo, ht-requested-options)
 
     ; if we reach here, we didn't find a match
     None()
