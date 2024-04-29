@@ -124,7 +124,8 @@ class ConanSlmPackage(ConanFile):
   
     # use stanza provided by conan
     self.tool_requires("lbstanza/[>=0.18.58]")
-    
+    self.tool_requires("slm/0.6.4")
+
     # use cmake and ninja provided by conan
     # necessary if compiling non-stanza dependencies
     self.tool_requires("cmake/[>3.20]")
