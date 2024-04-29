@@ -16,6 +16,7 @@ echo "       CREATE_ARCHIVE:" "${CREATE_ARCHIVE:=false}"
 echo "       CREATE_PACKAGE:" "${CREATE_PACKAGE:=false}"
 echo "   SLM_BUILD_PLATFORM:" "${SLM_BUILD_PLATFORM:=$(uname -s)}"  # linux|macos|windows
 echo "                  VER:" "${VER:=$(git -C ${REPODIR} describe --tags --abbrev=0)}"
+echo "                 MAKE:" "${MAKE:=make}"  # override with gmake on mac
 
 # special case - if STANZA_CONFIG starts with "./", then replace it with the full path
 [[ ${STANZA_CONFIG::2} == "./" ]] && STANZA_CONFIG=${PWD}/${STANZA_CONFIG:2}
@@ -76,7 +77,7 @@ esac
 cd "${REPODIR}"
 echo "Building slm version ${VER} in ${PWD}"
 
-make
+${MAKE}
 
 if [ "$CREATE_PACKAGE" == "true" ] ; then
   #VERU=${VER//./_}  # convert dots to underscores
