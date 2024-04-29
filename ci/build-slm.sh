@@ -83,7 +83,12 @@ if [ "$CREATE_PACKAGE" == "true" ] ; then
   STANZA_EXT=""
   [[ "${STANZA_PLATFORMCHAR}" == "w" ]] && STANZA_EXT=".exe"
 
-  FILES="slm \
+  # find the directory where conan put the packaged files
+  CVER=$(conan list -c -f json slm/* | jq -r '."Local Cache" | keys | sort | last')
+  CPKG=$(conan list -c -f json $CVER:* | jq -r '."Local Cache" | to_entries[0].value.revisions | to_entries[0].value.packages | keys_unsorted | first')
+  CPATH=$(conan cache path ${CVER}:${CPKG})
+
+  FILES="$CPATH/bin/slm \
          LICENSE \
          README.md"
 
