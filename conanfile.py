@@ -193,8 +193,11 @@ class ConanSlmPackage(ConanFile):
     copytree(os.path.join(self.source_folder, "src"), os.path.join(self.package_folder, "src"))
 
     # copy slm executable from the build directory to /bin/
+    slm="slm"
+    if platform.system()=="Windows":
+        slm += ".exe"
     Path(os.path.join(self.package_folder, "bin")).mkdir(parents=True, exist_ok=True)
-    copy2(os.path.join(self.source_folder, "slm"), os.path.join(self.package_folder, "bin"))
+    copy2(os.path.join(self.source_folder, slm), os.path.join(self.package_folder, "bin"))
 
     # copy any libraries from the lib build directory to /lib/
     Path(os.path.join(self.package_folder, "lib")).mkdir(parents=True, exist_ok=True)
