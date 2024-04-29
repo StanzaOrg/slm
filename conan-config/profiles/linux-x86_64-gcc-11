@@ -1,0 +1,13 @@
+# Linux "host" profile - specify tool_requires
+
+[tool_requires]
+ninja/[>1.11]
+
+[settings]
+os=Linux
+arch=x86_64
+compiler=gcc
+compiler.version=11
+compiler.cppstd=gnu11
+compiler.libcxx=libstdc++11
+build_type=Release
