@@ -122,7 +122,7 @@ public defn fetch-or-sync-pkgver (d: PkgDependency, parent-name:String|False = f
 
 public defn fetch-dependency-pkgver (d: PkgDependency) -> False:
   info("fetching %_ at %_" % [colored-name?(d), colored-version?(d)])
-  info("fetching with options: \"%_\"" % [options(d)])
+  info("fetching with options: \"%_\"" % [entries(options(d))])
 
   ; PkgDependency version may have revision and package_id components, so use string constructor for ConanVersion
   val cv = ConanVersion(to-string("%_/%_" % [name(d), version(d)]))
