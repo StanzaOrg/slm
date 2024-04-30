@@ -208,6 +208,8 @@ class LBStanzaGenerator:
             if len(dinst.cpp_info.components) > 0:
                 self._conanfile.output.trace(f"    - dep \"{dreq.ref}\" components:")
                 is_shared_lib = dinst.package_type is PackageType.SHARED  # assumption: accept the last value because they should all be the same
+                for compname, compinst in dinst.cpp_info.get_sorted_components().items():
+                    incdirs.extend(compinst.includedirs)
                 for cl in self.get_component_libs_from_dependency(str(dreq.ref), dinst):
                     self._conanfile.output.trace(f"    - dep \"{dreq.ref}\" component \"{cl}\"")
                     # cl is a dictionary {name: path}
