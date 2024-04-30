@@ -85,6 +85,8 @@ if [ "$CREATE_PACKAGE" == "true" ] ; then
   [[ "${STANZA_PLATFORMCHAR}" == "w" ]] && STANZA_EXT=".exe"
 
   # find the directory where conan put the packaged files
+  # assume there is already a venv set up with conan installed
+  source venv/bin/activate
   export CONAN_HOME=$PWD/.conan2
   CVER=$(conan list -c -f json slm/* | jq -r '."Local Cache" | keys | sort | last')
   CPKG=$(conan list -c -f json $CVER:* | jq -r '."Local Cache" | to_entries[0].value.revisions | to_entries[0].value.packages | keys_unsorted | first')
