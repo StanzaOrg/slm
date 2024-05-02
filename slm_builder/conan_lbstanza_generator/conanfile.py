@@ -145,7 +145,7 @@ class LBStanzaGenerator:
         return complist
 
     def write_cpp_info_to_fragment(self, is_shared_lib: bool, include_dirs: list[str], libs: dict[str, Path]):
-        self._conanfile.output.trace(f"  > write_component_libs_to_fragment({is_shared_lib}, \"{libs}\"")
+        self._conanfile.output.trace(f"  > write_cpp_info_to_fragment({is_shared_lib}, \"{libs}\"")
         outerlibname = self._conanfile.name.removeprefix("slm-")
         relative_path = Path(f"{{.}}/../{outerlibname}/lib")
 
@@ -161,7 +161,7 @@ class LBStanzaGenerator:
             if is_shared_lib:
                 flnx = f"lib{l}.so"
                 fmac = f"lib{l}.dylib"
-                fwin = f"lib{l}.so"
+                fwin = f"lib{l}.dll"
             else:
                 flnx = f"lib{l}.a"
                 fmac = f"lib{l}.a"
