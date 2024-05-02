@@ -9,5 +9,6 @@ slm-tests
 
 # Conan Related
 .conan2/
+.conan2.cache/
 test_package/*.sh
 venv/
