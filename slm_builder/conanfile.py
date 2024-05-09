@@ -193,6 +193,15 @@ class ConanSlmPackage(ConanFile):
     copy2(os.path.join(self.source_folder, "stanza.proj"), os.path.join(self.package_folder, "stanza.proj"))
     copytree(os.path.join(self.source_folder, "src"), os.path.join(self.package_folder, "src"))
 
+    # copy executable matching the library name (if any) from the build directory to /bin/
+    exe=os.path.join(self.source_folder, outerlibname)
+    if platform.system()=="Windows":
+        exe += ".exe"
+    if os.path.exists(exe):
+        pkgbindir = os.path.join(self.package_folder, "bin")
+        Path(pkgbindir).mkdir(parents=True, exist_ok=True)
+        copy2(exe, pkgbindir)
+
     # copy any libraries from the lib build directory to /lib/
     Path(os.path.join(self.package_folder, "lib")).mkdir(parents=True, exist_ok=True)
     for f in Path("lib").glob("*.a"):
