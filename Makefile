@@ -44,6 +44,13 @@ build:
 	    ${CONAN_OPTS} \
 	    --build "$${SLMPROJNAME}/$${SLMPROJVER}" .
 
+	 # copy executable from conan package dir to current dir for convenince
+	CVER=$$(${CONAN} list -vnotice -c -f json "$${SLMPROJNAME}/$${SLMPROJVER}" | jq -r '."Local Cache" | keys | sort | last')
+	CPKG=$$(${CONAN} list -c -f json $$CVER:* | jq -r '."Local Cache" | to_entries[0].value.revisions | to_entries[0].value.packages | keys_unsorted | first')
+	PKGDIR=$$(${CONAN} cache path "$${CVER}:$${CPKG}")
+	cp -a $${PKGDIR}/bin/$${SLMPROJNAME} .
+	ls -l ./$${SLMPROJNAME}
+
 .PHONY: upload
 upload:
 	@echo -e "\n*** Makefile: upload: activating venv ***"
