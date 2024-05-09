@@ -152,6 +152,7 @@ class ConanSlmPackage(ConanFile):
     self.run("stanza version", cwd=self.source_folder, scope="build")
     self.run("slm version", cwd=self.source_folder, scope="build")
     self.run("bash -c '[ ! -d .slm ] || slm clean'", cwd=self.source_folder, scope="build")
+    Path(os.path.join(self.source_folder, "build")).mkdir(parents=True, exist_ok=True)
     self.run("slm build -verbose -- -verbose", cwd=self.source_folder, scope="build")
 
     if not self.conf.get("tools.build:skip_test", default=False):
