@@ -1,6 +1,7 @@
 defpackage slm/git-dep:
   import core
 
+  import libgit2
   import semver
   import maybe-utils
   import term-colors

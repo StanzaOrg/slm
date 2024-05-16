@@ -8,6 +8,7 @@ build main:
   supported-vm-packages:
     curl
     libarchive
+    libgit2
     json
   inputs: slm/main
   pkg: ".slm/pkgs"
@@ -16,6 +17,7 @@ build main:
 build-test tests:
   inputs:
     slm/tests/git-utils
+    slm/tests/libgit2
     slm/tests/string-utils
     slm/tests/utils
     slm/tests/toml
