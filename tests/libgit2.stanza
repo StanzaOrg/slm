@@ -1,0 +1,36 @@
+#use-added-syntax(tests)
+defpackage slm/tests/libgit2:
+  import core
+  import collections
+
+  import semver
+
+  import libgit2
+
+deftest(libgit2) test-basic-init :
+  val r = libgit2_init()
+  try:
+    ;val sf = libarchive_error_string(a)
+    #EXPECT(r == 1)  ; refcount of inits
+  finally:
+    val s = libgit2_shutdown()
+    #EXPECT(s == 0)
+
+deftest(libgit2) test-error-last :
+  val expected_message = "libgit2 has not been initialized; you must call git_libgit2_init"
+  val e = libgit2_error_last()
+  #EXPECT(message(e) == expected_message)
+  #EXPECT(git_error_t(klass(e)) == GIT_ERROR_INVALID)
+
+deftest(libgit2 online) test-clone :
+  libgit2_init()
+  val r:git_error_code|GIT_REPOSITORY = libgit2_clone("https://github.com/StanzaOrg/stanza-toml.git", "./foo")
+  match(r):
+    (e:git_error_code) :
+      println("libgit2_clone returned error: %_" % [e])
+      println("last error = %_" % [message(libgit2_error_last())])
+      #EXPECT(false)
+    (gr:GIT_REPOSITORY) :
+      libgit2_repository_free(gr)
+      #EXPECT(true)
+  libgit2_shutdown()
