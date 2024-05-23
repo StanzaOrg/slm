@@ -82,7 +82,7 @@ public defn libgit-sync-tag (path:String,
                              refspec:String|False,
                              tag:String,
                              force?:True|False = false,
-                             sync-info-msg:String|False = false) -> False :
+                             sync-info-msg:Printable|String|False = false) -> False :
   libgit2_init()
 
   ; Open
@@ -126,7 +126,7 @@ public defn libgit-sync-tag (path:String,
 
   ; Checkout
   if head-hash != tag-hash :
-    match(sync-info-msg:String) :
+    match(sync-info-msg:Printable|String) :
       info(sync-info-msg)
     val checkout-strat = GIT_CHECKOUT_FORCE when force? else GIT_CHECKOUT_SAFE
     match(libgit2_checkout(repo, tag, checkout-strat)):
