@@ -12,10 +12,9 @@
 
 1. Download an slm release from [releases](https://github.com/StanzaOrg/slm/releases), and put it on your `$PATH` somewhere.
 2. Some slm packages with C dependencies need to access the stanza include files distributed with the stanza installation.  
-   For these slm packages, the include files will be expected to be found using the `STANZA_CONFIG` environment variable
-   at the path `$STANZA_CONFIG/include`. When you installed stanza, it should have created a `.stanza` config file. Copy
-   that `.stanza` config file into the stanza install directory, and set the environment variable `STANZA_CONFIG` to that
-   same stanza install directory so that referencing `$STANZA_CONFIG/include` points to the include files.
+   For these slm packages, the include files will be expected to be found using the `STANZA_DIR` environment variable
+   at the path `$STANZA_DIR/include`.
+   `stanza` version >= 0.18.75 sets this automatically.
 
 ## Building from Source
 
