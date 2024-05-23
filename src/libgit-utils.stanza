@@ -1,0 +1,152 @@
+defpackage slm/libgit-utils:
+  import core
+  import collections
+
+  import libgit2
+
+  import slm/logging
+
+;============================================================
+;====================== Libgit2 Utils =======================
+;============================================================
+
+public defstruct LibGitException <: Exception :
+  code: git_error_code
+  msg: String
+
+public defmethod print (o:OutputStream, e:LibGitException):
+  val msg = "libgit2 error: %_" % [msg(e)]
+  print(o, msg)
+
+; Performs the following steps in order:
+; 1. Shallow clones the repository at 'url' to path 'path'
+; 2. Fetches objects and references from the remote 'remote-name' (with the
+;    refspec 'refspec' if given)
+; 3. Checks out the tag 'tag' (forcefully if 'force?' is true)
+; Throws a LibGitException if unsuccessful
+public defn libgit-clone-tag (url:String,
+                              path:String,
+                              remote-name:String,
+                              refspec:String|False,
+                              tag:String,
+                              force?:True|False = false) -> False :
+  libgit2_init()
+
+  ; Clone
+  val repo = match(libgit2_clone(url, path, 1)):
+    (repo:GIT_REPOSITORY) :
+      repo
+    (e:git_error_code) :
+      val exc = last-libgit-exception(e)
+      libgit2_shutdown()
+      throw(exc)
+
+  ; Fetch
+  match(libgit2_fetch(repo, remote-name, refspec, 1)):
+    (e:GIT_OK) :
+      false
+    (e:git_error_code) :
+      val exc = last-libgit-exception(e)
+      libgit2_repository_free(repo)
+      libgit2_shutdown()
+      throw(exc)
+
+  ; Checkout
+  val checkout-strat = GIT_CHECKOUT_FORCE when force? else GIT_CHECKOUT_SAFE
+  match(libgit2_checkout(repo, tag, checkout-strat)):
+    (e:GIT_OK) :
+      false
+    (e:git_error_code) :
+      val exc = last-libgit-exception(e)
+      libgit2_repository_free(repo)
+      libgit2_shutdown()
+      throw(exc)
+
+  ; Cleanup
+  libgit2_repository_free(repo)
+  libgit2_shutdown()
+  false
+
+; Performs the following steps in order:
+; 1. Opens the repository at path 'path'
+; 2. Finds the object ID of the repository HEAD
+; 3. Fetches objects and references from the remote 'remote-name' (with the
+;    refspec 'refspec' if given)
+; 4. Finds the object ID of the tag 'tag'
+; 5. If (1) and (3) differ, checks out the tag 'tag' (forcefully if 'force?' is
+;    true)
+;    If 'sync-info-msg' is supplied, info() will be called with it
+; Throws a LibGitException if unsuccessful
+public defn libgit-sync-tag (path:String,
+                             remote-name:String,
+                             refspec:String|False,
+                             tag:String,
+                             force?:True|False = false,
+                             sync-info-msg:String|False = false) -> False :
+  libgit2_init()
+
+  ; Open
+  val repo = match(libgit2_repository_open(path)):
+    (repo:GIT_REPOSITORY) :
+      repo
+    (e:git_error_code) :
+      val exc = last-libgit-exception(e)
+      libgit2_shutdown()
+      throw(exc)
+
+  ; Rev-parse HEAD
+  val head-hash = match(libgit2_revparse(repo, "HEAD")):
+    (hash:String) : hash
+    (e:git_error_code) :
+      val exc = last-libgit-exception(e)
+      libgit2_repository_free(repo)
+      libgit2_shutdown()
+      throw(exc)
+  debug("head-hash: %_" % [head-hash])
+
+  ; Fetch
+  match(libgit2_fetch(repo, remote-name, refspec, 1)):
+    (e:GIT_OK) :
+      false
+    (e:git_error_code) :
+      val exc = last-libgit-exception(e)
+      libgit2_repository_free(repo)
+      libgit2_shutdown()
+      throw(exc)
+
+  ; Rev-parse tag
+  val tag-hash = match(libgit2_revparse(repo, tag)):
+    (hash:String) : hash
+    (e:git_error_code) :
+      val exc = last-libgit-exception(e)
+      libgit2_repository_free(repo)
+      libgit2_shutdown()
+      throw(exc)
+  debug("tag-hash: %_" % [tag-hash])
+
+  ; Checkout
+  if head-hash != tag-hash :
+    match(sync-info-msg:String) :
+      info(sync-info-msg)
+    val checkout-strat = GIT_CHECKOUT_FORCE when force? else GIT_CHECKOUT_SAFE
+    match(libgit2_checkout(repo, tag, checkout-strat)):
+      (e:GIT_OK) :
+        false
+      (e:git_error_code) :
+        val exc = last-libgit-exception(e)
+        libgit2_repository_free(repo)
+        libgit2_shutdown()
+        throw(exc)
+
+  ; Cleanup
+  libgit2_repository_free(repo)
+  libgit2_shutdown()
+  false
+
+;============================================================
+;========================= Helpers ==========================
+;============================================================
+
+; Grab the most recent libgit error message
+defn last-libgit-exception (e:git_error_code) :
+  LibGitException(e, message(libgit2_error_last()))
