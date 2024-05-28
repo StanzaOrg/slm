@@ -94,6 +94,7 @@ public defn git-or-libgit-rev-parse! (work-tree: String, rev: String) -> String 
       throw(Exception("git rev-parse failed!"))
     ret
   else :
+    debug("falling back to libgit for rev-parse")
     libgit-rev-parse(work-tree, rev)
 
 public defn git-remote-tag-refs (remote: String) -> HashTable<String, String>:

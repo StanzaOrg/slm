@@ -50,16 +50,19 @@ public defn libgit-rev-parse (path:String, refish:String) -> String :
 
 ; Performs the following steps in order:
 ; 1. Shallow clones the repository at 'url' to path 'path'
-; 2. Fetches objects and references from the remote 'remote-name' (with the
-;    refspec 'refspec' if given)
+; 2. Fetches objects and references from the remote 'remote-name' with a refspec
+;    which limits updates to the specified tag
 ; 3. Checks out the tag 'tag' (forcefully if 'force?' is true)
 ; Throws a LibGitException if unsuccessful
 public defn libgit-clone-tag (url:String,
                               path:String,
                               remote-name:String,
-                              refspec:String|False,
                               tag:String,
                               force?:True|False = false) -> False :
+
+  val full-tag = to-string("refs/tags/%_" % [tag])
+  val refspec = to-string("+%_:%_" % [full-tag, full-tag])
+
   libgit2_init()
 
   ; Clone
@@ -83,7 +86,7 @@ public defn libgit-clone-tag (url:String,
 
   ; Checkout
   val checkout-strat = GIT_CHECKOUT_FORCE when force? else GIT_CHECKOUT_SAFE
-  match(libgit2_checkout(repo, tag, checkout-strat)):
+  match(libgit2_checkout(repo, full-tag, checkout-strat)):
     (e:GIT_OK) :
       false
     (e:git_error_code) :
@@ -100,20 +103,22 @@ public defn libgit-clone-tag (url:String,
 ; Performs the following steps in order:
 ; 1. Opens the repository at path 'path'
 ; 2. Finds the object ID of the repository HEAD
-; 3. Fetches objects and references from the remote 'remote-name' (with the
-;    refspec 'refspec' if given)
+; 3. Fetches references from the remote 'remote-name', but only updates the
+;    local reference 'tag' to match the remote
 ; 4. Finds the object ID of the tag 'tag'
-; 5. If (1) and (3) differ, checks out the tag 'tag' (forcefully if 'force?' is
-;    true)
+; 5. If (1) and (3) differ, checks out the tag 'tag' in detached mode
+;    (forcefully if 'force?' is true)
 ;    If 'sync-info-msg' is supplied, info() will be called with it
 ; Throws a LibGitException if unsuccessful
 public defn libgit-sync-tag (path:String,
                              remote-name:String,
-                             refspec:String|False,
                              tag:String,
                              force?:True|False = false,
                              sync-info-msg:Printable|String|False = false) -> False :
   libgit2_init()
+
+  val full-tag = to-string("refs/tags/%_" % [tag])
+  val refspec = to-string("+%_:%_" % [full-tag, full-tag])
 
   ; Open
   val repo = match(libgit2_repository_open(path)):
@@ -145,7 +150,7 @@ public defn libgit-sync-tag (path:String,
       throw(exc)
 
   ; Rev-parse tag
-  val tag-hash = match(libgit2_revparse(repo, tag)):
+  val tag-hash = match(libgit2_revparse(repo, full-tag)):
     (hash:String) : hash
     (e:git_error_code) :
       val exc = last-libgit-exception(e)
@@ -159,7 +164,7 @@ public defn libgit-sync-tag (path:String,
     match(sync-info-msg:Printable|String) :
       info(sync-info-msg)
     val checkout-strat = GIT_CHECKOUT_FORCE when force? else GIT_CHECKOUT_SAFE
-    match(libgit2_checkout(repo, tag, checkout-strat)):
+    match(libgit2_checkout(repo, full-tag, checkout-strat)):
       (e:GIT_OK) :
         false
       (e:git_error_code) :

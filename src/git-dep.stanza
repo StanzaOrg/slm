@@ -84,16 +84,17 @@ public defn fetch-dependency-at-version (d: GitDependency) -> False:
   val url = full-url-from-locator(locator(d))
   val path = /path(d)
   val tag = to-string("v%~" % [version(d)])
-  val refspec = to-string("+refs/tags/%_:refs/tags/%_" % [tag, tag])
 
   ; Use git if available
   if has-git?() :
+    val refspec = to-string("+refs/tags/%_:refs/tags/%_" % [tag, tag])
     shallow-clone-git-repo(url, path)
     run-git-command-in-dir(path, ["fetch", "--quiet", "origin", refspec])
     run-git-command-in-dir(path, ["checkout", "--quiet", "--force", tag])
   else :
     ; Fallback to libgit2
-    libgit-clone-tag(url, path, "origin", refspec, tag, true)
+    debug("falling back to libgit for clone")
+    libgit-clone-tag(url, path, "origin", tag, true)
   false
 
 public defn sync-dependency-to-version (dep: GitDependency) -> False:
@@ -119,5 +120,6 @@ public defn sync-dependency-to-version (dep: GitDependency) -> False:
       run-git-command-in-dir(path, ["checkout", "--quiet", "--force", tag])
   else :
     ; Fallback to libgit2
-    libgit-sync-tag(path, "origin", refspec, tag, true, sync-info-msg)
+    debug("falling back to libgit for sync")
+    libgit-sync-tag(path, "origin", tag, true, sync-info-msg)
   false
