@@ -109,15 +109,6 @@ public defn add-git-dependency (
     (_:None):
       ; we need to query the repo for the latest tag
       ;   in the repository.
-      if not has-git?():
-        val PATH = to-maybe $ get-env("PATH")
-        throw $ GitNotFoundError(PATH)
-
-      ; We need at least this version to use `ls-remote`.
-      val exp-git = SemanticVersion(2, 28, 0)
-      if not check-git-version(exp-git) :
-        throw $ GitVersionError(git-version?(), exp-git)
-
       val url = full-url-from-locator(path)
       val tags = git-remote-tag-refs(url)
       debug("Retrieved Tags:")

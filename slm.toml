@@ -10,7 +10,7 @@ lang-utils-static =        { git = "StanzaOrg/slm-lang-utils",        version = 
 maybe-utils =              { git = "StanzaOrg/maybe-utils",           version = "0.1.6" }
 semver      =              { git = "StanzaOrg/semver",                version = "0.1.8" }
 slm-libarchive-static =    { git = "StanzaOrg/slm-libarchive",        version = "0.0.6" }
-slm-libgit2-static =       { git = "StanzaOrg/slm-libgit2",           version = "0.1.1" }
+slm-libgit2-static =       { git = "StanzaOrg/slm-libgit2",           version = "0.1.4" }
 slm-toml    =              { git = "StanzaOrg/slm-toml",              version = "0.4.3" }
 term-colors =              { git = "StanzaOrg/term-colors",           version = "0.1.3" }
 utils-file-system-static = { git = "StanzaOrg/slm-utils-file-system", version = "0.0.14" }

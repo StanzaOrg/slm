@@ -18,6 +18,36 @@ public defmethod print (o:OutputStream, e:LibGitException):
   val msg = "libgit2 error: %_" % [msg(e)]
   print(o, msg)
 
+; Finds and returns the object ID of the reference 'refish' in the repository at
+; 'path'
+; Throws a LibGitException if unsuccessful
+public defn libgit-rev-parse (path:String, refish:String) -> String :
+  libgit2_init()
+
+  ; Open
+  val repo = match(libgit2_repository_open(path)):
+    (repo:GIT_REPOSITORY) :
+      repo
+    (e:git_error_code) :
+      val exc = last-libgit-exception(e)
+      libgit2_shutdown()
+      throw(exc)
+
+  ; Rev-parse
+  val result = match(libgit2_revparse(repo, refish)):
+    (hash:String) : hash
+    (e:git_error_code) :
+      val exc = last-libgit-exception(e)
+      libgit2_repository_free(repo)
+      libgit2_shutdown()
+      throw(exc)
+
+  ; Cleanup
+  libgit2_repository_free(repo)
+  libgit2_shutdown()
+
+  result
+
 ; Performs the following steps in order:
 ; 1. Shallow clones the repository at 'url' to path 'path'
 ; 2. Fetches objects and references from the remote 'remote-name' (with the
@@ -142,6 +172,30 @@ public defn libgit-sync-tag (path:String,
   libgit2_repository_free(repo)
   libgit2_shutdown()
   false
+
+; Returns a table of hash => reference name for all tags of the remote at the
+; URL 'remote-url'
+; Throws a LibGitException if unsuccessful
+public defn libgit-lsremote-tags (remote-url:String) -> HashTable<String,String> :
+  libgit2_init()
+
+  ; lsremote
+  val entries = match(libgit2_lsremote_url(remote-url)):
+    (entries:Tuple<KeyValue<String,String>>) : entries
+    (e:git_error_code) :
+      val exc = last-libgit-exception(e)
+      libgit2_shutdown()
+      throw(exc)
+
+  ; Build table, filter non-tag references
+  val result = to-hashtable<String,String> $ for entry in entries filter :
+    val tag = value(entry)
+    (length(tag) > 10) and (tag[0 to 10] == "refs/tags/")
+
+  ; Cleanup
+  libgit2_shutdown()
+
+  result
 
 ;============================================================
 ;========================= Helpers ==========================
