@@ -35,29 +35,32 @@ defn parse-git-version (msg:String) -> Maybe<SemanticVersion> :
       parse-semver(version-str)
 
 defn run-git-version () -> Maybe<SemanticVersion> :
-  try:
-    val p = ProcessBuilder(["git", "version"])
-      $> with-output
-      $> build
-
-    ; Evidently - you have to call `get-output` before `run` here
-    ;   Otherwise, it will throw an "Bad file descriptor" error.
-    val msg = get-output(p) $> trim
-    val code = run-and-get-exit-code(p)
-    if code == 0:
-      debug("Parsing git version: %_" % [msg])
-      parse-git-version(msg)
-    else if code == 127:
-      ; This indicates that there is no `git` on the path:
-      debug("git version returns code=%_ - Not on Path" % [code])
-      None()
-    else:
-      debug("Error checking 'git version': code = %_ \n %_" % [code, msg])
-      None()
-  catch (e:ProcessLaunchError):
-    ; Launch failure is synonymous with executable not found.
-    debug("Failed to Launch 'git version': %_" % [e])
+  if get-env("SLM_DISABLE_GIT") is-not False :
     None()
+  else :
+    try:
+      val p = ProcessBuilder(["git", "version"])
+        $> with-output
+        $> build
+
+      ; Evidently - you have to call `get-output` before `run` here
+      ;   Otherwise, it will throw an "Bad file descriptor" error.
+      val msg = get-output(p) $> trim
+      val code = run-and-get-exit-code(p)
+      if code == 0:
+        debug("Parsing git version: %_" % [msg])
+        parse-git-version(msg)
+      else if code == 127:
+        ; This indicates that there is no `git` on the path:
+        debug("git version returns code=%_ - Not on Path" % [code])
+        None()
+      else:
+        debug("Error checking 'git version': code = %_ \n %_" % [code, msg])
+        None()
+    catch (e:ProcessLaunchError):
+      ; Launch failure is synonymous with executable not found.
+      debug("Failed to Launch 'git version': %_" % [e])
+      None()
 
 var git-vers:Maybe<SemanticVersion> = run-git-version()
 
