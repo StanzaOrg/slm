@@ -181,13 +181,13 @@ If an argument is not provided, then the current working directory is where the 
 files will be created.
 <MSG>
 
-val minimal-MSG = \<MSG>
+val MINIMAL-MSG = \<MSG>
 Do not create a 'main.stanza' file and its associated build rule
 <MSG>
 
 public defn setup-init-cmd () -> Command :
   val flags = [
-    Flag("minimal", ZeroFlag, OptionalFlag, minimal-MSG)
+    Flag("minimal", ZeroFlag, OptionalFlag, MINIMAL-MSG)
     ]
   Command(name = "init",
     action = init
