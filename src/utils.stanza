@@ -8,6 +8,7 @@ defpackage slm/utils:
 
   import slm/errors
   import slm/file-utils
+  import slm/git-utils
 
 
 public defn clear-color? (c: ColoredString) -> ColoredString:
@@ -43,14 +44,19 @@ public defn last?<?T> (c: Seqable<?T>) -> Maybe<T>:
 public defn first<?T> (t: Tuple<?T>) -> T:
   t[1]
 
+defn ssh-locator (locator: String) -> String :
+  to-string("git@github.com:%_" % [locator])
+defn https-locator (locator: String) -> String :
+  to-string("https://github.com/%_" % [locator])
 public defn full-url-from-locator (locator: String) -> String:
-  defn git-locator (locator: String): (to-string("git@github.com:%_" % [locator]))
-  defn https-locator (locator: String): (to-string("https://github.com/%_" % [locator]))
-
   switch(get-env("SLM_PROTOCOL")):
-    "git": git-locator(locator)
+    "ssh":
+      if has-git?() :
+        ssh-locator(locator)
+      else :
+        throw(Exception("Error: SLM_PROTOCOL is set to SSH but Git was not found"))
     "https": https-locator(locator)
-    else: git-locator(locator)
+    else: https-locator(locator)
 
 doc: \<DOC>
 Join Strings to form a file system path.
