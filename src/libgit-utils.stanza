@@ -4,7 +4,10 @@ defpackage slm/libgit-utils:
 
   import libgit2
 
+  import slm/utils
+  import slm/dependency
   import slm/logging
+  import slm/git-dep
 
 ;============================================================
 ;====================== Libgit2 Utils =======================
@@ -15,7 +18,7 @@ public defstruct LibGitException <: Exception :
   msg: ?
 
 public defmethod print (o:OutputStream, e:LibGitException):
-  print(o, "git error: %_" % [msg(e)])
+  print(o, "Libgit error: %_" % [msg(e)])
 
 ; Finds and returns the object ID of the reference 'refish' in the repository at
 ; 'path'
@@ -30,7 +33,7 @@ public defn libgit-rev-parse (path:String, refish:String) -> String :
     (e:git_error_code) :
       val last-err-msg = message(libgit2_error_last())
       libgit2_shutdown()
-      throw(LibGitException(e, "failed to open git repository at %_: %_" % [path, last-err-msg]))
+      throw(LibGitException(e, "Failed to open git repository in %_: %_" % [path, last-err-msg]))
 
   ; Rev-parse
   val result = match(libgit2_revparse(repo, refish)):
@@ -39,7 +42,7 @@ public defn libgit-rev-parse (path:String, refish:String) -> String :
       val last-err-msg = message(libgit2_error_last())
       libgit2_repository_free(repo)
       libgit2_shutdown()
-      throw(LibGitException(e, "failed to parse %_: %_" % [refish, last-err-msg]))
+      throw(LibGitException(e, "Failed to parse reference %_: %_" % [refish, last-err-msg]))
 
   ; Cleanup
   libgit2_repository_free(repo)
@@ -47,21 +50,19 @@ public defn libgit-rev-parse (path:String, refish:String) -> String :
 
   result
 
-; Performs the following steps in order:
-; 1. Shallow clones the repository at 'url' to path 'path'
-; 2. Fetches objects and references from the remote 'remote-name' with a refspec
-;    which limits updates to the specified tag
-; 3. Checks out the tag 'tag' (forcefully if 'force?' is true)
+; Clones the repository for the Git dependency and performs a forced checkout
+; of the tag of the dependency's version
+; Assumes the remote name is "origin"
 ; Throws an exception if unsuccessful
-public defn libgit-clone-tag (url:String,
-                              path:String,
-                              remote-name:String,
-                              tag:String,
-                              force?:True|False = false) -> False :
-
+public defn libgit-fetch-dependency (dep:GitDependency) -> False :
+  val name = /name(dep)
+  val url = full-url-from-locator(locator(dep))
+  val path = /path(dep)
+  val tag = to-string("v%~" % [version(dep)])
   val full-tag = to-string("refs/tags/%_" % [tag])
   val refspec = to-string("+%_:%_" % [full-tag, full-tag])
 
+  ; Initialize libgit
   libgit2_init()
 
   ; Clone
@@ -71,53 +72,45 @@ public defn libgit-clone-tag (url:String,
     (e:git_error_code) :
       val last-err-msg = message(libgit2_error_last())
       libgit2_shutdown()
-      throw(LibGitException(e, "failed to clone %_: %_" % [url, last-err-msg]))
+      throw(LibGitException(e, "Failed to clone dependency %_ at %_: %_" % [name, url, last-err-msg]))
 
   ; Fetch
-  match(libgit2_fetch(repo, remote-name, refspec, 1)):
+  match(libgit2_fetch(repo, "origin", refspec, 1)):
     (e:GIT_OK) :
       false
     (e:git_error_code) :
       val last-err-msg = message(libgit2_error_last())
       libgit2_repository_free(repo)
       libgit2_shutdown()
-      throw(LibGitException(e, "failed to fetch %_ from %_: %_" % [tag, url, last-err-msg]))
+      throw(LibGitException(e, "Failed to fetch tag %_ for dependency %_: %_" % [tag, name, last-err-msg]))
 
   ; Checkout
-  val checkout-strat = GIT_CHECKOUT_FORCE when force? else GIT_CHECKOUT_SAFE
-  match(libgit2_checkout(repo, full-tag, checkout-strat)):
+  match(libgit2_checkout(repo, full-tag, GIT_CHECKOUT_FORCE)):
     (e:GIT_OK) :
       false
     (e:git_error_code) :
       val last-err-msg = message(libgit2_error_last())
       libgit2_repository_free(repo)
       libgit2_shutdown()
-      throw(LibGitException(e, "failed to checkout %_ from %_: %_" % [tag, url, last-err-msg]))
+      throw(LibGitException(e, "Failed to checkout tag %_ for dependency %_: %_" % [tag, name, last-err-msg]))
 
   ; Cleanup
   libgit2_repository_free(repo)
   libgit2_shutdown()
   false
 
-; Performs the following steps in order:
-; 1. Opens the repository at path 'path'
-; 2. Finds the object ID of the repository HEAD
-; 3. Fetches references from the remote 'remote-name', but only updates the
-;    local reference 'tag' to match the remote
-; 4. Finds the object ID of the tag 'tag'
-; 5. If (1) and (3) differ, checks out the tag 'tag' in detached mode
-;    (forcefully if 'force?' is true)
-;    If 'sync-info-msg' is supplied, info() will be called with it
+; Syncs the repository for the Git dependency to the requested version
+; Assumes the remote name is "origin"
 ; Throws an exception if unsuccessful
-public defn libgit-sync-tag (path:String,
-                             remote-name:String,
-                             tag:String,
-                             force?:True|False = false,
-                             sync-info-msg:Printable|String|False = false) -> False :
-  libgit2_init()
-
+public defn libgit-sync-dependency (dep:GitDependency) -> False :
+  val name = /name(dep)
+  val path = /path(dep)
+  val tag = to-string("v%~" % [version(dep)])
   val full-tag = to-string("refs/tags/%_" % [tag])
   val refspec = to-string("+%_:%_" % [full-tag, full-tag])
+
+  ; Initialize libgit
+  libgit2_init()
 
   ; Open
   val repo = match(libgit2_repository_open(path)):
@@ -126,7 +119,7 @@ public defn libgit-sync-tag (path:String,
     (e:git_error_code) :
       val last-err-msg = message(libgit2_error_last())
       libgit2_shutdown()
-      throw(LibGitException(e, "failed to open git repository at %_: %_" % [path, last-err-msg]))
+      throw(LibGitException(e, "Failed to open git repository for dependency %_ at %_: %_" % [name, path, last-err-msg]))
 
   ; Rev-parse HEAD
   val head-hash = match(libgit2_revparse(repo, "HEAD")):
@@ -135,18 +128,18 @@ public defn libgit-sync-tag (path:String,
       val last-err-msg = message(libgit2_error_last())
       libgit2_repository_free(repo)
       libgit2_shutdown()
-      throw(LibGitException(e, "failed to find hash of HEAD: %_" % [last-err-msg]))
+      throw(LibGitException(e, "Failed to find hash of HEAD for dependency %_ at %_: %_" % [name, path, last-err-msg]))
   debug("head-hash: %_" % [head-hash])
 
   ; Fetch
-  match(libgit2_fetch(repo, remote-name, refspec, 1)):
+  match(libgit2_fetch(repo, "origin", refspec, 1)):
     (e:GIT_OK) :
       false
     (e:git_error_code) :
       val last-err-msg = message(libgit2_error_last())
       libgit2_repository_free(repo)
       libgit2_shutdown()
-      throw(LibGitException(e, "failed to fetch %_: %_" % [tag, last-err-msg]))
+      throw(LibGitException(e, "Failed to fetch tag %_ for dependency %_: %_" % [tag, name, last-err-msg]))
 
   ; Rev-parse tag
   val tag-hash = match(libgit2_revparse(repo, full-tag)):
@@ -155,22 +148,20 @@ public defn libgit-sync-tag (path:String,
       val last-err-msg = message(libgit2_error_last())
       libgit2_repository_free(repo)
       libgit2_shutdown()
-      throw(LibGitException(e, "failed to parse %_: %_" % [tag, last-err-msg]))
+      throw(LibGitException(e, "Failed to parse tag %_ for dependency %_: %_" % [tag, name, last-err-msg]))
   debug("tag-hash: %_" % [tag-hash])
 
   ; Checkout
   if head-hash != tag-hash :
-    match(sync-info-msg:Printable|String) :
-      info(sync-info-msg)
-    val checkout-strat = GIT_CHECKOUT_FORCE when force? else GIT_CHECKOUT_SAFE
-    match(libgit2_checkout(repo, full-tag, checkout-strat)):
+    info("syncing %_ to %~" % [colored-name?(dep), colored-version?(dep)])
+    match(libgit2_checkout(repo, full-tag, GIT_CHECKOUT_FORCE)):
       (e:GIT_OK) :
         false
       (e:git_error_code) :
         val last-err-msg = message(libgit2_error_last())
         libgit2_repository_free(repo)
         libgit2_shutdown()
-        throw(LibGitException(e, "failed to checkout %_: %_" % [tag, last-err-msg]))
+        throw(LibGitException(e, "Failed to checkout tag %_ for dependency %_: %_" % [tag, name, last-err-msg]))
 
   ; Cleanup
   libgit2_repository_free(repo)
@@ -189,7 +180,7 @@ public defn libgit-lsremote-tags (remote-url:String) -> HashTable<String,String>
     (e:git_error_code) :
       val last-err-msg = message(libgit2_error_last())
       libgit2_shutdown()
-        throw(LibGitException(e, "failed to list remote references of %_: %_" % [remote-url, last-err-msg]))
+        throw(LibGitException(e, "Failed to list remote references of %_: %_" % [remote-url, last-err-msg]))
 
   ; Build table, filter non-tag references
   val result = to-hashtable<String,String> $ for entry in entries filter :
