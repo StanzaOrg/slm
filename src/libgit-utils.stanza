@@ -168,8 +168,8 @@ public defn libgit-sync-dependency (dep:GitDependency) -> False :
   libgit2_shutdown()
   false
 
-; Returns a table of hash => reference name for all tags of the remote at the
-; URL 'remote-url'
+; Returns a table of full tag name => hash for all tags of the remote at the URL
+; 'remote-url'
 ; Throws an exception if unsuccessful
 public defn libgit-lsremote-tags (remote-url:String) -> HashTable<String,String> :
   libgit2_init()
@@ -183,9 +183,13 @@ public defn libgit-lsremote-tags (remote-url:String) -> HashTable<String,String>
         throw(LibGitException(e, "Failed to list remote references of %_: %_" % [remote-url, last-err-msg]))
 
   ; Build table, filter non-tag references
-  val result = to-hashtable<String,String> $ for entry in entries filter :
+  val result = to-hashtable<String,String> $ for entry in entries seq? :
+    val hash = key(entry)
     val tag = value(entry)
-    (length(tag) > 10) and (tag[0 to 10] == "refs/tags/")
+    if (length(tag) > 10) and (tag[0 to 10] == "refs/tags/") :
+      One(tag => hash)
+    else :
+      None()
 
   ; Cleanup
   libgit2_shutdown()
