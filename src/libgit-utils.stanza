@@ -23,7 +23,8 @@ public defmethod print (o:OutputStream, e:LibGitException):
 ; Finds and returns the object ID of the reference 'refish' in the repository at
 ; 'path'
 ; Throws an exception if unsuccessful
-public defn libgit-rev-parse (path:String, refish:String) -> String :
+public defn libgit-rev-parse (path:String, refish:String --
+                              peel?:True|False = false) -> String :
   libgit2_init()
 
   ; Open
@@ -36,13 +37,15 @@ public defn libgit-rev-parse (path:String, refish:String) -> String :
       throw(LibGitException(e, "Failed to open git repository in %_: %_" % [path, last-err-msg]))
 
   ; Rev-parse
-  val result = match(libgit2_revparse(repo, refish)):
+  val peeled-refish = append(refish, "^{}") when peel? else refish
+  val result = match(libgit2_revparse(repo, peeled-refish)):
     (hash:String) : hash
     (e:git_error_code) :
       val last-err-msg = message(libgit2_error_last())
       libgit2_repository_free(repo)
       libgit2_shutdown()
-      throw(LibGitException(e, "Failed to parse reference %_: %_" % [refish, last-err-msg]))
+      throw(LibGitException(e, "Failed to parse reference %_: %_" %
+        [peeled-refish, last-err-msg]))
 
   ; Cleanup
   libgit2_repository_free(repo)
@@ -124,7 +127,7 @@ public defn libgit-fetch-dependency (dep:GitDependency) -> False :
 public defn libgit-sync-dependency (dep:GitDependency) -> False :
   val name = /name(dep)
   val path = /path(dep)
-  val version = /version(dep)
+  val version-str = to-string(/version(dep))
 
   ; Initialize libgit
   libgit2_init()
@@ -158,14 +161,14 @@ public defn libgit-sync-dependency (dep:GitDependency) -> False :
       libgit2_shutdown()
       throw(LibGitException(e, "Failed to fetch tags for dependency %_: %_" % [name, last-err-msg]))
 
-  ; Find hash of tag for requested version
+  ; Find peeled commit hash of tag for requested version
   ; Try both "v*.*.*" and "*.*.*" styles
-  val non-v-tag = to-string("refs/tags/%_" % [version])
-  val v-tag = to-string("refs/tags/v%_" % [version])
-  val tag+hash? = for tag in [v-tag, non-v-tag] first :
-    match(libgit2_revparse(repo, tag)) :
+  val full-tag+hash? = for tag in [append("v", version-str), version-str] first :
+    val full-tag = to-string("refs/tags/%_" % [tag])
+    val refspec = append(full-tag, "^{}")
+    match(libgit2_revparse(repo, refspec)) :
       (hash:String) :
-        One([tag, hash])
+        One([full-tag, hash])
       (e:GIT_ENOTFOUND) :
         None()
       (e:git_error_code) :
@@ -173,12 +176,12 @@ public defn libgit-sync-dependency (dep:GitDependency) -> False :
         libgit2_repository_free(repo)
         libgit2_shutdown()
         throw(LibGitException(e, "Failed to parse tag %_ for dependency %_: %_" % [tag, name, last-err-msg]))
-  val [full-tag, tag-hash] = match(tag+hash?) :
-    (tag+hash:One<[String,String]>) : value(tag+hash)
+  val [full-tag, tag-hash] = match(full-tag+hash?) :
+    (x:One<[String,String]>) : value(x)
     (_:None) :
       libgit2_repository_free(repo)
       libgit2_shutdown()
-      throw(LibGitException(GIT_ENOTFOUND, "No tag found which matches version %_ of %_" % [version, name]))
+      throw(LibGitException(GIT_ENOTFOUND, "No tag found which matches version %_ of %_" % [version-str, name]))
   debug("using tag %_ for dependency %_" % [full-tag, name])
   debug("tag-hash: %_" % [tag-hash])
 

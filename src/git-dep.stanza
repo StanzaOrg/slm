@@ -138,7 +138,7 @@ public defn sync-dependency-to-version (dep:GitDependency) -> False:
     ; Fetch and checkout
     val refspec = to-string("+refs/tags/%_:refs/tags/%_" % [tag, tag])
     run-git-command-in-dir(path, ["fetch", "--quiet", "origin", refspec])
-    val tag-hash = git-rev-parse!(path, tag)
+    val tag-hash = git-rev-parse!(path, tag, peel? = true)
     debug("tag-hash: %_" % [tag-hash])
 
     if tag-hash != head-hash:

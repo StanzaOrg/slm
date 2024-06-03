@@ -77,21 +77,26 @@ public defn check-git-version (required:SemanticVersion) -> True|False :
     (_:None): false
     (curr:One<SemanticVersion>): value(curr) >= required
 
-public defn git-rev-parse (work-tree: String, rev: String) -> String:
-  command-output-in-dir(work-tree, ["git", "rev-parse", "--verify", "--quiet", rev])
+public defn git-rev-parse (work-tree:String, rev:String --
+                           peel?:True|False = false) -> String :
+  val peeled-rev = append(rev, "^{}") when peel? else rev
+  command-output-in-dir(work-tree, ["git", "rev-parse", "--verify", "--quiet",
+    peeled-rev])
 
-public defn git-rev-parse! (work-tree: String, rev: String) -> String:
-  val ret = git-rev-parse(work-tree, rev)
+public defn git-rev-parse! (work-tree:String, rev:String --
+                            peel?:True|False = false) -> String :
+  val ret = git-rev-parse(work-tree, rev, peel? = peel?)
   if empty?(ret):
     throw(Exception("git rev-parse failed!"))
   ret
 
-public defn git-or-libgit-rev-parse! (work-tree: String, rev: String) -> String :
+public defn git-or-libgit-rev-parse! (work-tree:String, rev:String --
+                                      peel?:True|False = false) -> String :
   if has-git?() :
-    git-rev-parse!(work-tree, rev)
+    git-rev-parse!(work-tree, rev, peel? = peel?)
   else :
     debug("falling back to libgit for rev-parse")
-    libgit-rev-parse(work-tree, rev)
+    libgit-rev-parse(work-tree, rev, peel? = peel?)
 
 public defn git-remote-tag-refs (remote: String) -> HashTable<String, String>:
   val can-use-git? =
@@ -133,28 +138,39 @@ defn remove-prefix? (a:String, prefix:String) -> String :
   val n = length(prefix)
   if (length(a) >= n) and (a[0 to n] == prefix) : a[n to false]
   else : a
-public defn parse-full-git-tag (tag:String) -> Maybe<SemanticVersion> :
-  if is-prefix?(tag, "refs/tags/") :
-    var tag*:String = tag[10 to false]
-    tag* = split-any(tag*, "^~:")[0]
-    tag* = remove-prefix?(tag*, "v")
-    parse-semver(tag*)
-  else :
-    None()
 
 doc: \<DOC>
 Convert the `Tag` => Git Hash table to a SemVer => Hash table.
 
 This takes the output of `git-remote-tag-refs` and converts it into
 a more useable format for querying the versions.
+
+Prefers the peeled commit hash over the tag object hash for annotated tags
 <DOC>
-public defn to-version-table (tag-hash:HashTable<String,String>) -> HashTable<SemanticVersion, String> :
-  to-hashtable<SemanticVersion, String> $ for kvp in tag-hash seq? :
-    val [tag, hash-str] = [key(kvp), value(kvp)]
-    match(parse-full-git-tag(tag)):
-      (x:None): x
-      (x:One<SemanticVersion>):
-        One(value(x) => hash-str)
+public defn to-version-table (tag-hashes:HashTable<String,String>) -> HashTable<SemanticVersion,String> :
+  ; Store preferred hashes (peeled commit hashes) to be applied afterwards
+  val peeled-hashes = Vector<KeyValue<SemanticVersion,String>>()
+  val result = to-hashtable<SemanticVersion,String> $ for kv in tag-hashes seq? :
+    val [tag, hash] = [key(kv), value(kv)]
+    if is-prefix?(tag, "refs/tags/") :
+      var tag*:String = remove-prefix?(tag[10 to false], "v")
+      if contains?(tag*, '^') :
+        val version? = parse-semver(next(split(tag*, "^")))
+        match(version?:One<SemanticVersion>) :
+          add(peeled-hashes, value(version?) => hash)
+        None()
+      else :
+        match(parse-semver(tag*)) :
+          (ver:One<SemanticVersion>) :
+            One(value(ver) => hash)
+          (_:None) : None()
+    else :
+      None()
+  ; Delayed setting of preferred key-value pairs to enforce preference for
+  ; peeled hashes
+  for kv in peeled-hashes do :
+    result[key(kv)] = value(kv)
+  result
 
 public defn run-git-command-in-dir (args0: Tuple<String>
                                     --
