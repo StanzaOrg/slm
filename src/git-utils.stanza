@@ -131,6 +131,19 @@ public defn git-remote-tag-refs (remote: String) -> HashTable<String, String>:
   else :
     libgit-lsremote-tags(remote)
 
+defn is-prefix? (a:String, prefix:String) -> True|False :
+  (length(a) >= length(prefix)) and (a[0 to length(prefix)] == prefix)
+
+public defn parse-full-git-tag (tag:String) -> Maybe<SemanticVersion> :
+  if is-prefix?(tag, "refs/tags/") :
+    var tag*:String = tag[10 to false]
+    tag* = split-any(tag*, "^~:")[0]
+    if length(tag) > 0 and tag*[0] == "v" :
+      tag* = tag*[1 to false]
+    parse-semver(tag*)
+  else :
+    None()
+
 doc: \<DOC>
 Convert the `Tag` => Git Hash table to a SemVer => Hash table.
 
@@ -140,18 +153,16 @@ a more useable format for querying the versions.
 public defn to-version-table (tag-hash:HashTable<String,String>) -> HashTable<SemanticVersion, String> :
   to-hashtable<SemanticVersion, String> $ for kvp in tag-hash seq? :
     val [tag, hash-str] = [key(kvp), value(kvp)]
-    val comps = split-any(tag, "^~:")
-    val tagPath = comps[0]
-    val [root, tagName] = split-filepath(tagPath)
-    ; We expect tagName to be in the form `v0.3.2` or something similar.
-    val tagName* = tagName[1 to false]
-    val version? = parse-semver(tagName*)
-    match(version?):
+    match(parse-full-git-tag(tag)):
       (x:None): x
       (x:One<SemanticVersion>):
         One(value(x) => hash-str)
 
-public defn run-git-command-in-dir (args0: Tuple<String> -- work-tree?:Maybe<String> = None(), quiet:True|False = false) -> Int:
+public defn run-git-command-in-dir (args0: Tuple<String>
+                                    --
+                                    work-tree?:Maybe<String> = None(),
+                                    quiet:True|False = false,
+                                    throw-on-error:True|False = true) -> Int:
   val args = to-tuple $ cat(["git"], args0)
   val work-tree = work-tree? $> value-or{_, get-cwd()}
   var b = ProcessBuilder(args)
@@ -159,10 +170,21 @@ public defn run-git-command-in-dir (args0: Tuple<String> -- work-tree?:Maybe<Str
   if quiet:
     b = with-output(b) $> with-error-stream{_}
   val process = build(b)
-  wait-process-throw-on-nonzero(process, "'%_' failed!" % [string-join(args, " ")])
+  val failure-msg = "'%_' failed!" % [string-join(args, " ")]
+  if throw-on-error :
+    wait-process-throw-on-nonzero(process, failure-msg)
+  else :
+    match(wait(process)) :
+      (code:ProcessDone): value(code)
+      (_): throw(Exception(failure-msg))
 
-public defn run-git-command-in-dir (work-tree: String, args0: Tuple<String>) -> Int:
-  run-git-command-in-dir(args0, work-tree? = One(work-tree))
+public defn run-git-command-in-dir (work-tree: String,
+                                    args0: Tuple<String>
+                                    --
+                                    quiet:True|False = false
+                                    throw-on-error:True|False = true) -> Int:
+  run-git-command-in-dir(args0, work-tree? = One(work-tree),
+    quiet = quiet, throw-on-error = throw-on-error)
 
 public defn run-git-command (args0: Tuple<String>) -> Int:
   run-git-command-in-dir(args0)

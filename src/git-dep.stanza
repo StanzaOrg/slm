@@ -78,33 +78,65 @@ public defn parse-git-dependency (name:String, locator:String, version?:Maybe<St
   val hash = "" ; This gets resolved during the fetch/sync
   GitDependency(name, locator, version, hash)
 
-public defn fetch-dependency-at-version (d: GitDependency) -> False:
-  info("cloning %_ at %~" % [colored-name?(d), colored-version?(d)])
+public defn fetch-dependency-at-version (dep:GitDependency) -> False:
+  info("cloning %_ at %~" % [colored-name?(dep), colored-version?(dep)])
   ; Use git if available
   if has-git?() :
-    val url = full-url-from-locator(locator(d))
-    val path = /path(d)
-    val tag = to-string("v%~" % [version(d)])
-    val refspec = to-string("+refs/tags/%_:refs/tags/%_" % [tag, tag])
+    ; Clone
+    val url = full-url-from-locator(locator(dep))
+    val path = /path(dep)
     shallow-clone-git-repo(url, path)
+
+    ; Check for "v*.*.*" or "*.*.*" tag
+    val vers = /version(dep)
+    val tag-candidates = [to-string("v%~" % [vers]), to-string(vers)]
+    val tag? = for tag in tag-candidates find :
+      run-git-command-in-dir(path, ["ls-remote", "-q", "-t", "--exit-code",
+        "origin", tag], quiet = true, throw-on-error = false) == 0
+    val tag = match(tag?) :
+      (tag:String) :
+        debug("using tag %_ for dependency %_" % [tag, name(dep)])
+        tag
+      (_) :
+        throw(Exception("Could not checkout version %_ for dependency %_" %
+          [vers, name(dep)]))
+
+    ; Fetch and checkout
+    val refspec = to-string("+refs/tags/%_:refs/tags/%_" % [tag, tag])
     run-git-command-in-dir(path, ["fetch", "--quiet", "origin", refspec])
     run-git-command-in-dir(path, ["checkout", "--quiet", "--force", tag])
   else :
     ; Fallback to libgit2
     debug("falling back to libgit for fetch dependency")
-    libgit-fetch-dependency(d)
+    libgit-fetch-dependency(dep)
   false
 
-public defn sync-dependency-to-version (dep: GitDependency) -> False:
+public defn sync-dependency-to-version (dep:GitDependency) -> False:
   debug("checking if we need to sync")
   ; Use git if available
   if has-git?() :
     val path = /path(dep)
-    val tag = to-string("v%~" % [version(dep)])
-    val refspec = to-string("+refs/tags/%_:refs/tags/%_" % [tag, tag])
+
+    ; Grab head hash
     val head-hash = git-rev-parse!(path, "HEAD")
     debug("head-hash: %_" % [head-hash])
 
+    ; Check for "v*.*.*" or "*.*.*" tag
+    val vers = /version(dep)
+    val tag-candidates = [to-string("v%~" % [vers]), to-string(vers)]
+    val tag? = for tag in tag-candidates find :
+      run-git-command-in-dir(path, ["ls-remote", "-q", "-t", "--exit-code",
+        "origin", tag], quiet = true, throw-on-error = false) == 0
+    val tag = match(tag?) :
+      (tag:String) :
+        debug("using tag %_ for dependency %_" % [tag, name(dep)])
+        tag
+      (_) :
+        throw(Exception("Could not checkout version %_ for dependency %_" %
+          [vers, name(dep)]))
+
+    ; Fetch and checkout
+    val refspec = to-string("+refs/tags/%_:refs/tags/%_" % [tag, tag])
     run-git-command-in-dir(path, ["fetch", "--quiet", "origin", refspec])
     val tag-hash = git-rev-parse!(path, tag)
     debug("tag-hash: %_" % [tag-hash])
