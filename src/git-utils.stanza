@@ -133,13 +133,15 @@ public defn git-remote-tag-refs (remote: String) -> HashTable<String, String>:
 
 defn is-prefix? (a:String, prefix:String) -> True|False :
   (length(a) >= length(prefix)) and (a[0 to length(prefix)] == prefix)
-
+defn remove-prefix? (a:String, prefix:String) -> String :
+  val n = length(prefix)
+  if (length(a) >= n) and (a[0 to n] == prefix) : a[n to false]
+  else : a
 public defn parse-full-git-tag (tag:String) -> Maybe<SemanticVersion> :
   if is-prefix?(tag, "refs/tags/") :
     var tag*:String = tag[10 to false]
     tag* = split-any(tag*, "^~:")[0]
-    if length(tag) > 0 and tag*[0] == "v" :
-      tag* = tag*[1 to false]
+    tag* = remove-prefix?(tag*, "v")
     parse-semver(tag*)
   else :
     None()
