@@ -48,6 +48,12 @@ Environment Variables:
     the stanza executable. This allows for usage with macro extended
     compilers. If set, this value will override the 'compiler'
     setting in the `slm.toml` file.
+- 'SLM_DISABLE_GIT' - If the user set this variable, then the built-in `libgit2`
+    library will be used to perform git operations instead of the installed
+    `git` binary. The `libgit2` backend will also be used if no `git` binary is
+    found, as determined by the output (or lack thereof) of running the command
+    'git version'. Otherwise, the 'git' binary will be preferred because the
+    'libgit2' backend does not yet support SSH or user credentials.
 
 Configuration File:
 
