@@ -89,10 +89,6 @@ public defn git-rev-parse! (work-tree: String, rev: String) -> String:
 public defn git-or-libgit-rev-parse! (work-tree: String, rev: String) -> String :
   if has-git?() :
     git-rev-parse!(work-tree, rev)
-    val ret = git-rev-parse(work-tree, rev)
-    if empty?(ret):
-      throw(Exception("git rev-parse failed!"))
-    ret
   else :
     debug("falling back to libgit for rev-parse")
     libgit-rev-parse(work-tree, rev)
