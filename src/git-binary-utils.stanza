@@ -1,0 +1,168 @@
+defpackage slm/git-binary-api :
+  import core
+  import collections
+
+  import maybe-utils
+  import semver
+
+  import slm/utils
+  import slm/logging
+  import slm/file-utils
+  import slm/process-utils
+  import slm/libgit-utils
+
+; Git commands executed using the installed system 'git' binary in a separate
+; process
+
+;============================================================
+;=========================== API ============================
+;============================================================
+
+public defn git-bin-init (path:String) -> False :
+  ; -q = quiet
+  val args = ["init", "-q"]
+  if run-git-command(args, path)[0] != 0 :
+    throw(Exception("git init %_ failed!" % [path]))
+  false
+
+public defn git-bin-is-repository? (path:String) -> True|False :
+  val args = ["status"]
+  run-git-command(args, path)[0] == 0
+
+public defn git-bin-clone (url:String, path:String --
+                           shallow?:True|False = false) -> False :
+  ; -q = quiet
+  val args = to-vector<String> $ ["clone", url, "-q"]
+  if shallow? :
+    add-all(args, ["--depth", "1"])
+  add(args, directory)
+  if run-git-command(args, path)[0] != 0 :
+    throw(Exception("git clone %_ failed!" % [url]))
+  false
+
+public defn git-bin-fetch (path:String, remote:String = "origin",
+                           refspec:String|False = false) -> False :
+  val refspec* = match(refspec) :
+    (refspec:String) : [refspec]
+    (_) : []
+  ; -q = quiet
+  val args = to-tuple $ cat(["fetch", "-q", remote], refspec*)
+  if run-git-command(args, path)[0] != 0 :
+    throw(Exception("git fetch %_ failed!" % [remote]))
+  false
+
+public defn git-bin-checkout (path:String, refish:String --
+                              force?:True|False = false) -> False :
+  val force* = ["-f"] when force? else []
+  ; -q = quiet
+  val args = to-tuple $ cat-all([["checkout", "-q"], force*, [refish]])
+  if run-git-command(args, path)[0] != 0 :
+    throw(Exception("git checkout %_ failed!" % [refish]))
+  false
+
+public defn git-bin-rev-parse (path:String, rev:String --
+                               fail-if-empty?:True|False = false) -> String :
+  ; -q = quiet
+  val args = ["rev-parse", "--verify", "-q", rev]
+  val [exit-code, output-str] = run-git-command(args, path)
+  if exit-code != 0 or (check-empty? and empty?(output-str)) :
+    throw(Exception("git rev-parse %_ failed!" % [rev]))
+  output-str
+
+public defn git-bin-remote-tag-refs (remote:String) -> String :
+  ; -q = quiet, -t = tags only
+  val args = ["ls-remote", "-q", "-t", remote]
+  val [exit-code, output-str] = run-git-command(args)
+  if exit-code != 0 :
+    throw(Exception("git ls-remote %_ failed!" % [remote]))
+  output-str
+
+public defn git-bin-push (path:String, remote:String = "origin",
+                          object:String|False = false) -> False :
+  val object* = match(object) :
+    (object:String) : [object]
+    (_) : []
+  val args = to-tuple $ cat(["push", remote], object*)
+  if run-git-command(args, path)[0] != 0 :
+    throw(Exception("git push %_ failed!" % [remote]))
+  false
+
+public defn git-bin-tag (path:String, tag:String) -> False :
+  val args = ["tag", tag]
+  if run-git-command(args, path)[0] != 0 :
+    throw(Exception("git tag %_ failed!" % [tag]))
+  false
+
+;============================================================
+;================== Installed Git Version ===================
+;============================================================
+
+doc: \<DOC>
+Parses the version string returned by git
+
+The git version is typically in the form:
+
+'git version 2.38.0'
+
+But may also be in the form:
+
+'git version 2.38.0.window.1'
+
+This attempts to parse both to determine the version
+<DOC>
+defn parse-git-version (msg:String) -> Maybe<SemanticVersion> :
+  val comps = split(msg, " ")
+  for comp in comps first:
+    val version-elements = to-tuple $ split(comp, ".", 4)
+    if length(version-elements) < 3:
+      None()
+    else:
+      val version-str = string-join(version-elements[0 through 2], ".")
+      parse-semver(version-str)
+
+defn run-git-version () -> Maybe<SemanticVersion> :
+  try:
+    val [exit-code, output-str] = run-git-command(["version"])
+    if exit-code == 0 :
+      debug("Parsing git version: %_" % [output-str])
+      parse-git-version(output-str)
+    else if exit-code == 127:
+      ; This indicates that there is no `git` on the path:
+      debug("git version returns code=%_ - Not on Path" % [exit-code])
+      None()
+    else:
+      debug("Error checking 'git version': code = %_ \n %_" % [exit-code, output-str])
+      None()
+  catch (e:ProcessLaunchError):
+    ; Launch failure is synonymous with executable not found.
+    debug("Failed to Launch 'git version': %_" % [e])
+    None()
+
+var git-vers:Maybe<SemanticVersion> = run-git-version()
+
+public defn git-bin-version? () -> Maybe<SemanticVersion> :
+  git-vers
+
+public defn git-bin-available? () -> True|False :
+  match(git-bin-version?()):
+    (x:One<SemanticVersion>): true
+    (_:None): false
+
+public defn git-bin-compatible-version? (required:SemanticVersion) -> True|False :
+  match(git-bin-version?()):
+    (curr:One<SemanticVersion>): value(curr) >= required
+    (_:None): false
+
+;============================================================
+;========================= Helpers ==========================
+;============================================================
+
+; Spawn a process in the directory and run 'git' with the args
+defn run-git-command (args:Tuple<String>, dir:String|False = false) -> [Int,String] :
+  val args* = to-tuple $ cat(["git"], args)
+  var pb:ProcessBuilder = ProcessBuilder(args*) $> with-error-stream $> with-output
+  match(dir:String) :
+    pb = in-dir(pb, dir)
+  val process = build(pb)
+  val output-str = trim(get-output(process))
+  run-and-get-exit-code(process)
