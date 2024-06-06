@@ -76,7 +76,7 @@ public defn libgit-fetch-dependency (dep:GitDependency) -> False :
       throw(LibGitException(e, "Failed to clone dependency %_ at %_: %_" % [name, url, last-err-msg]))
 
   ; Fetch
-  match(libgit2_fetch(repo, "origin", "+refs/tags/*:refs/tags/*", 1)):
+  match(libgit2_fetch(repo, "origin", "+refs/tags/*:refs/tags/*")):
     (e:GIT_OK) :
       false
     (e:git_error_code) :
