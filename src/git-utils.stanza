@@ -9,6 +9,7 @@ defpackage slm/git-utils:
   import slm/logging
   import slm/file-utils
   import slm/process-utils
+  import slm/libgit-utils
 
 doc: \<DOC>
 Parser the version string returned by git
@@ -34,29 +35,32 @@ defn parse-git-version (msg:String) -> Maybe<SemanticVersion> :
       parse-semver(version-str)
 
 defn run-git-version () -> Maybe<SemanticVersion> :
-  try:
-    val p = ProcessBuilder(["git", "version"])
-      $> with-output
-      $> build
-
-    ; Evidently - you have to call `get-output` before `run` here
-    ;   Otherwise, it will throw an "Bad file descriptor" error.
-    val msg = get-output(p) $> trim
-    val code = run-and-get-exit-code(p)
-    if code == 0:
-      debug("Parsing git version: %_" % [msg])
-      parse-git-version(msg)
-    else if code == 127:
-      ; This indicates that there is no `git` on the path:
-      debug("git version returns code=%_ - Not on Path" % [code])
-      None()
-    else:
-      debug("Error checking 'git version': code = %_ \n %_" % [code, msg])
-      None()
-  catch (e:ProcessLaunchError):
-    ; Launch failure is synonymous with executable not found.
-    debug("Failed to Launch 'git version': %_" % [e])
+  if get-env("SLM_DISABLE_GIT") is-not False :
     None()
+  else :
+    try:
+      val p = ProcessBuilder(["git", "version"])
+        $> with-output
+        $> build
+
+      ; Evidently - you have to call `get-output` before `run` here
+      ;   Otherwise, it will throw an "Bad file descriptor" error.
+      val msg = get-output(p) $> trim
+      val code = run-and-get-exit-code(p)
+      if code == 0:
+        debug("Parsing git version: %_" % [msg])
+        parse-git-version(msg)
+      else if code == 127:
+        ; This indicates that there is no `git` on the path:
+        debug("git version returns code=%_ - Not on Path" % [code])
+        None()
+      else:
+        debug("Error checking 'git version': code = %_ \n %_" % [code, msg])
+        None()
+    catch (e:ProcessLaunchError):
+      ; Launch failure is synonymous with executable not found.
+      debug("Failed to Launch 'git version': %_" % [e])
+      None()
 
 var git-vers:Maybe<SemanticVersion> = run-git-version()
 
@@ -73,54 +77,106 @@ public defn check-git-version (required:SemanticVersion) -> True|False :
     (_:None): false
     (curr:One<SemanticVersion>): value(curr) >= required
 
-public defn git-rev-parse (work-tree: String, rev: String) -> String:
-  command-output-in-dir(work-tree, ["git", "rev-parse", "--verify", "--quiet", rev])
+public defn git-rev-parse (work-tree:String, rev:String --
+                           peel?:True|False = false) -> String :
+  val peeled-rev = append(rev, "^{}") when peel? else rev
+  command-output-in-dir(work-tree, ["git", "rev-parse", "--verify", "--quiet",
+    peeled-rev])
 
-public defn git-rev-parse! (work-tree: String, rev: String) -> String:
-  val ret = git-rev-parse(work-tree, rev)
+public defn git-rev-parse! (work-tree:String, rev:String --
+                            peel?:True|False = false) -> String :
+  val ret = git-rev-parse(work-tree, rev, peel? = peel?)
   if empty?(ret):
     throw(Exception("git rev-parse failed!"))
   ret
 
+public defn git-or-libgit-rev-parse! (work-tree:String, rev:String --
+                                      peel?:True|False = false) -> String :
+  if has-git?() :
+    git-rev-parse!(work-tree, rev, peel? = peel?)
+  else :
+    debug("falling back to libgit for rev-parse")
+    libgit-rev-parse(work-tree, rev, peel? = peel?)
+
 public defn git-remote-tag-refs (remote: String) -> HashTable<String, String>:
-  val p = ProcessBuilder(["git", "ls-remote", "-q", "--tags", remote])
-    $> with-output
-    $> build
+  val can-use-git? =
+    if has-git?() :
+      ; We need at least this version to use `ls-remote`.
+      val exp-git = SemanticVersion(2, 28, 0)
+      if check-git-version(exp-git) :
+        true
+      else :
+        debug("falling back to libgit2 for ls-remote")
+        false
+    else :
+      debug("falling back to libgit2 for ls-remote")
+      false
 
-  val output = get-output(p) $> trim
-  val code = run-and-get-exit-code(p)
-  if code != 0:
-    throw $ Exception("Failed to list tags from remote")
+  if can-use-git? :
+    val p = ProcessBuilder(["git", "ls-remote", "-q", "--tags", remote])
+      $> with-output
+      $> build
 
-  val pairs = to-tuple $ split(output, "\n")
-  to-hashtable<String, String> $ seq?{_, pairs} $ fn (line):
-    val elements = to-tuple $ split(line, "\t")
-    if length(elements) == 2:
-      One(elements[1] => elements[0])
-    else:
-      None()
+    val output = get-output(p) $> trim
+    val code = run-and-get-exit-code(p)
+    if code != 0:
+      throw $ Exception("Failed to list tags from remote")
+
+    val pairs = to-tuple $ split(output, "\n")
+    to-hashtable<String, String> $ seq?{_, pairs} $ fn (line):
+      val elements = to-tuple $ split(line, "\t")
+      if length(elements) == 2:
+        One(elements[1] => elements[0])
+      else:
+        None()
+  else :
+    libgit-lsremote-tags(remote)
+
+defn is-prefix? (a:String, prefix:String) -> True|False :
+  (length(a) >= length(prefix)) and (a[0 to length(prefix)] == prefix)
+defn remove-prefix? (a:String, prefix:String) -> String :
+  val n = length(prefix)
+  if (length(a) >= n) and (a[0 to n] == prefix) : a[n to false]
+  else : a
 
 doc: \<DOC>
 Convert the `Tag` => Git Hash table to a SemVer => Hash table.
 
 This takes the output of `git-remote-tag-refs` and converts it into
 a more useable format for querying the versions.
-<DOC>
-public defn to-version-table (tag-hash:HashTable<String,String>) -> HashTable<SemanticVersion, String> :
-  to-hashtable<SemanticVersion, String> $ for kvp in tag-hash seq? :
-    val [tag, hash-str] = [key(kvp), value(kvp)]
-    val comps = split-any(tag, "^~:")
-    val tagPath = comps[0]
-    val [root, tagName] = split-filepath(tagPath)
-    ; We expect tagName to be in the form `v0.3.2` or something similar.
-    val tagName* = tagName[1 to false]
-    val version? = parse-semver(tagName*)
-    match(version?):
-      (x:None): x
-      (x:One<SemanticVersion>):
-        One(value(x) => hash-str)
 
-public defn run-git-command-in-dir (args0: Tuple<String> -- work-tree?:Maybe<String> = None(), quiet:True|False = false) -> Int:
+Prefers the peeled commit hash over the tag object hash for annotated tags
+<DOC>
+public defn to-version-table (tag-hashes:HashTable<String,String>) -> HashTable<SemanticVersion,String> :
+  ; Store preferred hashes (peeled commit hashes) to be applied afterwards
+  val peeled-hashes = Vector<KeyValue<SemanticVersion,String>>()
+  val result = to-hashtable<SemanticVersion,String> $ for kv in tag-hashes seq? :
+    val [tag, hash] = [key(kv), value(kv)]
+    if is-prefix?(tag, "refs/tags/") :
+      var tag*:String = remove-prefix?(tag[10 to false], "v")
+      if contains?(tag*, '^') :
+        val version? = parse-semver(next(split(tag*, "^")))
+        match(version?:One<SemanticVersion>) :
+          add(peeled-hashes, value(version?) => hash)
+        None()
+      else :
+        match(parse-semver(tag*)) :
+          (ver:One<SemanticVersion>) :
+            One(value(ver) => hash)
+          (_:None) : None()
+    else :
+      None()
+  ; Delayed setting of preferred key-value pairs to enforce preference for
+  ; peeled hashes
+  for kv in peeled-hashes do :
+    result[key(kv)] = value(kv)
+  result
+
+public defn run-git-command-in-dir (args0: Tuple<String>
+                                    --
+                                    work-tree?:Maybe<String> = None(),
+                                    quiet:True|False = false,
+                                    throw-on-error:True|False = true) -> Int:
   val args = to-tuple $ cat(["git"], args0)
   val work-tree = work-tree? $> value-or{_, get-cwd()}
   var b = ProcessBuilder(args)
@@ -128,10 +184,21 @@ public defn run-git-command-in-dir (args0: Tuple<String> -- work-tree?:Maybe<Str
   if quiet:
     b = with-output(b) $> with-error-stream{_}
   val process = build(b)
-  wait-process-throw-on-nonzero(process, "'%_' failed!" % [string-join(args, " ")])
+  val failure-msg = "'%_' failed!" % [string-join(args, " ")]
+  if throw-on-error :
+    wait-process-throw-on-nonzero(process, failure-msg)
+  else :
+    match(wait(process)) :
+      (code:ProcessDone): value(code)
+      (_): throw(Exception(failure-msg))
 
-public defn run-git-command-in-dir (work-tree: String, args0: Tuple<String>) -> Int:
-  run-git-command-in-dir(args0, work-tree? = One(work-tree))
+public defn run-git-command-in-dir (work-tree: String,
+                                    args0: Tuple<String>
+                                    --
+                                    quiet:True|False = false
+                                    throw-on-error:True|False = true) -> Int:
+  run-git-command-in-dir(args0, work-tree? = One(work-tree),
+    quiet = quiet, throw-on-error = throw-on-error)
 
 public defn run-git-command (args0: Tuple<String>) -> Int:
   run-git-command-in-dir(args0)

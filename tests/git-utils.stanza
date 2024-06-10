@@ -12,6 +12,7 @@ deftest(git-utils) test-to-version-table:
   val inputvec = to-hashtable<String, String>([
     "refs/tags/v0.1.0" => "0001",
     "refs/tags/v0.2.0" => "0002",
+    "refs/tags/v0.2.1" => "0006", ; This should be ignored in favor of the peeled hash
     "refs/tags/v0.2.1^{}" => "0003",
     "refs/tags/v0.2.2^{}" => "0004",
     "refs/tags/cja_test" => "0005",   ; This should get filtered out.
@@ -29,4 +30,3 @@ deftest(git-utils) test-to-version-table:
   #EXPECT(length(obs) == length(exp))
   for k in keys(exp) do:
     #EXPECT(obs[k] == exp[k])
-

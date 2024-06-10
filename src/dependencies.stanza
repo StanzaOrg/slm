@@ -210,7 +210,7 @@ defn resolve-git-dependency? (
       fetch-dependency-at-version(dep)
 
     debug("computing hash for '%_' at '%_'" % [name(dep), path(dep)])
-    val hash = git-rev-parse!(path(dep), "HEAD")
+    val hash = git-or-libgit-rev-parse!(path(dep), "HEAD")
     One(dep $> sub-hash{_, hash})
 
 defn error-incompatible-path-version (dep:PathDependency, obs-version:String):
