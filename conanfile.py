@@ -18,6 +18,9 @@ from shutil import copy2, copytree
 required_conan_version = ">=2.0"
 
 class ConanSlmPackage(ConanFile):
+  package_id_embed_mode = "unrelated_mode"
+  package_id_non_embed_mode = "unrelated_mode"
+  package_id_python_mode = "unrelated_mode"
   package_type = "application"
   python_requires = "lbstanzagenerator_pyreq/[>=0.1]"
 
@@ -41,11 +44,13 @@ class ConanSlmPackage(ConanFile):
         self.version = tomllib.load(f)["version"]
     self.output.info(f"conanfile.py: set_version() - self.version={self.version} from slm.toml")
 
+
   # export(): Copies files that are part of the recipe
   def export(self):
     self.output.info("conanfile.py: export()")
     # export slm.toml with the conan recipe so that it can be referenced at dependency time without sources
     copy(self, "slm.toml", self.recipe_folder, self.export_folder)
+
 
   # export_sources(): Copies files that are part of the recipe sources
   def export_sources(self):
@@ -109,8 +114,11 @@ class ConanSlmPackage(ConanFile):
           # use its name and version as a conan requires
           pkgname = d["pkg"]
           pkgver = d["version"]
-          self.output.trace(f"conanfile.py: requirements() requires(\"{pkgname}/{pkgver}\")")
-          self.requires(f"{pkgname}/{pkgver}")
+
+          # package_id_mode="unrelated_mode" means don't list this required lib in the
+          # requirements for the slm output package
+          self.output.trace(f"conanfile.py: requirements() requires(\"{pkgname}/{pkgver}\", package_id_mode=\"unrelated_mode\")")
+          self.requires(f"{pkgname}/{pkgver}", package_id_mode="unrelated_mode")
 
 
   # build_requirements(): Defines tool_requires and test_requires
