@@ -104,6 +104,11 @@ class ConanSlmPackage(ConanFile):
   def requirements(self):
     self.output.info("conanfile.py: requirements()")
 
+
+  # build_requirements(): Defines tool_requires and test_requires
+  def build_requirements(self):
+    self.output.info("conanfile.py: build_requirements()")
+
     with open(f"{self.recipe_folder}/slm.toml", "rb") as f:
       deps = tomllib.load(f)["dependencies"]
 
@@ -117,11 +122,6 @@ class ConanSlmPackage(ConanFile):
           self.output.trace(f"conanfile.py: requirements() requires(\"{pkgname}/{pkgver}\")")
           self.requires(f"{pkgname}/{pkgver}")
 
-
-  # build_requirements(): Defines tool_requires and test_requires
-  def build_requirements(self):
-    self.output.info("conanfile.py: build_requirements()")
-  
     # use stanza provided by conan
     self.tool_requires("lbstanza/[>=0.18.58]")
     self.tool_requires("slm/0.6.4")
