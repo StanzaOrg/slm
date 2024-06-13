@@ -79,11 +79,11 @@ class LBStanzaGenerator:
             if is_shared_lib:
                 outf.write(f'  dynamic-libraries:\n')
                 outf.write(f'    on-platform:\n')
-                s = " ".join([f'"{str(p)}"' for p in libs["linux"]])
+                s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["linux"]])
                 outf.write(f'      linux: ( {s} )\n')
-                s = " ".join([f'"{str(p)}"' for p in libs["macos"]])
+                s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["macos"]])
                 outf.write(f'      os-x: ( {s} )\n')
-                s = " ".join([f'"{str(p)}"' for p in libs["windows"]])
+                s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["windows"]])
                 outf.write(f'      windows: ( {s} )\n')
             else:  # static
                 pass
@@ -91,12 +91,12 @@ class LBStanzaGenerator:
             outf.write(f'    on-platform:\n')
             incdirall = ""
             for incdir in include_dirs:
-                incdirall += f" \"-I{incdir}\" "
-            s = " ".join([f'"{str(p)}"' for p in libs["linux"]])
+                incdirall += f" \"-I{incdir.replace('\\', '/')}\" "
+            s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["linux"]])
             outf.write(f'      linux: ( {incdirall} {startgrp} {s} {extralibslnx} {endgrp} )\n')
-            s = " ".join([f'"{str(p)}"' for p in libs["macos"]])
+            s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["macos"]])
             outf.write(f'      os-x: ( {incdirall} {s} {extralibsmac} )\n')
-            s = " ".join([f'"{str(p)}"' for p in libs["windows"]])
+            s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["windows"]])
             outf.write(f'      windows: ( {incdirall} {startgrp} {s} {extralibswin} {endgrp} )\n')
 
             outf.write(f'\n')
@@ -106,21 +106,21 @@ class LBStanzaGenerator:
             if is_shared_lib:
                 outf.write(f'  dynamic-libraries:\n')
                 outf.write(f'    on-platform:\n')
-                s = " ".join([f'"{str(p)}"' for p in libs["linux"]])
+                s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["linux"]])
                 outf.write(f'      linux: ( {s} )\n')
-                s = " ".join([f'"{str(p)}"' for p in libs["macos"]])
+                s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["macos"]])
                 outf.write(f'      os-x: ( {s} )\n')
-                s = " ".join([f'"{str(p)}"' for p in libs["windows"]])
+                s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["windows"]])
                 outf.write(f'      windows: ( {s} )\n')
             else:  # static
                 pass
             outf.write(f'  ccflags:\n')
             outf.write(f'    on-platform:\n')
-            s = " ".join([f'"{str(p)}"' for p in libs["linux"]])
+            s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["linux"]])
             outf.write(f'      linux: ( {incdirall} {startgrp} {s} {extralibslnx} {endgrp} )\n')
-            s = " ".join([f'"{str(p)}"' for p in libs["macos"]])
+            s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["macos"]])
             outf.write(f'      os-x: ( {incdirall} {s} {extralibsmac} )\n')
-            s = " ".join([f'"{str(p)}"' for p in libs["windows"]])
+            s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["windows"]])
             outf.write(f'      windows: ( {incdirall} {startgrp} {s} {extralibswin} {endgrp} )\n')
 
 

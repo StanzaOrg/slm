@@ -27,7 +27,7 @@ class ConanSlmPackage(ConanFile):
   settings = "os", "arch"
 
   options = {"shared": [True, False], "fPIC": [True, False]}
-  default_options = {"shared": True, "fPIC": True}
+  default_options = {"shared": True, "fPIC": True, "*/*:shared": True}
   implements = ["auto_shared_fpic"]
 
 
