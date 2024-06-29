@@ -60,6 +60,7 @@ public defn run (cmd-args:CommandArgs) -> False:
 
   debug("calling get-cwd")
   val slm-dir = path-join(get-cwd(), SLM_DIR)
+  set-env("SLM_DIR", slm-dir)
 
   val stanza-exe = get-stanza-exe(compiler?(cfg))
   debug("with stanza='%_'" % [stanza-exe])
@@ -112,6 +113,15 @@ variable will contain one of the following strings:
   1.  windows
   2.  linux
   3.  os-x
+
+----------------------------
+SLM_DIR
+----------------------------
+
+This command will define the `SLM_DIR` environment variable and
+it will point at the `.slm` directory for the top-level project
+being built. This will give subsequent child builds access to
+a known directory from which to find other dependencies.
 
 <MSG>
 
