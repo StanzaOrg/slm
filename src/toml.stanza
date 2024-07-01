@@ -56,21 +56,9 @@ helper function to make sure the `get-proj-stanza-version!`
 gets called on valid data for the project.
 <DOC>
 public defn parse-project-toml (path:String -- env-sub-enable:True|False = true) -> SlmToml :
-  val cfg = parse-slm-toml(path, env-sub-enable = env-sub-enable)
+  val cfg = parse-slm-toml-file(path, env-sub-enable = env-sub-enable)
   get-proj-stanza-version!(compiler?(cfg))
   cfg
-
-doc: \<DOC>
-Parse the SLM TOML configuration file
-
-@param path Path to the file to parse.
-@param env-sub-enable Allow environment variable substitutions.
-This will replace strings like `{HOME}` with environment variable
-values if they exist.
-<DOC>
-public defn parse-slm-toml (path:String -- env-sub-enable:True|False = true) -> SlmToml:
-  within f = open(path):
-    parse-slm-toml(f, env-sub-enable = env-sub-enable)
 
 doc: \<DOC>
 Parse the SLM TOML configuration file
@@ -81,9 +69,8 @@ the implementation easier.
 This will replace strings like `{HOME}` with environment variable
 values if they exist.
 <DOC>
-public defn parse-slm-toml (f:InputStream -- env-sub-enable:True|False = true) -> SlmToml:
-  val content = slurp-stream(f)
-  val table = content $> parse-string $> table
+public defn parse-slm-toml-file (file:String -- env-sub-enable:True|False = true) -> SlmToml:
+  val table = file $> parse-file $> table
 
   val name = table["name"] as String
   debug("parse-slm-toml: name: \"%_\"" % [name])

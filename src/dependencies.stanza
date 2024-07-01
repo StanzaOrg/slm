@@ -106,7 +106,7 @@ Observed-Version - String indicating the version found in the
 defn check-path-compatible (d:PathDependency) -> [True|False, String] :
   val dep-path = path(d)
   val cfg-path = path-join(dep-path, SLM_TOML_NAME)
-  val cfg = parse-slm-toml(cfg-path, env-sub-enable = false)
+  val cfg = parse-slm-toml-file(cfg-path, env-sub-enable = false)
   val obs-version-str = version(cfg)
   val obs-version? = parse-semver(obs-version-str)
   val is-compat = match(obs-version?, version?(d)):
@@ -154,8 +154,7 @@ defn parse-slm-toml-and-resolve-dependencies (cfg:SlmToml) -> Tuple<Dependency>:
         debug("parsing '%_'" % [next-slm-toml])
         val [dep-path, _] = split-filepath(next-slm-toml)
         debug("dep-path: %_" % [dep-path])
-        val next-cfg = within f = open(next-slm-toml):
-          parse-slm-toml(f)
+        val next-cfg = parse-slm-toml-file(next-slm-toml)
         loop(next-cfg, dep-path, false)
 
   debug("done parsing dependency graph")
