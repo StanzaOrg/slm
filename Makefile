@@ -72,6 +72,14 @@ upload:
 	echo -e "\n*** Makefile: upload: uploading \"$${SLMPROJNAME}/$${SLMPROJVER}\" ***"
 	${CONAN} upload -r artifactory $${SLMPROJNAME}/$${SLMPROJVER}
 
+	cd slm_builder/conan_lbstanza_generator
+	${CONAN} create .
+	 # get the generator name and version from the conanfile.py file
+	PYSLMPROJNAME=$$(${SED} -n -e '/^ *name *= *"*\([^"]*\).*/{s//\1/;p;q}' conanfile.py)
+	PYSLMPROJVER=$$(${SED} -n -e '/^ *version *= *"*\([^"]*\).*/{s//\1/;p;q}' conanfile.py)
+	-e "\n*** Makefile: upload: uploading \"$${PYSLMPROJNAME}/$${PYSLMPROJVER}\" ***"
+	${CONAN} upload -r artifactory $${PYSLMPROJNAME}/$${PYSLMPROJVER}
+
 .PHONY: clean
 clean:
 	@CLEANCMD="rm -rf .conan2 .slm build venv"
