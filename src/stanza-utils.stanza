@@ -121,7 +121,7 @@ public defn check-stanza-versions (cfg:SlmToml, dependencies:Tuple<Dependency>) 
       if slm-cfg == false:
         None()
       else:
-        val dep-cfg = parse-slm-toml(slm-cfg as String)
+        val dep-cfg = parse-slm-toml-file(slm-cfg as String)
         debug("Dep[%_]: Stanza Version Spec: %_" % [name(dep), stanza-version?(dep-cfg)])
         val [compatible, msg] = is-stanza-compatible?(dep-cfg)
         debug("Dep[%_]: Compatible: %_ | %_" % [name(dep), compatible, msg])
