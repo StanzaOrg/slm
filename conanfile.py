@@ -22,7 +22,8 @@ class ConanSlmPackage(ConanFile):
   package_id_non_embed_mode = "unrelated_mode"
   package_id_python_mode = "unrelated_mode"
   package_type = "application"
-  python_requires = "lbstanzagenerator_pyreq/[>=0.1]"
+  python_requires = "lbstanzagenerator_pyreq/0.1"
+  #python_requires = "lbstanzagenerator_pyreq/[>=0.6 <1.0]"
 
   # Binary configuration
   #settings = "os", "arch", "compiler", "build_type"
@@ -126,13 +127,13 @@ class ConanSlmPackage(ConanFile):
     self.output.info("conanfile.py: build_requirements()")
   
     # use stanza provided by conan
-    self.tool_requires("lbstanza/[>=0.18.78]")
+    self.tool_requires("lbstanza/[>=0.18.78 <1.0]")
     self.tool_requires("slm/0.6.9")
 
     # use cmake and ninja provided by conan
     # necessary if compiling non-stanza dependencies
-    self.tool_requires("cmake/[>3.20]")
-    self.tool_requires("ninja/[>1.11]")
+    self.tool_requires("cmake/[>=3.20 <4.0]")
+    self.tool_requires("ninja/[>=1.11 <2.0]")
   
     # use mingw-builds compiler provided by conan on windows
     if self.settings.os == "Windows":
