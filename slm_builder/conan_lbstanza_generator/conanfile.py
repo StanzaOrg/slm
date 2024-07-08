@@ -9,7 +9,6 @@ from conans.model.pkg_type import PackageType
 from conans.model.build_info import _Component
 from io import TextIOWrapper
 from pathlib import Path
-import jsons
 
 class LBStanzaGeneratorPyReq(ConanFile):
     name = "lbstanzagenerator_pyreq"
@@ -132,7 +131,7 @@ class LBStanzaGenerator:
     def get_component_libs_from_dependency(self, depname: str, depinst: ConanFileInterface) -> list:
         #self._conanfile.output.trace(f"    - depinst.cppinfo: \"{depinst.cpp_info.serialize()}\"")
         #self._conanfile.output.trace(f"    - depinst.cppinfo:")
-        #self._conanfile.output.trace(jsons.dumps(depinst.cpp_info.serialize(), jdkwargs={"indent": 2}))
+        #self._conanfile.output.trace(json.dumps(depinst.cpp_info.serialize(), jdkwargs={"indent": 2}))
         # collect required library definitions from dependencies
         self._conanfile.output.trace(f"    - components:")
         complist = []
