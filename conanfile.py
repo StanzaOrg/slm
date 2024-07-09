@@ -22,7 +22,7 @@ class ConanSlmPackage(ConanFile):
   package_id_non_embed_mode = "unrelated_mode"
   package_id_python_mode = "unrelated_mode"
   package_type = "application"
-  python_requires = "lbstanzagenerator_pyreq/0.1"
+  python_requires = "lbstanzagenerator_pyreq/0.6.12"
   #python_requires = "lbstanzagenerator_pyreq/[>=0.6 <1.0]"
 
   # Binary configuration
@@ -128,7 +128,7 @@ class ConanSlmPackage(ConanFile):
   
     # use stanza provided by conan
     self.tool_requires("lbstanza/[>=0.18.78 <1.0]")
-    self.tool_requires("slm/0.6.9")
+    self.tool_requires("slm/0.6.12")
 
     # use cmake and ninja provided by conan
     # necessary if compiling non-stanza dependencies
