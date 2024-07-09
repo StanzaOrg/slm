@@ -88,7 +88,7 @@ if [ "$CREATE_PACKAGE" == "true" ] ; then
   # assume there is already a venv set up with conan installed
   [ -e venv/Scripts/activate ] && source venv/Scripts/activate || source venv/bin/activate
   export CONAN_HOME=$PWD/.conan2
-  CVER=$(conan list -c -f json slm/* | jq -r '."Local Cache" | keys | sort | last')
+  CVER=$(conan list -c -f json slm/* | jq -r '."Local Cache" | keys | .[]' | sort -V | tail -1)
   CPKG=$(conan list -c -f json $CVER:* | jq -r '."Local Cache" | to_entries[0].value.revisions | to_entries[0].value.packages | keys_unsorted | first')
   CPATH=$(conan cache path ${CVER}:${CPKG})
 
