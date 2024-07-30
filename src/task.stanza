@@ -163,9 +163,6 @@ public defstruct TaskDependency <: Dependency & Hashable & Equalable:
 with:
   constructor => #TaskDependency
 
-defmethod recursive (d:TaskDependency) -> True|False :
-  false
-
 defmethod path (d:TaskDependency) -> String:
   path-join(SLM_DEPS_DIR, name(d))
 
@@ -179,6 +176,9 @@ defmethod hash (x:TaskDependency) -> Int :
     val [k,v] = [key(kvp), value(kvp)]
     hash(k) + hash(v)
   hash(name(x)) + hash(task?(x)) + ptask-hash
+
+defmethod dependency-type-name (d:TaskDependency) -> String :
+  "task"
 
 public defn TaskDependency (
   name:String,

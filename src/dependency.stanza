@@ -16,6 +16,8 @@ public defmulti name (d: Dependency) -> String
 public defmulti path (d: Dependency) -> String
 public defmulti version-string? (d: Dependency) -> Maybe<String>:
   None()
+public defmulti dependency-type-name (d:Dependency) -> String
+
 doc: \<DOC>
 Indicates whether a dependency should be parsed recursively.
 
@@ -26,26 +28,42 @@ dependencies with.
 Other deps, like the `TaskDependency` does not have an `slm.toml`
 and is primarily for executing a command/process for external
 initialization.
-
-This flag is for differentiating between these two types of
-dependency.
 <DOC>
-public defmulti recursive (d:Dependency) -> True|False :
+public deftype RecursiveDependency <: Dependency
+public defmulti recursive (d:Dependency) -> True|False
+defmethod recursive (d:Dependency) -> True|False :
+  false
+defmethod recursive (d:RecursiveDependency) -> True|False :
   true
 
 doc: \<DOC>
 Tool for filtering dependencies for recursives only.
 <DOC>
-public defn recursive-deps-only (deps:Seqable<Dependency>) -> Seqable<Dependency> :
-  for dep in deps filter:
-    recursive(dep)
+public defn recursive-deps-only (deps:Seqable<Dependency>) -> Seqable<RecursiveDependency> :
+  filter-by<RecursiveDependency>(deps)
 
 public defstruct UnknownDependencyTypeError <: Exception :
   dep:Dependency
 
 public defmethod print (o:OutputStream, e:UnknownDependencyTypeError):
-  val msg = "Unknown and Unhandled Dependency Type: %_" % [dep(e)]
-  print(o, msg)
+  print(o, "Unexpected dependency type: %_" % [object-type(dep(e))])
 
+;============================================================
+;===================== Terminal Colors ======================
+;============================================================
 
+public defn colored-name? (name:String) -> ColoredString :
+  ColoredString(name)
+    $> bold $> foreground{_, TerminalBrightWhite}
+    $> clear-color?
+public defn colored-name? (d:Dependency) -> ColoredString :
+  colored-name?(name(d))
 
+public defn colored-version? (version:String) -> ColoredString :
+  ColoredString(version)
+    $> bold $> foreground{_, TerminalBrightGreen}
+    $> clear-color?
+public defn colored-version? (v:SemanticVersion) -> ColoredString :
+  colored-version?(to-string(v))
+public defn colored-version? (d:Dependency) -> ColoredString :
+  colored-version?(value-or(version-string?(d), ""))

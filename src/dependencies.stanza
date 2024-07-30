@@ -1,5 +1,6 @@
 defpackage slm/dependencies:
   import core
+  import core/parsed-path
   import collections
 
   import maybe-utils
@@ -90,148 +91,335 @@ public-when(TESTING) defn write-build-stanza-proj (f:OutputStream, dependencies:
       debug("write-build-stanza-proj: adding \"%_\" to stanza.proj at \"%_\"" % [dep-stanza-proj, f])
       println(f, to-string("include \"%_\"" % [dep-stanza-proj]))
 
+;Internal struct used by dependency resolution to track the current resolution
+;status of dependencies
+defstruct DependencyFrame :
+  dependency:RecursiveDependency
+  parent-name:String
+  ;Used to "cancel" earlier queued requests to process this dependency
+  most-recent-ticket-number:Int
+
+defn parse-slm-toml-and-resolve-dependencies (project-config:SlmToml) -> Tuple<Dependency> :
+  ;Ticket ID number generator
+  val ticket-number-seq = to-seq(0 to false)
+
+  ;Current resolution state of each recursive dependency, keyed by dependency name
+  val res-table = HashTable<String,DependencyFrame>()
+
+  ;Non-recursive dependencies
+  val non-res-deps = Vector<Dependency>()
+
+  ;Table of path dependency configs
+  val path-configs = HashTable<String,Maybe<SlmToml>>()
+
+  ;Queue of dependencies to process
+  val ticket-queue = Queue<[String,Int]>()
+
+  ;Queue a dependency for resolution
+  defn queue-ticket (dep:RecursiveDependency, parent-name:String) -> False :
+    val tick-num = next(ticket-number-seq)
+    res-table[name(dep)] = DependencyFrame(dep, parent-name, tick-num)
+    add(ticket-queue, [name(dep), tick-num])
+
+  ;For a new recursive child dependency:
+  ;- Check if it is compatible with the previously resolved version if a
+  ;  dependency with the same name was previously resolved
+  ;- Queue the dependency for (re-)processing if necessary
+  ;  * Reprocessing may occur if, for example, a child git dependency is
+  ;    re-requested by a second parent at a newer version (which is
+  ;    compatible with old version requested by the first parent)
+  defn queue-child-dep (child:RecursiveDependency, parent-name:String) -> False :
+    match(get?(res-table, name(child))) :
+      (frame:DependencyFrame) :
+        val old-dep = dependency(frame)
+        val old-parent = /parent-name(frame)
+        if compatible-dep?(child, parent-name, old-dep, old-parent) :
+          queue-ticket(child, parent-name)
+      (_) :
+        queue-ticket(child, parent-name)
+
+  ;Process the children of a dependency:
+  ;- Execute task dependencies
+  ;- Queue recursive children for processing
+  defn process-children (parent-config:SlmToml, parent-name:String,
+                         parent-dir:String) -> False :
+    for child in values(dependencies(parent-config)) do :
+      match(child) :
+        (child:RecursiveDependency) :
+          queue-child-dep(child, parent-name)
+        (child:TaskDependency) :
+          add(non-res-deps, child)
+          run-task-dep(child, parent-name, parent-dir)
+        (_) :
+          error("unexpected dependency type: %_" % [object-type(child)])
+
+  ;Process a ticket given its dependency frame
+  defn process-ticket (frame:DependencyFrame) -> False :
+    match(dependency(frame)) :
+      (dep:GitDependency) :
+        val config = resolve-git-dependency(dep)
+        match(config:SlmToml) :
+          process-children(config, name(dep), path(dep))
+
+      (dep:PathDependency) :
+        val [config, is-new?] = match(get?(path-configs, name(dep))) :
+          (config:Maybe<SlmToml>) :
+            [config, false]
+          (_) :
+            val toml-path = path-join(path(dep), SLM_TOML_NAME)
+            if file-exists?(toml-path) :
+              [One(parse-slm-toml-file(toml-path)), true]
+            else :
+              warn("no configuration file found for path dependency %_ at %_"
+                % [name(dep), path(dep)])
+              [None(), true]
+
+        check-path-compatible(dep, parent-name(frame), config)
+
+        if is-new? :
+          path-configs[name(dep)] = config
+          match(config:One<SlmToml>) :
+            process-children(value(config), name(dep), path(dep))
+
+      (dep:PkgDependency) :
+        fetch-dependency-pkgver(dep)
+        val toml-path = path-join(path(dep), SLM_TOML_NAME)
+        if file-exists?(toml-path) :
+          val config = parse-slm-toml-file(toml-path)
+          process-children(config, name(dep), path(dep))
+        else :
+          warn("no configuration file found for package dependency %_ at %_"
+            % [name(dep), path(dep)])
+
+  ;Process a ticket if it has not been pre-empted
+  defn process-ticket? (ticket:[String,Int]) -> False :
+    val [name, tick-num] = ticket
+    val frame = match(get?(res-table, name)) :
+      (frame:DependencyFrame) : frame
+      (_) :
+        error("dependency resolution algorithm failure: missing frame for \
+          dependency %_" % [name])
+    val frame-tick-num = most-recent-ticket-number(frame)
+    if frame-tick-num == tick-num :
+      process-ticket(frame)
+    else :
+      debug("skipping ticket %_ for %_: pre-empted by ticket %_" % [tick-num,
+        name, frame-tick-num])
+
+  ;Execute
+  process-children(project-config, name(project-config), get-cwd())
+  while not empty?(ticket-queue) :
+    process-ticket?(pop(ticket-queue))
+
+  debug("done resolving dependencies")
+
+  to-tuple $ cat{_, non-res-deps} $ for dep in seq(dependency, values(res-table)) seq :
+    match(dep) :
+      (dep:GitDependency) :
+        debug("resolved %_ to %_" % [colored-name?(dep), colored-version?(dep)])
+        debug("computing hash for %_ at %_" % [colored-name?(dep), path(dep)])
+        val hash = git-or-libgit-rev-parse!(path(dep), "HEAD")
+        sub-hash(dep, hash)
+      (dep:PathDependency):
+        debug("resolved %_ to %_" % [colored-name?(dep), path(dep)])
+        dep
+      (dep:PkgDependency) :
+        debug("resolved %_ to %_" % [colored-name?(dep), colored-version?(dep)])
+        dep
+      (_) :
+        error("unexpected dependency type: %_" % [object-type(dep)])
+
+;Fetch or sync the git dependency
+;Returns the dependency's parsed config (if its config file exists)
+defn resolve-git-dependency (dep:GitDependency) -> SlmToml|False :
+  val dep-dir = path(dep)
+  val toml-path = path-join(dep-dir, SLM_TOML_NAME)
+  val cfg? = if file-exists?(toml-path) :
+    val cfg = parse-slm-toml-file(toml-path)
+    match(parse-semver(version(cfg))) :
+      (ver:One<SemanticVersion>) :
+        val old-ver = value(ver)
+        if old-ver == version(dep) :
+          ;Existing copy version already matches
+          cfg
+        else if compatible?(old-ver, version(dep)) :
+          ;Existing copy is compatible
+          info("using existing version %_ for %_ which is compatible with \
+            requested version %_" % [old-ver, name(dep), version(dep)])
+          cfg
+        else :
+          ;Existing copy is not compatible
+          sync-dependency-to-version(dep)
+          ;Old config is now invalid
+          false
+      (_) :
+        ;Can't parse version of existing copy, assume it is not compatible
+        sync-dependency-to-version(dep)
+        ;Old config is now invalid
+        false
+  else if file-exists?(dep-dir) :
+    ;Folder is missing config file, assume dependency is out-of-date
+    sync-dependency-to-version(dep)
+    false
+  else :
+    fetch-dependency-at-version(dep)
+    false
+
+  ;Return already-parsed config if available, otherwise (re-)parse config from file
+  match(cfg?) :
+    (cfg:SlmToml) : cfg
+    (_) :
+      if file-exists?(toml-path) :
+        parse-slm-toml-file(toml-path)
+      else :
+        warn("could not find configuration file for git dependency %_ at %_" %
+          [name(dep), toml-path])
+        false
+
 doc: \<DOC>
-Check if the version located at the desired path is compatible.
-
-Path Dependencies have an optional version that we can use to
-check the specified path. We're looking for compatibility
-with a particular version to head off issues where the API
-doesn't work.
-
-@return [Compatible?, Observed-Version]
-Compatable? - True if the versions are compatible or their is no
-expected version. False otherwise.
-Observed-Version - String indicating the version found in the
+Check if the expected version requested by the path dependency is satisfied by
+the observed config
+@throws Error if expected version does not match observed version
 <DOC>
-defn check-path-compatible (d:PathDependency) -> [True|False, String] :
-  val dep-path = path(d)
-  val cfg-path = path-join(dep-path, SLM_TOML_NAME)
-  val cfg = parse-slm-toml-file(cfg-path, env-sub-enable = false)
-  val obs-version-str = version(cfg)
-  val obs-version? = parse-semver(obs-version-str)
-  val is-compat = match(obs-version?, version?(d)):
-    (obs:One<SemanticVersion>, exp:One<SemanticVersion>):
-      compatible?(value!(obs), value!(exp))
-    (obs, exp:None): true
-  [is-compat, obs-version-str]
+defn check-path-compatible (dep:PathDependency, parent-name:String,
+                            config:Maybe<SlmToml>) -> False :
+  val obs = match(config:One<SlmToml>) : parse-semver(version(value(config)))
+    else: None()
+  match(version?(dep), obs) :
+    (exp:One<SemanticVersion>, obs:One<SemanticVersion>) :
+      if not compatible?(value(exp), value(obs)) :
+        val msg = "path dependency %_ at %_ has version %_, which is \
+          incompatible with version %_ requested by %_" % [name(dep), path(dep),
+          value(obs), version-string!(dep), parent-name]
+        error(msg, code = 240)
+    (exp:One<SemanticVersion>, obs:None) :
+      val msg = match(config:One<SlmToml>) :
+        "path dependency %_ at %_ has non-semantic version %_, which is \
+          incompatible with version %_ requested by %_" % [name(dep), path(dep),
+          version(value(config)), version-string!(dep), parent-name]
+      else :
+        "path dependency %_ at %_ has no configuration file, but version %_ \
+          was requested by %_" % [name(dep), path(dep), version-string!(dep),
+          parent-name]
+      error(msg, code = 240)
+    (exp:None, obs) :
+      false
+  false
 
-defn parse-slm-toml-and-resolve-dependencies (cfg:SlmToml) -> Tuple<Dependency>:
-  val resolved-dependencies = HashTable<String, Dependency>()
+doc: \<DOC>
+Checks if a requested dependency is compatible with the previously resolved
+dependency of the same name
 
-  let loop (slm-toml:SlmToml = cfg, dep-path:String = get-cwd(), top-level: True|False = true):
-    val parent-name = slm-toml $> name
-    val resolved = to-tuple $ for dep in values(dependencies(slm-toml)) seq?:
-      match(dep):
-        (dep: GitDependency):
-          resolve-git-dependency?(dep, parent-name, resolved-dependencies)
-        (dep: PathDependency):
-          if top-level:
-            resolve-path-dependency?(dep, resolved-dependencies)
-          else:
-            error("found path dependency '%_' in dependency '%_'.\n\
-                   You can't have path dependencies in dependencies \
-                   (path dependencies can only be specified in a top-level slm.toml)"
-                   % [/name(dep), parent-name])
-        (dep: PkgDependency):
-          fetch-or-sync-pkgver(dep, parent-name, dep-path)
-        (dep: TaskDependency):
-          run-task-dep(dep, parent-name, dep-path)
-        (_): fatal("parse-slm-toml-and-resolve-dependencies: unexpected dependency type: %_" % [dep])
+@param dep Requested dependency
+@param parent Name of `dep`'s parent dependency
+@param resolved-dep Previously resolved dependency of the same name
+@param resolved-parent Name of `resolved-dep`'s parent dependency
+@returns true if `dep` should become the new resolved dependency, false otherwise
+@throws Error if requested and resolved dependencies are incompatible
+<DOC>
+defmulti compatible-dep? (dep:RecursiveDependency, parent:String,
+  resolved-dep:RecursiveDependency, resolved-parent:String) -> True|False
 
-    debug("done resolving '%_'" % [parent-name])
+;Default to incompatibility error for mismatched dependency types
+defmethod compatible-dep? (dep:RecursiveDependency, parent:String,
+                           resolved-dep:RecursiveDependency,
+                           resolved-parent:String) -> True|False :
+  error("incompatible dependency types requested for %_:\n  \
+    %_ requested it as a %_ dependency\n  %_ requested it as a %_ dependency"
+    % [colored-name?(dep), colored-name?(parent), dependency-type-name(dep),
+    colored-name?(resolved-parent), dependency-type-name(resolved-dep)])
 
-    for dep in resolved do:
-      match(dep: GitDependency):
-        debug("resolved %_ at %_" % [colored-name?(dep), version-string(dep)])
-      resolved-dependencies[/name(dep)] = dep
+;Git dependency compatibility
+defmethod compatible-dep? (dep:GitDependency, parent:String,
+                           resolved-dep:GitDependency, resolved-parent:String)
+                           -> True|False :
+  val requested-version = version(dep)
+  val resolved-version = version(resolved-dep)
+  if not compatible?(requested-version, resolved-version) :
+    error("incompatible versions requested for git dependency %_:\n  \
+      %_ => %_\n  %_ => %_" % [colored-name?(dep), colored-name?(parent),
+      colored-version?(dep), colored-name?(resolved-parent),
+      colored-version?(resolved-dep)])
+  ;Replace resolved dependency with 'dep' if 'dep' has higher semantic version
+  requested-version > resolved-version
 
-    val resolved* = recursive-deps-only(resolved)
-    for dep in resolved* do:
-      val next-slm-toml = path-join(path(dep), SLM_TOML_NAME)
-      if not file-exists?(next-slm-toml):
-        debug("skipping '%_': does not exist" % [next-slm-toml])
-      else:
-        debug("parsing '%_'" % [next-slm-toml])
-        val [dep-path, _] = split-filepath(next-slm-toml)
-        debug("dep-path: %_" % [dep-path])
-        val next-cfg = parse-slm-toml-file(next-slm-toml)
-        loop(next-cfg, dep-path, false)
+;Path dependency compatibility
+defmethod compatible-dep? (dep:PathDependency, parent:String,
+                           resolved-dep:PathDependency, resolved-parent:String)
+                           -> True|False :
+  if path(dep) != path(resolved-dep) :
+    error("different paths specified for path dependency %_:\n  \
+      %_ => %_\n  %_ => %_" % [colored-name?(dep), colored-name?(parent),
+      path(dep), colored-name?(resolved-parent), path(resolved-dep)])
+  match(version?(dep), version?(resolved-dep)) :
+    (v1:One<SemanticVersion>, v2:One<SemanticVersion>) :
+      if v1 != v2 :
+        error("different versions specified for path dependency %_:\n  \
+          %_ => %_\n  %_ => %_" % [colored-name?(dep), colored-name?(parent),
+          colored-version?(dep), colored-name?(resolved-parent),
+          colored-version?(resolved-dep)])
+      false
+    (v1:One<SemanticVersion>, v2:None) :
+      true
+    (v1:None, v2) :
+      false
 
-  debug("done parsing dependency graph")
-  for dep in values(resolved-dependencies) do:
-    match(dep: GitDependency):
-      debug("resolved %_ at %_" % [colored-name?(dep), to-string(version(dep))])
+;Package dependency compatibility
+;TODO: implement package dependency version compatibility checking
+defmethod compatible-dep? (dep:PkgDependency, parent:String,
+                           resolved-dep:PkgDependency, resolved-parent:String)
+                           -> True|False :
+  if version(dep) != version(resolved-dep) :
+    error("incompatible versions requested for package dependency %_:\n  \
+      %_ => %_\n  %_ => %_" % [colored-name?(dep), parent,
+      colored-version?(dep), resolved-parent, colored-version?(resolved-dep)])
+  ;TODO: determine when to overwrite resolved package dependency
+  false
 
-  to-tuple $ values $ resolved-dependencies
+;Path dependency precedence
+defmethod compatible-dep? (dep:PathDependency, parent:String,
+                           resolved-dep:GitDependency,
+                           resolved-parent:String) -> True|False :
+  warn("using path dependency at %_ to satisfy git dependency on %_ requested \
+    by %_, skipping compatibility check" % [path(dep), name(resolved-dep),
+    resolved-parent])
+  true
+defmethod compatible-dep? (dep:GitDependency, parent:String,
+                           resolved-dep:PathDependency, resolved-parent:String)
+                           -> True|False :
+  warn("using path dependency at %_ to satisfy git dependency on %_ requested \
+    by %_, skipping compatibility check" % [path(resolved-dep), name(dep),
+    parent])
+  false
+defmethod compatible-dep? (dep:PathDependency, parent:String,
+                           resolved-dep:PkgDependency,
+                           resolved-parent:String) -> True|False :
+  warn("using path dependency at %_ to satisfy package dependency on %_ \
+    requested by %_, skipping compatibility check" % [path(dep),
+    name(resolved-dep), resolved-parent])
+  true
+defmethod compatible-dep? (dep:PkgDependency, parent:String,
+                           resolved-dep:PathDependency, resolved-parent:String)
+                           -> True|False :
+  warn("using path dependency at %_ to satisfy package dependency on %_ \
+    requested by %_, skipping compatibility check" % [path(resolved-dep),
+    name(dep), parent])
+  false
 
-defn resolve-git-dependency? (
-  dep: GitDependency,
-  parent-name: String,
-  resolved-dependencies: HashTable<String, Dependency>,
-):
-  label<Maybe<GitDependency>> return:
-    val requested-version = version(dep)
-    debug("trying to resolve %_ at %_" % [colored-name?(dep), requested-version])
+;============================================================
+;======================== Utilities =========================
+;============================================================
 
-    ; Get the resolved version of this dependency, checking first to see
-    ; if it has previously been resolved.
-    match(get?(resolved-dependencies, name(dep))):
-      ; If not, we just use the requested version.
-      (_: False):
-        debug("using requested version: %_" % [requested-version])
-      ; If we have, we need to:
-      ;   1. Check if the requested version is incompatible.
-      ;   2. Check if the already-resolved version is the same, or newer.
-      (resolved-dependency: GitDependency):
-        val resolved-version = version(resolved-dependency)
-        if not compatible?(requested-version, resolved-version):
-          error("can't resolve dependencies: incompatible versions of %_\n\
-                 resolved:  %~\n\
-                 requested: %~"
-                 % [colored-name?(dep), resolved-version, requested-version])
-        else if resolved-version >= requested-version:
-          debug("re-using previously resolved version %_ (>= %_) "
-                % [resolved-version, requested-version])
-          return(None())
-        else:
-          debug("using %_ > %_" % [requested-version, resolved-version])
-      (_: PathDependency):
-        error("resolving '%_' to '%_' (dependency of '%_'):\n\
-              %_ was specified as a path dependency at top-level.\n\
-              Currently slm cannot support mixed path and git dependencies."
-              % [colored-name?(dep), requested-version, parent-name,
-                 colored-name?(dep)])
-
-    val dep-dir = path(dep)
-    if file-exists?(dep-dir):
-      sync-dependency-to-version(dep)
-    else:
-      fetch-dependency-at-version(dep)
-
-    debug("computing hash for '%_' at '%_'" % [name(dep), path(dep)])
-    val hash = git-or-libgit-rev-parse!(path(dep), "HEAD")
-    One(dep $> sub-hash{_, hash})
-
-defn error-incompatible-path-version (dep:PathDependency, obs-version:String):
-  val msg = "The Path Dependency for '%_', found in '%_', has an incompatible version. \
-        The 'slm.toml' file expects version '%_'. The version found at that path is \
-        '%_'." % [name(dep), path(dep), version-string!(dep), obs-version]
-  error(msg, code = 240)
-
-
-defn resolve-path-dependency? (
-  dep: PathDependency,
-  resolved-dependencies: HashTable<String, Dependency>,
-) -> One<PathDependency>:
-  if get?(resolved-dependencies, name(dep)) is-not False:
-    ; This scenario shouldn't occur, because we parse all top-level dependencies
-    ; first, and we only allow path dependencies at the top-level, hence path dependencies get
-    ; resolved first.
-    ; could occur is if
-    fatal("internal inconsistency resolving path dependency '%_'" % [name(dep)])
-
-  val [is-compat, obs-version] = check-path-compatible(dep)
-  if not is-compat:
-    error-incompatible-path-version(dep, obs-version)
-
-  One(dep)
+;Compare two maybe versions:
+;- One<Version> is greater than None
+;- Higher semantic version is greater
+defmethod compare (v1:Maybe<SemanticVersion>, v2:Maybe<SemanticVersion>) -> Int :
+  match(v1, v2) :
+    (v1:One<SemanticVersion>, v2:One<SemanticVersion>) :
+      compare(value(v1), value(v2))
+    (v1:One<SemanticVersion>, v2:None) :
+      1
+    (v1:None, v2:One<SemanticVersion>) :
+      -1
+    (v1:None, v2:None) :
+      0
