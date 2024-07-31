@@ -41,9 +41,10 @@ public defn parse-path-dependency (name:String, path:String,
   val path* = let :
     val sub-path = env-var-substitute(path) when env-sub-enable else path
     val parsed-path = parse-path(sub-path)
-    val abs-path = parsed-path when absolute?(parsed-path) else
+    ;If the path is relative, prepend the toml file path to it
+    val anchored-path = parsed-path when absolute?(parsed-path) else
       relative-to-dir(parse-path(toml-dir), parsed-path)
-    un-norm-path(to-string(abs-path))
+    un-norm-path(to-string(anchored-path))
 
   val version = match(version?):
     (x:None): x
