@@ -11,14 +11,12 @@ public defn program-name () -> String:
   val program-path = command-line-arguments()[0]
   program-path $> base-name? $> value-or{_, program-path}
 
-defn gen-program-prefix () -> ColoredString|String:
+defn program-prefix () -> ColoredString|String:
   val prefix = to-string("%_:" % [program-name()])
   if supports-color?():
     ColoredString(prefix, ColorSpec() $> bold $> foreground{_, TerminalBrightWhite})
   else:
     prefix
-
-val program-prefix = gen-program-prefix()
 
 defn sub-command () -> String|Printable :
   val args = command-line-arguments()
@@ -32,7 +30,7 @@ defn sub-command () -> String|Printable :
 public defn debug (msg: Printable|String) -> False:
   if slm/flags/debug?:
     println(current-error-stream(), "%_ %_%_%_" % [
-      program-prefix,
+      program-prefix(),
       ColoredString("debug: ")
         $> bold $> dim $> foreground{_, TerminalYellow}
         $> clear-color?,
@@ -41,12 +39,12 @@ public defn debug (msg: Printable|String) -> False:
     ])
 
 public defn info (msg: Printable|String) -> False:
-  println(current-output-stream(), "%_ %_" % [program-prefix, msg])
+  println(current-output-stream(), "%_ %_" % [program-prefix(), msg])
   flush(current-output-stream() as FileOutputStream)
 
 public defn warn (msg: Printable|String) -> False:
   println("%_ %_%_" % [
-    program-prefix,
+    program-prefix(),
     ColoredString("warning: ")
       $> bold $> dim $> foreground{_, TerminalYellow}
       $> clear-color?,
@@ -55,7 +53,7 @@ public defn warn (msg: Printable|String) -> False:
 
 public defn error (msg: Printable|String -- code:Int = 1) -> Void:
   println(current-error-stream(), "%_ %_ %_" % [
-    program-prefix,
+    program-prefix(),
     ColoredString("error:")
       $> bold $> foreground{_, TerminalBrightRed}
       $> clear-color?,
