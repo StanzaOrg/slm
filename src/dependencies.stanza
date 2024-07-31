@@ -100,9 +100,6 @@ defstruct DependencyFrame :
   most-recent-ticket-number:Int
 
 defn parse-slm-toml-and-resolve-dependencies (project-config:SlmToml) -> Tuple<Dependency> :
-  ;Ticket ID number generator
-  val ticket-number-seq = to-seq(0 to false)
-
   ;Current resolution state of each recursive dependency, keyed by dependency name
   val res-table = HashTable<String,DependencyFrame>()
 
@@ -112,7 +109,11 @@ defn parse-slm-toml-and-resolve-dependencies (project-config:SlmToml) -> Tuple<D
   ;Table of path dependency configs
   val path-configs = HashTable<String,Maybe<SlmToml>>()
 
+  ;Ticket ID number generator
+  val ticket-number-seq = to-seq(0 to false)
+
   ;Queue of dependencies to process
+  ;[dependency name, ticket ID number]
   val ticket-queue = Queue<[String,Int]>()
 
   ;Queue a dependency for resolution
@@ -124,18 +125,21 @@ defn parse-slm-toml-and-resolve-dependencies (project-config:SlmToml) -> Tuple<D
   ;For a new recursive child dependency:
   ;- Check if it is compatible with the previously resolved version if a
   ;  dependency with the same name was previously resolved
-  ;- Queue the dependency for (re-)processing if necessary
-  ;  * Reprocessing may occur if, for example, a child git dependency is
-  ;    re-requested by a second parent at a newer version (which is
-  ;    compatible with old version requested by the first parent)
+  ;- Queue the dependency for processing (or re-processing) if necessary
+  ;  * Reprocessing may occur if, for example, a dependency is first requested
+  ;    as a git dependency by one parent, but is then requested as a path
+  ;    dependency by a second parent (the path dependency takes precedence)
   defn queue-child-dep (child:RecursiveDependency, parent-name:String) -> False :
     match(get?(res-table, name(child))) :
       (frame:DependencyFrame) :
+        ;Already resolved before
         val old-dep = dependency(frame)
         val old-parent = /parent-name(frame)
-        if compatible-dep?(child, parent-name, old-dep, old-parent) :
+        val re-process? = compatible-dep?(child, parent-name, old-dep, old-parent)
+        if re-process? :
           queue-ticket(child, parent-name)
       (_) :
+        ;Never been resolved before
         queue-ticket(child, parent-name)
 
   ;Process the children of a dependency:
@@ -155,6 +159,7 @@ defn parse-slm-toml-and-resolve-dependencies (project-config:SlmToml) -> Tuple<D
 
   ;Process a ticket given its dependency frame
   defn process-ticket (frame:DependencyFrame) -> False :
+    debug("processing dependency %_" % [name(dependency(frame))])
     match(dependency(frame)) :
       (dep:GitDependency) :
         val config = resolve-git-dependency(dep)
@@ -207,24 +212,29 @@ defn parse-slm-toml-and-resolve-dependencies (project-config:SlmToml) -> Tuple<D
         name, frame-tick-num])
 
   ;Execute
+  debug("traversing dependency tree to resolve dependencies")
   process-children(project-config, name(project-config), get-cwd())
   while not empty?(ticket-queue) :
     process-ticket?(pop(ticket-queue))
-
   debug("done resolving dependencies")
 
-  to-tuple $ cat{_, non-res-deps} $ for dep in seq(dependency, values(res-table)) seq :
+  to-tuple $ cat{_, non-res-deps} $ for frame in values(res-table) seq :
+    val dep = dependency(frame)
+    val parent-name = /parent-name(frame)
     match(dep) :
       (dep:GitDependency) :
-        debug("resolved %_ to %_" % [colored-name?(dep), colored-version?(dep)])
+        debug("resolved %_ to %_ (parent %_)" % [colored-name?(dep),
+          colored-version?(dep), parent-name])
         debug("computing hash for %_ at %_" % [colored-name?(dep), path(dep)])
         val hash = git-or-libgit-rev-parse!(path(dep), "HEAD")
         sub-hash(dep, hash)
       (dep:PathDependency):
-        debug("resolved %_ to %_" % [colored-name?(dep), path(dep)])
+        debug("resolved %_ to %_ (parent %_)" % [colored-name?(dep), path(dep),
+          parent-name])
         dep
       (dep:PkgDependency) :
-        debug("resolved %_ to %_" % [colored-name?(dep), colored-version?(dep)])
+        debug("resolved %_ to %_ (parent %_)" % [colored-name?(dep),
+          colored-version?(dep), parent-name])
         dep
       (_) :
         error("unexpected dependency type: %_" % [object-type(dep)])
@@ -308,7 +318,8 @@ defn check-path-compatible (dep:PathDependency, parent-name:String,
 
 doc: \<DOC>
 Checks if a requested dependency is compatible with the previously resolved
-dependency of the same name
+dependency of the same name. Returns true if the new request is 'stronger' and
+the dependency needs to be re-processed.
 
 @param dep Requested dependency
 @param parent Name of `dep`'s parent dependency
@@ -340,8 +351,9 @@ defmethod compatible-dep? (dep:GitDependency, parent:String,
       %_ => %_\n  %_ => %_" % [colored-name?(dep), colored-name?(parent),
       colored-version?(dep), colored-name?(resolved-parent),
       colored-version?(resolved-dep)])
-  ;Replace resolved dependency with 'dep' if 'dep' has higher semantic version
-  requested-version > resolved-version
+  ;No need to re-process dependency, contents guaranteed to be compatible
+  ;by transitivity
+  false
 
 ;Path dependency compatibility
 defmethod compatible-dep? (dep:PathDependency, parent:String,
@@ -353,13 +365,18 @@ defmethod compatible-dep? (dep:PathDependency, parent:String,
       path(dep), colored-name?(resolved-parent), path(resolved-dep)])
   match(version?(dep), version?(resolved-dep)) :
     (v1:One<SemanticVersion>, v2:One<SemanticVersion>) :
-      if v1 != v2 :
-        error("different versions specified for path dependency %_:\n  \
+      if not compatible?(value(v1), value(v2)) :
+        error("incompatible versions requested for path dependency %_:\n  \
           %_ => %_\n  %_ => %_" % [colored-name?(dep), colored-name?(parent),
           colored-version?(dep), colored-name?(resolved-parent),
           colored-version?(resolved-dep)])
+      ;No need to re-process dependency, the contents at the path are guaranteed
+      ;to be compatible with `dep` by transitivity with `resolved-dep`
       false
     (v1:One<SemanticVersion>, v2:None) :
+      ;Need to trigger re-processing of this path dependency to check version
+      ;compatibility between `dep`'s requested version and the contents at the
+      ;path
       true
     (v1:None, v2) :
       false
@@ -373,35 +390,34 @@ defmethod compatible-dep? (dep:PkgDependency, parent:String,
     error("incompatible versions requested for package dependency %_:\n  \
       %_ => %_\n  %_ => %_" % [colored-name?(dep), parent,
       colored-version?(dep), resolved-parent, colored-version?(resolved-dep)])
-  ;TODO: determine when to overwrite resolved package dependency
   false
 
-;Path dependency precedence
+;Path dependency precedence over other dependency types
 defmethod compatible-dep? (dep:PathDependency, parent:String,
                            resolved-dep:GitDependency,
                            resolved-parent:String) -> True|False :
-  warn("using path dependency at %_ to satisfy git dependency on %_ requested \
+  warn("using path dependency at %_ to satisfy git dependency %_ requested \
     by %_, skipping compatibility check" % [path(dep), name(resolved-dep),
     resolved-parent])
   true
 defmethod compatible-dep? (dep:GitDependency, parent:String,
                            resolved-dep:PathDependency, resolved-parent:String)
                            -> True|False :
-  warn("using path dependency at %_ to satisfy git dependency on %_ requested \
+  warn("using path dependency at %_ to satisfy git dependency %_ requested \
     by %_, skipping compatibility check" % [path(resolved-dep), name(dep),
     parent])
   false
 defmethod compatible-dep? (dep:PathDependency, parent:String,
                            resolved-dep:PkgDependency,
                            resolved-parent:String) -> True|False :
-  warn("using path dependency at %_ to satisfy package dependency on %_ \
+  warn("using path dependency at %_ to satisfy package dependency %_ \
     requested by %_, skipping compatibility check" % [path(dep),
     name(resolved-dep), resolved-parent])
   true
 defmethod compatible-dep? (dep:PkgDependency, parent:String,
                            resolved-dep:PathDependency, resolved-parent:String)
                            -> True|False :
-  warn("using path dependency at %_ to satisfy package dependency on %_ \
+  warn("using path dependency at %_ to satisfy package dependency %_ \
     requested by %_, skipping compatibility check" % [path(resolved-dep),
     name(dep), parent])
   false
