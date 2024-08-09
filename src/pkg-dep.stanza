@@ -3,6 +3,7 @@ defpackage slm/pkg-dep:
   import collections
 
   import libarchive
+  import semver
   import maybe-utils
   import term-colors
   import toml
@@ -26,7 +27,7 @@ This dependency is intended to define a pre-compiled archive
 of stanza pkg binaries which can be linked into an slm project.
 This archive may be stored on a remote conan/artifactory server.
 <DOC>
-public defstruct PkgDependency <: Dependency & Hashable & Equalable:
+public defstruct PkgDependency <: RecursiveDependency & Hashable & Equalable:
   name:String with: (
     as-method => true
     ensure => ensure-not-empty!
@@ -37,15 +38,14 @@ public defstruct PkgDependency <: Dependency & Hashable & Equalable:
 with:
   hashable => true
 
-defmethod recursive (d:PkgDependency) -> True|False :
-  ; a pkg can have recursive deps
-  true
-
 defmethod path (d:PkgDependency) -> String:
   path-join(SLM_DEPS_DIR, name(d))
 
 defmethod equal? (a:PkgDependency, b:PkgDependency) -> True|False :
   name(a) == name(b) and version(a) == version(b) and type(a) == type(b) and to-string(options(a)) == to-string(options(b))
+
+defmethod dependency-type-name (d:PkgDependency) -> String :
+  "package"
 
 public defn PkgDependency (
   name: String
@@ -70,16 +70,6 @@ defmethod print (o:OutputStream, d:PkgDependency) :
 
 public defn version-string (d: PkgDependency) -> String:
   to-string(version(d))
-
-public defn colored-version? (d: PkgDependency) -> ColoredString:
-  ColoredString(version-string(d))
-    $> bold $> foreground{_, TerminalBrightGreen}
-    $> clear-color?
-
-public defn colored-name? (d: PkgDependency) -> ColoredString:
-  ColoredString(name(d))
-    $> bold $> foreground{_, TerminalBrightWhite}
-    $> clear-color?
 
 defn options-to-string (d:PkgDependency) -> String :
   val elems = for kvp in options(d) seq:
@@ -115,10 +105,6 @@ public defn parse-pkg-dependency (name:String, table:TomlTable -- env-sub-enable
       ;parse-options(value(x), env-sub-enable = env-sub-enable)
       value(x)
   PkgDependency(name, version, type, options)
-
-public defn fetch-or-sync-pkgver (d: PkgDependency, parent-name:String|False = false, dep-path:String|False = false) -> Maybe<PkgDependency>:
-  fetch-dependency-pkgver(d)
-  to-maybe(d)
 
 public defn fetch-dependency-pkgver (d: PkgDependency) -> False:
   info("fetching %_ at %_" % [colored-name?(d), colored-version?(d)])

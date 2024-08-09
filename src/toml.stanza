@@ -70,12 +70,24 @@ This will replace strings like `{HOME}` with environment variable
 values if they exist.
 <DOC>
 public defn parse-slm-toml-file (file:String -- env-sub-enable:True|False = true) -> SlmToml:
+  val [dir, _] = split-filepath(file)
   val table = file $> parse-file $> table
 
-  val name = table["name"] as String
+  defn get-str-or-err (key:String) -> String :
+    match(get?(table, key)) :
+      (x:One<TomlValue>) :
+        match(value(x)) :
+          (s:String) : s
+          (x) :
+            error("%_ is invalid: value of '%_' key is not a string" % [file,
+              key])
+      (_) :
+        error("%_ is invalid: '%_' key not found" % [file, key])
+
+  val name = get-str-or-err("name")
   debug("parse-slm-toml: name: \"%_\"" % [name])
 
-  val version = table["version"] as String
+  val version = get-str-or-err("version")
   debug("parse-slm-toml: version: \"%_\"" % [version])
 
   val compiler? = get-str?(table, "compiler")
@@ -94,7 +106,7 @@ public defn parse-slm-toml-file (file:String -- env-sub-enable:True|False = true
           parse-git-dependency(name, legacy)
         (table:TomlTable):
           debug("parse-slm-toml: calling parse-dependency(\"%_\", %_, %_)" % [name, table, env-sub-enable])
-          parse-dependency(name, table, env-sub-enable)
+          parse-dependency(name, table, dir, env-sub-enable)
 
   SlmToml(name, version, compiler?, stanza-version?, dependencies)
 
@@ -105,7 +117,7 @@ public defstruct InvalidDependencyConfigError <: Exception :
 defmethod print (o:OutputStream, e:InvalidDependencyConfigError) :
   print(o, "Invalid Dependency[%_]: %_" % [name(e), msg(e)])
 
-defn parse-dependency (name:String, table:TomlTable, env-sub-enable:True|False) -> Dependency :
+defn parse-dependency (name:String, table:TomlTable, toml-dir:String, env-sub-enable:True|False) -> Dependency :
   val gitAttr = get-str?(table, "git")
   val pathAttr = get-str?(table, "path")
   val pkgAttr = get-str?(table, "pkg")
@@ -121,7 +133,7 @@ defn parse-dependency (name:String, table:TomlTable, env-sub-enable:True|False) 
   match(pathAttr, gitAttr, pkgAttr, taskAttr):
     (p:One<String>, g:None, k: None, t:None): ; Path Dependency
       debug("parse-dependency: calling parse-path-dependency(\"%_\", ...)" % [name])
-      parse-path-dependency(name, value(p), version, env-sub-enable)
+      parse-path-dependency(name, value(p), version, toml-dir, env-sub-enable)
     (p:None, g:One<String>, k: None, t:None): ; Git Dependency
       debug("parse-dependency: calling parse-git-dependency(\"%_\", ...)" % [name])
       parse-git-dependency(name, value(g), version)

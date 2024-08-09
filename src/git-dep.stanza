@@ -14,7 +14,7 @@ defpackage slm/git-dep:
   import slm/libgit-utils
 
 ; Dependencies specified by Git locator/version (e.g. `foo = "myorg/myuser|1.0.0"`)
-public defstruct GitDependency <: Dependency:
+public defstruct GitDependency <: RecursiveDependency:
   name: String with: (as-method => true)
   locator: String
   version: SemanticVersion
@@ -26,21 +26,14 @@ defmethod path (d: GitDependency):
 defmethod version-string? (d: GitDependency) -> One<String>:
   One(version-string(d))
 
+defmethod dependency-type-name (d:GitDependency) -> String :
+  "git"
+
 defmethod print (o:OutputStream, d:GitDependency) :
   print(o, "%_ = { git = \"%_\", version = \"%_\" }" % [name(d), locator(d), version-string(d)])
 
 public defn version-string (d: GitDependency) -> String:
   to-string(version(d))
-
-public defn colored-version? (d: GitDependency) -> ColoredString:
-  ColoredString(version-string(d))
-    $> bold $> foreground{_, TerminalBrightGreen}
-    $> clear-color?
-
-public defn colored-name? (d: Dependency) -> ColoredString:
-  ColoredString(name(d))
-    $> bold $> foreground{_, TerminalBrightWhite}
-    $> clear-color?
 
 doc: \<DOC>
 Legacy Version of the Git Dependency Parser
