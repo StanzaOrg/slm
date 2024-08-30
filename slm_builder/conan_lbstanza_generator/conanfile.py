@@ -12,7 +12,7 @@ from pathlib import Path
 
 class LBStanzaGeneratorPyReq(ConanFile):
     name = "lbstanzagenerator_pyreq"
-    version = "0.6.13"
+    version = "0.6.14"
     package_type = "python-require"
 
 # LBStanza Generator class
