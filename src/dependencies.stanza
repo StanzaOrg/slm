@@ -240,7 +240,8 @@ defn parse-slm-toml-and-resolve-dependencies (project-config:SlmToml) -> Tuple<D
         error("unexpected dependency type: %_" % [object-type(dep)])
 
 ;Fetch or sync the git dependency
-;Returns the dependency's parsed config (if its config file exists)
+;Returns the dependency's parsed config for convenience if it exists and is
+;up-to-date
 defn resolve-git-dependency (dep:GitDependency) -> SlmToml|False :
   val dep-dir = path(dep)
   val toml-path = path-join(dep-dir, SLM_TOML_NAME)
@@ -248,24 +249,26 @@ defn resolve-git-dependency (dep:GitDependency) -> SlmToml|False :
     val cfg = parse-slm-toml-file(toml-path)
     match(parse-semver(version(cfg))) :
       (ver:One<SemanticVersion>) :
-        val old-ver = value(ver)
-        if old-ver == version(dep) :
-          ;Existing copy version already matches
+        val existing-ver = value(ver)
+        if existing-ver == version(dep) :
+          ;Existing copy's version already matches
+          ;Return config to avoid unnecessary re-parsing of the toml file
           cfg
-        else if compatible?(old-ver, version(dep)) :
-          ;Existing copy is compatible
-          info("using existing version %_ for %_ which is compatible with \
-            requested version %_" % [old-ver, name(dep), version(dep)])
+        else if existing-ver > version(dep) and
+                compatible?(existing-ver, version(dep)) :
+          info("using existing newer version %_ for %_ which is compatible \
+            with older requested version %_, to use version %_ please run \
+            'slm clean' first" % [existing-ver, name(dep), version(dep),
+            version(dep)])
           cfg
         else :
-          ;Existing copy is not compatible
+          ;Re-sync
           sync-dependency-to-version(dep)
-          ;Old config is now invalid
+          ;Old config is outdated now -- new config will be parsed later
           false
       (_) :
         ;Can't parse version of existing copy, assume it is not compatible
         sync-dependency-to-version(dep)
-        ;Old config is now invalid
         false
   else if file-exists?(dep-dir) :
     ;Folder is missing config file, assume dependency is out-of-date
@@ -351,9 +354,8 @@ defmethod compatible-dep? (dep:GitDependency, parent:String,
       %_ => %_\n  %_ => %_" % [colored-name?(dep), colored-name?(parent),
       colored-version?(dep), colored-name?(resolved-parent),
       colored-version?(resolved-dep)])
-  ;No need to re-process dependency, contents guaranteed to be compatible
-  ;by transitivity
-  false
+  ;Reprocess if requested version is newer
+  requested-version > resolved-version
 
 ;Path dependency compatibility
 defmethod compatible-dep? (dep:PathDependency, parent:String,
