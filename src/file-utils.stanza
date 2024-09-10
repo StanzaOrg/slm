@@ -45,9 +45,6 @@ lostanza defn int-get-cwd () -> ref<String>:
 public defn get-cwd () -> String :
   un-norm-path $ int-get-cwd()
 
-public defn dir-name? (path: String) -> Maybe<String>:
-  split-last(path, '/') $> map{_, first}
-
 public defn base-name? (path: String) -> Maybe<String>:
   path
     $> entries{parse-path(_)}

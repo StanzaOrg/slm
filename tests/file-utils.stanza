@@ -1,0 +1,16 @@
+#use-added-syntax(tests)
+defpackage slm/tests/file-utils:
+  import core
+  import slm/file-utils
+
+deftest(file-utils) test-basename:
+
+  val test-cases = [
+    "C:\\Users\\Bad Name with spaces/my_dir"
+    "C:\\Users\\Bad Name with spaces\\my_dir"
+    "C:\\Users\\Bad Name with spaces/my_dir/"
+    "C:\\Users\\Bad Name with spaces/my_dir\\"
+  ]
+
+  for tc in test-cases do :
+    #EXPECT(base-name?(tc) == One("my_dir"))

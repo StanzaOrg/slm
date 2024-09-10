@@ -24,7 +24,8 @@ deftest(libgit2) test-error-last :
 
 deftest(libgit2 online) test-clone :
   libgit2_init()
-  val r:git_error_code|GIT_REPOSITORY = libgit2_clone("https://github.com/StanzaOrg/stanza-toml.git", "./foo")
+  val foo-folder = to-string("./foo-%_" % [current-time-ms()])
+  val r:git_error_code|GIT_REPOSITORY = libgit2_clone("https://github.com/StanzaOrg/stanza-toml.git", foo-folder)
   match(r):
     (e:git_error_code) :
       println("libgit2_clone returned error: %_" % [e])
@@ -34,3 +35,4 @@ deftest(libgit2 online) test-clone :
       libgit2_repository_free(gr)
       #EXPECT(true)
   libgit2_shutdown()
+  delete-recursive(foo-folder)
