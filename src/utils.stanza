@@ -29,7 +29,7 @@ public defn pairs<?K, ?V> (s: Seqable<KeyValue<?K, ?V>>) -> Seq<[K, V]>:
   s $> to-seq $> seq{fn (kv): [key(kv), value(kv)], _}
 
 public defn nth?<?T> (c: IndexedCollection<?T>, n: Int) -> Maybe<T>:
-  if n < length(c):
+  if n < length(c) and n >= 0:
     One(get(c, n))
   else:
     None()
@@ -40,9 +40,6 @@ public defn last?<?T> (c: Seqable<?T>) -> Maybe<T>:
       last
     else:
       loop(s, One(next(s)))
-
-public defn first<?T> (t: Tuple<?T>) -> T:
-  t[1]
 
 defn ssh-locator (locator: String) -> String :
   to-string("git@github.com:%_" % [locator])
