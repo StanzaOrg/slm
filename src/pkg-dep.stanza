@@ -71,6 +71,9 @@ defmethod print (o:OutputStream, d:PkgDependency) :
 public defn version-string (d: PkgDependency) -> String:
   to-string(version(d))
 
+defmethod version-string? (d: PkgDependency) -> One<String>:
+  One(version-string(d))
+
 defn options-to-string (d:PkgDependency) -> String :
   val elems = for kvp in options(d) seq:
     to-string("%~ = %~" % [key(kvp), value(kvp)])
