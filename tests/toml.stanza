@@ -57,7 +57,7 @@ deftest(toml) test-find-dependency:
 
 deftest(toml) test-parse-slm-toml:
   set-env("TEST_VAR", "/home/charles")
-  val uut = parse-slm-toml("./tests/data/test.toml")
+  val uut = parse-slm-toml-file("./tests/data/test.toml")
   unset-env("TEST_VAR")
 
   #EXPECT(name(uut) == "test-slm")
@@ -118,7 +118,7 @@ deftest(toml) test-parse-mutex-error:
   set-env("TEST_VAR", "/home/charles")
 
   defn fail-on-mutex-git-path () :
-    parse-slm-toml("./tests/data/error_git_path_mutex.toml")
+    parse-slm-toml-file("./tests/data/error_git_path_mutex.toml")
 
   val msg = expect-throw(fail-on-mutex-git-path)
 
@@ -132,7 +132,7 @@ deftest(toml) test-parse-malformed-error:
   set-env("TEST_VAR", "/home/charles")
 
   defn fail-on-no-git-path () :
-    parse-slm-toml("./tests/data/error_no_git_or_path.toml")
+    parse-slm-toml-file("./tests/data/error_no_git_or_path.toml")
 
   val msg = expect-throw(fail-on-no-git-path)
 

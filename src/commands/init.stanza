@@ -64,7 +64,7 @@ public defn init (cmd-args:CommandArgs) -> False:
   val minimal? = flag?(cmd-args, "minimal")
   val project-dir = get-proj-dir(cmd-args)
 
-  val project-name = dir-name?(project-dir)
+  val project-name = base-name?(project-dir)
     $> value-or{_, project-dir}
 
   val slm-toml-path = path-join(project-dir, SLM_TOML_NAME)
