@@ -12,7 +12,7 @@ from pathlib import Path
 
 class LBStanzaGeneratorPyReq(ConanFile):
     name = "lbstanzagenerator_pyreq"
-    version = "0.6.14"
+    version = "0.6.15"
     package_type = "python-require"
 
 # LBStanza Generator class
@@ -25,15 +25,15 @@ class LBStanzaGenerator:
         #breakpoint()
         self._conanfile.output.trace(f"      - {compname}")
 
-        reqlibdir = compinst.libdir
-        self._conanfile.output.trace(f"        - libdir = {reqlibdir}")
+        reqlibdirs = compinst.libdirs
+        self._conanfile.output.trace(f"        - libdirs = {reqlibdirs}")
 
         self._conanfile.output.trace(f"        - libs:")
         libdict = {}
         for l in compinst.libs:
             self._conanfile.output.trace(f"          - {l}")
 
-            libdict[l] = Path(reqlibdir)
+            libdict[l] = [Path(r) for r in reqlibdirs]
 
         #breakpoint()
         self._conanfile.output.trace(f"        - get_libs_from_component(\"{compname}\", inst) -> \"{libdict}\"")
@@ -165,9 +165,9 @@ class LBStanzaGenerator:
                     flnx = f"lib{l}.a"
                     fmac = f"lib{l}.a"
                     fwin = f"lib{l}.a"
-                libfilenames["full"]["linux"].append(Path(p) / flnx)
-                libfilenames["full"]["macos"].append(Path(p) / fmac)
-                libfilenames["full"]["windows"].append(Path(p) / fwin)
+                libfilenames["full"]["linux"].append(Path(p[0]) / flnx)
+                libfilenames["full"]["macos"].append(Path(p[0]) / fmac)
+                libfilenames["full"]["windows"].append(Path(p[0]) / fwin)
                 
                 relative_path = Path(f"{{.}}/../{pkgname}/lib")
                 libfilenames["relative"]["linux"].append(relative_path / flnx)

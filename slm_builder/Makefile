@@ -30,7 +30,6 @@ build:
 	${CONAN} config install conan-config
 	 #${CONAN} remote enable conancenter
 	[ ! -e ".conan2/profiles/default" ] && ${CONAN} profile detect
-	(cd conan_lbstanza_generator && ${CONAN} create .)
 
 	 # get the current project name from the slm.toml file
 	SLMPROJNAME=$$(${SED} -n -e '/^ *name *= *"*\([^"]*\).*/{s//\1/;p;q}' slm.toml)
