@@ -22,8 +22,7 @@ class ConanSlmPackage(ConanFile):
   package_id_non_embed_mode = "unrelated_mode"
   package_id_python_mode = "unrelated_mode"
   package_type = "application"
-  python_requires = "lbstanzagenerator_pyreq/0.6.13"
-  #python_requires = "lbstanzagenerator_pyreq/[>=0.6 <1.0]"
+  python_requires = "lbstanzagenerator_pyreq/[>=0.6.16 <0.7.0]"
 
   # Binary configuration
   #settings = "os", "arch", "compiler", "build_type"
