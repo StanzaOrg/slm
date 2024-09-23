@@ -65,8 +65,10 @@ public defn parse-git-dependency (name:String, locator:String, version?:Maybe<St
     (x:None):
       throw $ Exception("Invalid Git Dependency[%_]: No Version Attribute found"% [name])
     (x:One<String>):
-      parse-semver(value(x)) $>
-        expect{_, "Git Dep[%_]: Failed to Parse Version: '%_'" % [name, x]}
+      match(parse-semver(value(x))) :
+        (v:One<SemanticVersion>) : value(v)
+        (_) :
+          error("Git Dep[%_]: Failed to Parse Version: '%_'" % [name, value(x)])
 
   val hash = "" ; This gets resolved during the fetch/sync
   GitDependency(name, locator, version, hash)

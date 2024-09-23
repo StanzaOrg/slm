@@ -71,6 +71,8 @@ values if they exist.
 <DOC>
 public defn parse-slm-toml-file (file:String -- env-sub-enable:True|False = true) -> SlmToml:
   val [dir, _] = split-filepath(file)
+  if not file-exists?(file) :
+    error("no configuration file found at '%_'" % [file])
   val table = file $> parse-file $> table
 
   defn get-str-or-err (key:String) -> String :
