@@ -104,30 +104,26 @@ public defn check-stanza-versions (cfg:SlmToml, dependencies:Tuple<Dependency>) 
 
   val non-compat = to-vector<KeyValue<String, String>> $
     for dep in deps* seq?:
-      val slm-cfg = match(dep):
+      val dep-cfg-path = match(dep):
         (git-dep:GitDependency):
           path-join(SLM_DEPS_DIR, name(git-dep), SLM_TOML_NAME)
         (path-dep:PathDependency):
           path-join(path(path-dep), SLM_TOML_NAME)
         (pkg-dep:PkgDependency):
-          val p = path-join(path(pkg-dep), SLM_TOML_NAME)
-          if file-exists?(p):
-            p
-          else:
-            false
+          path-join(path(pkg-dep), SLM_TOML_NAME)
         (x):
           throw $ UnknownDependencyTypeError(x)
 
-      if slm-cfg == false:
-        None()
-      else:
-        val dep-cfg = parse-slm-toml-file(slm-cfg as String)
+      if file-exists?(dep-cfg-path) :
+        val dep-cfg = parse-slm-toml-file(dep-cfg-path)
         debug("Dep[%_]: Stanza Version Spec: %_" % [name(dep), stanza-version?(dep-cfg)])
         val [compatible, msg] = is-stanza-compatible?(dep-cfg)
         debug("Dep[%_]: Compatible: %_ | %_" % [name(dep), compatible, msg])
 
         if compatible: None()
         else: One(name(dep) => msg)
+      else :
+        None()
 
   ; Project Configuration
   debug("Project: Stanza Version Spec: %_" % [stanza-version?(cfg)])

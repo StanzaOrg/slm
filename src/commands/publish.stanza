@@ -59,6 +59,8 @@ public defn publish (cmd-args:CommandArgs) -> False:
   ;    current HEAD, and fail if it doesn't, since we don't want to push the
   ;    wrong tag.
 
+  if not file-exists?(SLM_TOML_NAME) :
+    error("can't publish, no configuration file found in current folder")
   val version = parse-slm-toml-file(SLM_TOML_NAME) $> /version
 
   if is-git-repo-dirty?(get-cwd()):
