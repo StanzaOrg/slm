@@ -21,7 +21,11 @@ build:
 	if [ "$$VIRTUAL_ENV" == "" ] ; then
 	    echo "creating python virtual environment in ./venv"
 	    ${PYTHON} -m venv venv
-	    source venv/bin/activate
+	    if [ -e "venv/Scripts/activate" ] ; then
+	        source "venv/Scripts/activate"
+	    else
+	        source "venv/bin/activate"
+	    fi
 	    pip install -r requirements.txt
 	fi
 
