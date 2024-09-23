@@ -12,7 +12,7 @@ from pathlib import Path
 
 class LBStanzaGeneratorPyReq(ConanFile):
     name = "lbstanzagenerator_pyreq"
-    version = "0.6.15"
+    version = "0.6.16"
     package_type = "python-require"
 
 # LBStanza Generator class
@@ -155,6 +155,11 @@ class LBStanzaGenerator:
                 libfilenames[tp][os] = []
 
         for pkgname, d in libs.items():
+            # special case for openssl, order ssl first, then crypto
+            if pkgname=='openssl' and 'crypto' in d and 'ssl' in d:
+                # move 'crypto' to the end
+                d['crypto'] = d.pop('crypto')
+
             for l, p in d.items():
                 # calculate filenames
                 if is_shared_lib:
@@ -165,10 +170,11 @@ class LBStanzaGenerator:
                     flnx = f"lib{l}.a"
                     fmac = f"lib{l}.a"
                     fwin = f"lib{l}.a"
+
                 libfilenames["full"]["linux"].append(Path(p[0]) / flnx)
                 libfilenames["full"]["macos"].append(Path(p[0]) / fmac)
                 libfilenames["full"]["windows"].append(Path(p[0]) / fwin)
-                
+
                 relative_path = Path(f"{{.}}/../{pkgname}/lib")
                 libfilenames["relative"]["linux"].append(relative_path / flnx)
                 libfilenames["relative"]["macos"].append(relative_path / fmac)
@@ -252,4 +258,3 @@ class LBStanzaGenerator:
         self.create_stanza_proj_fragment()
 
         self._conanfile.output.trace("----")
-
