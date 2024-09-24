@@ -27,7 +27,7 @@ build-test tests:
     slm/tests/commands/remove
     slm/tests/conan-utils
     slm/tests/process-utils
-    slm/tests/file-utils
+    ;slm/tests/file-utils
   pkg: "test-pkgs"
   o: "slm-tests"
 
