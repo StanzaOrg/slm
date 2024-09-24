@@ -14,7 +14,7 @@ build main:
   pkg: ".slm/pkgs"
   o: "slm"
 
-build-test tests:
+build-test test:
   inputs:
     slm/tests/git-utils
     slm/tests/libgit2
@@ -28,8 +28,8 @@ build-test tests:
     slm/tests/conan-utils
     slm/tests/process-utils
     ;slm/tests/file-utils
-  pkg: "test-pkgs"
-  o: "slm-tests"
+  pkg: ".slm/test-pkgs"
+  o: "slm-test"
 
 
 ; note that these online tests are very dependent on the platform used
