@@ -1,0 +1,108 @@
+defpackage slm/commands/fetch:
+  import core
+  import collections
+  import arg-parser
+  import core/parsed-path
+
+  import maybe-utils
+  import semver
+  import term-colors
+  import toml
+
+  import slm/dep-types
+  import slm/dependencies
+  import slm/file-utils
+  import slm/logging
+  import slm/process-utils
+  import slm/flags
+  import slm/toml
+  import slm/utils
+  import slm/stanza-utils
+  import slm/platforms
+
+
+public defn fetch (cmd-args:CommandArgs) -> False:
+  val verbose =  get?(cmd-args, "verbose", false)
+  if verbose:
+    slm/flags/debug? = true
+
+  val force-build = get?(cmd-args, "force", false)
+
+  val cfg = parse-project-toml(SLM_TOML_NAME)
+
+  ; This flag indicates to all dependencies that we are building
+  ;  in static library mode to be able to compile in the build command.
+  set-env("SLM_BUILD_STATIC", "1")
+
+  ; Binary Variable that is used in both build/repl for scripts
+  ;   that want to differentiate that way.
+  ;   This is primarily added for 'conan' because it wants:
+  ;   '--shared=(True|False)'
+  set-env("SLM_BUILD_DYNAMIC_LIB", "False")
+
+  val platform = get-platform()
+  set-env("SLM_PLATFORM", platform)
+
+  debug("calling slm/dependencies/fetch-and-sync")
+  val dependencies = slm/dependencies/fetch-and-sync(cfg, force-build)
+
+  false
+
+val FETCH-MSG = \<MSG>
+The 'fetch' command will manage syncing dependencies without
+building the project.
+
+Example:
+
+$> slm fetch
+
+------------------------------
+Static Dependency Construction
+------------------------------
+
+With the task dependencies, external programs can be used to build
+the artifacts needed to load functionality from a static C library.
+To support this, the 'build' command defines the environment
+variable 'SLM_BUILD_STATIC=True'. This environment variable is intended
+to indicate to any of the task dependencies that a static library
+is needed (as opposed to a shared library, like a *.dll)
+
+Additionally, the 'build' command defines the environment variable
+'SLM_BUILD_DYNAMIC_LIB=False'. This is the same env-var used by the 'repl'
+command which makes it easier for scripts to just reference one variable.
+
+The 'slm' binary will also define the 'SLM_PLATFORM' environment
+variable during the dependendency resolution process. This environment
+variable will contain one of the following strings:
+  1.  windows
+  2.  linux
+  3.  os-x
+
+----------------------------
+SLM_DIR
+----------------------------
+
+This command will define the `SLM_DIR` environment variable and
+it will point at the `.slm` directory for the top-level project
+being built. This will give subsequent child builds access to
+a known directory from which to find other dependencies.
+
+<MSG>
+
+val VERBOSE-FLAG = \<MSG>
+Generate verbose output from build.
+<MSG>
+
+val FORCE-FLAG = \<MSG>
+This flag instructs the build system to ignore any stanza
+version compatibility checks and attempt to fetch dependencies
+regardless.
+<MSG>
+
+public defn setup-fetch-cmd () -> Command :
+  val fetchFlags = [
+    Flag("verbose", ZeroFlag, OptionalFlag, VERBOSE-FLAG)
+    Flag("force", ZeroFlag, OptionalFlag, FORCE-FLAG),
+
+  ]
+  Command("fetch", ZeroArg, false, fetchFlags, FETCH-MSG, fetch)

@@ -15,11 +15,13 @@ defn setup-opts ():
   add(CMDS, setup-add-task-cmd())
   add(CMDS, setup-build-cmd())
   add(CMDS, setup-clean-cmd())
+  add(CMDS, setup-fetch-cmd())
   add(CMDS, setup-init-cmd())
   add(CMDS, setup-publish-cmd())
   add(CMDS, setup-remove-cmd())
   add(CMDS, setup-repl-cmd())
   add(CMDS, setup-run-cmd())
+  add(CMDS, setup-run-test-cmd())
   add(CMDS, setup-version-cmd())
 
 val SLM-DESCR-TMP = \<MSG>
