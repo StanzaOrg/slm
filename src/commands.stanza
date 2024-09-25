@@ -5,6 +5,8 @@ defpackage slm/commands:
     only => (setup-add-task-cmd)
   forward slm/commands/build with:
     only => (setup-build-cmd)
+  forward slm/commands/fetch with:
+    only => (setup-fetch-cmd)
   forward slm/commands/clean with:
     only => (setup-clean-cmd)
   forward slm/commands/init with:
@@ -17,5 +19,7 @@ defpackage slm/commands:
     only => (setup-repl-cmd)
   forward slm/commands/run with:
     only => (setup-run-cmd)
+  forward slm/commands/run-test with:
+    only => (setup-run-test-cmd)
   forward slm/commands/version with:
     only => (setup-version-cmd)
