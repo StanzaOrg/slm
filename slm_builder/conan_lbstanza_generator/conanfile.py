@@ -12,7 +12,7 @@ from pathlib import Path
 
 class LBStanzaGeneratorPyReq(ConanFile):
     name = "lbstanzagenerator_pyreq"
-    version = "0.6.16"
+    version = "0.6.17"
     package_type = "python-require"
 
 # LBStanza Generator class
@@ -245,8 +245,7 @@ class LBStanzaGenerator:
                         libs[depname].update(d)
                     else:
                         libs[depname] = d
-                else:
-                    self._conanfile.output.error(f"Dependency \"{dreq.ref}\" defined libs with no libdirs")
+                # else no libdirs
 
             #breakpoint()
 
