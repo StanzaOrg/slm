@@ -175,7 +175,7 @@ defn parse-slm-toml-and-resolve-dependencies (project-config:SlmToml) -> Tuple<D
             if file-exists?(toml-path) :
               [One(parse-slm-toml-file(toml-path)), true]
             else :
-              warn("no configuration file found for path dependency %_ at %_"
+              debug("NOTE: no configuration file found for path dependency %_ at %_"
                 % [name(dep), path(dep)])
               [None(), true]
 
@@ -193,7 +193,7 @@ defn parse-slm-toml-and-resolve-dependencies (project-config:SlmToml) -> Tuple<D
           val config = parse-slm-toml-file(toml-path)
           process-children(config, name(dep), path(dep))
         else :
-          warn("no configuration file found for package dependency %_ at %_"
+          debug("NOTE: no configuration file found for package dependency %_ at %_"
             % [name(dep), path(dep)])
 
   ;Process a ticket if it has not been pre-empted

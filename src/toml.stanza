@@ -101,13 +101,14 @@ public defn parse-slm-toml-file (file:String -- env-sub-enable:True|False = true
   val dependencies = to-hashtable<String, Dependency> $
     for [name, specifier] in pairs(table["dependencies"] as TomlTable) seq:
       debug("parse-slm-toml: dependency name: \"%_\"" % [name])
-      debug("parse-slm-toml: dependency specifier: \"%_\"" % [specifier])
       name => match(specifier):
         (legacy:String):
+          debug("parse-slm-toml: legacy dependency specifier: \"%_\"" % [legacy])
           debug("parse-slm-toml: calling parse-git-dependency(\"%_\", \"%_\")" % [name, legacy])
           parse-git-dependency(name, legacy)
         (table:TomlTable):
-          debug("parse-slm-toml: calling parse-dependency(\"%_\", %_, %_)" % [name, table, env-sub-enable])
+          debug("parse-slm-toml: dependency specifier1: \"%_\"" % [entries(table)])
+          debug("parse-slm-toml: calling parse-dependency(\"%_\", %_, %_)" % [name, entries(table), env-sub-enable])
           parse-dependency(name, table, dir, env-sub-enable)
 
   SlmToml(name, version, compiler?, stanza-version?, dependencies)
