@@ -110,24 +110,27 @@ public defn parse-pkg-dependency (name:String, table:TomlTable -- env-sub-enable
   PkgDependency(name, version, type, options)
 
 public defn fetch-dependency-pkgver (d: PkgDependency) -> False:
-  info("fetching %_ at %_" % [colored-name?(d), colored-version?(d)])
-  info("fetching with options: \"%_\"" % [entries(options(d))])
+  debug("fetching %_ at %_ with options: \"%_\"" % [colored-name?(d), colored-version?(d), entries(options(d))])
 
   ; PkgDependency version may have revision and package_id components, so use string constructor for ConanVersion
   val cv = ConanVersion(to-string("%_/%_" % [name(d), version(d)]))
   var filename = conan-download-package(cv, options = options(d), target_directory = get-cwd())
+   match(filename):
+   (t:True) :
+     debug("dep \"%_\" already exists, skipping" % [filename])
+   (f:String) :
+     info("extracting %_ at %_" % [colored-name?(d), colored-version?(d)])
+     var dest = to-string("%_/.slm/deps/%_" % [get-cwd(), name(d)])
+     create-dir-recursive(dest)
 
-  var dest = to-string("%_/.slm/deps/%_" % [get-cwd(), name(d)])
-  create-dir-recursive(dest)
+     ; HACK: convert windows-style Z:\foo paths to msys-style /z/foo path
+     ;if f[1] == ':':
+     ;    f = to-string("/%_/%_" % [f[0], f[3 to false]])
+     ;if dest[1] == ':':
+     ;    dest = to-string("/%_/%_" % [dest[0], dest[3 to false]])
 
-  ; HACK: convert windows-style Z:\foo paths to msys-style /z/foo path
-  ;if filename[1] == ':':
-  ;    filename = to-string("/%_/%_" % [filename[0], filename[3 to false]])
-  ;if dest[1] == ':':
-  ;    dest = to-string("/%_/%_" % [dest[0], dest[3 to false]])
-
-  debug("extracting \"%_\" to \"%_\"" % [filename, dest])
-  val r = untar(filename, dest)
-  if r != 0:
-    throw(Exception("Error extracting \"%_\"" % [filename]))
+     debug("extracting \"%_\" to \"%_\"" % [f, dest])
+     val r = untar(f, dest)
+     if r != 0:
+       throw(Exception("Error extracting \"%_\"" % [f]))
   false

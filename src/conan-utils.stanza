@@ -375,10 +375,10 @@ public defn conan-fully-qualify-latest-version (cv:ConanVersion, -- options:Toml
     throw(Exception("conan search could not find matching package for options"))
 
 doc: \<DOC>
-returns path to downloaded file
+returns path to downloaded file or True if file already exists
 @throws Exception on failure or package not found
 <DOC>
-public defn conan-download-package (cv:ConanVersion, -- options:TomlTable = TomlTable(), repourl:String = DEFAULT-CONAN-URL, target_directory:String = ".") -> String :
+public defn conan-download-package (cv:ConanVersion, -- options:TomlTable = TomlTable(), repourl:String = DEFAULT-CONAN-URL, target_directory:String = ".") -> String|True :
   debug("conan-download-package: downloading version: %_" % [to-string(cv)])
   val headers = ["Content-Type: application/json"]
   var curl = Curl()
@@ -393,11 +393,18 @@ public defn conan-download-package (cv:ConanVersion, -- options:TomlTable = Toml
                                 url-encode(to-string(package_id(fqcv))), url-encode(to-string(package_revision(fqcv)))])
     debug("conan-download-package: downloadurl: \"%_\"" % [downloadurl])
 
-    val outfile = append(target_directory, to-string("/conan_package_%__%__%_.tgz" % [name(fqcv), version(fqcv), package_id(fqcv)]))
-    debug("conan-download-package: outfile: \"%_\"" % [outfile])
+    val cache_dir = append(target_directory, to-string("/.slm/cache"))
+    create-dir-recursive(cache_dir)
+    val outfile = append(cache_dir, to-string("/conan_package_%__%__%_.tgz" % [name(fqcv), version(fqcv), package_id(fqcv)]))
 
-    read-url-to-file(curl, headers, downloadurl, outfile)
-    outfile
+    if file-exists?(outfile):
+      debug("conan-download-package: skipping outfile: \"%_\"" % [outfile])
+      true
+    else:
+      debug("conan-download-package: outfile: \"%_\"" % [outfile])
+      info("fetching %_" % [to-string(cv)])
+      read-url-to-file(curl, headers, downloadurl, outfile)
+      outfile
 
   finally :
     free(curl)
