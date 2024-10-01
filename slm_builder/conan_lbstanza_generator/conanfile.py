@@ -12,7 +12,7 @@ from pathlib import Path
 
 class LBStanzaGeneratorPyReq(ConanFile):
     name = "lbstanzagenerator_pyreq"
-    version = "0.6.17"
+    version = "0.6.18"
     package_type = "python-require"
 
 # LBStanza Generator class
@@ -239,7 +239,7 @@ class LBStanzaGenerator:
                     libdir = dinst.cpp_info.libdirs[0]
                     d = {}
                     for l in dinst.cpp_info.libs:
-                        d[l] = libdir
+                        d[l] = [Path(libdir)]
                     # d is a dictionary {name: path}
                     if depname in libs:
                         libs[depname].update(d)
@@ -252,7 +252,7 @@ class LBStanzaGenerator:
         self.write_cpp_info_to_fragment(is_shared_lib, incdirs, libs)
 
     def generate(self):
-        self._conanfile.output.trace(f"---- LBStanzaGenerator.generate() ----")
+        self._conanfile.output.trace(f"---- LBStanzaGenerator version {LBStanzaGeneratorPyReq.version} .generate() ----")
 
         self.create_stanza_proj_fragment()
 
