@@ -19,7 +19,7 @@ required_conan_version = ">=2.0"
 
 class ConanSlmPackage(ConanFile):
   package_type = "application"
-  python_requires = "lbstanzagenerator_pyreq/[>=0.6.17 <0.7.0]"
+  python_requires = "lbstanzagenerator_pyreq/[>=0.6.18 <0.7.0]"
 
   # Binary configuration
   #settings = "os", "arch", "compiler", "build_type"
@@ -129,7 +129,7 @@ class ConanSlmPackage(ConanFile):
   
     # use stanza provided by conan
     self.tool_requires("lbstanza/[>=0.18.78 <1.0]")
-    self.tool_requires("slm/0.6.13")
+    self.tool_requires(f"slm/[>=0.6.18 <{self.version}]")
 
     # use cmake and ninja provided by conan
     # necessary if compiling non-stanza dependencies
