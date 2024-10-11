@@ -54,12 +54,8 @@ public defn full-url-from-locator (locator: String) -> String:
         throw(Exception("Error: SLM_PROTOCOL is set to SSH but Git was not found"))
     "https": https-locator(locator)
     else:
-      if has-git?() :
-        ;default to ssh for git to support ssh authentication
-        ssh-locator(locator)
-      else :
-        ;https required for libgit
-        https-locator(locator)
+      ;default to https
+      https-locator(locator)
 
 doc: \<DOC>
 Join Strings to form a file system path.
