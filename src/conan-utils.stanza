@@ -301,8 +301,12 @@ defn conan-get-full-version-for-package-with-platform-and-options (package_name:
       ; look for packages compiled for the current os we're running on
       ; TODO this could be improved with arch and compiler checks
       ;      but for now just check os
-      val package_settings_os = to-string((package_info["settings"] as JObject)["os"])
-      if package_settings_os != current_conan_os:
+      var package_settings_os = ""
+      if key?(package_info, "settings"):
+        if key?((package_info["settings"] as JObject), "os"):
+          package_settings_os = to-string((package_info["settings"] as JObject)["os"])
+      ; if package_settings_os is blank, it should match any current os
+      if package_settings_os != current_conan_os and package_settings_os != "":
         ; not our os
         debug("conan-get-full-version-for-package-with-platform-and-options: package \"%_\" os = \"%_\" [SKIP]" % [package_id, package_settings_os])
       else:
