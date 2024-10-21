@@ -14,6 +14,7 @@ echo "     STANZA_CONFIG:" "${STANZA_CONFIG:?Usage: ${USAGE}}"          # direct
 echo "              REPODIR:" "${REPODIR:=slm}"
 echo "       CREATE_ARCHIVE:" "${CREATE_ARCHIVE:=false}"
 echo "       CREATE_PACKAGE:" "${CREATE_PACKAGE:=false}"
+echo "      SIGN_EXECUTABLE:" "${SIGN_EXECUTABLE:=false}"
 echo "   SLM_BUILD_PLATFORM:" "${SLM_BUILD_PLATFORM:=$(uname -s)}"  # linux|macos|windows
 echo "                  VER:" "${VER:=$(git -C ${REPODIR} describe --tags --abbrev=0)}"
 echo "                 MAKE:" "${MAKE:=make}"  # override with gmake on mac
@@ -100,6 +101,10 @@ if [ "$CREATE_PACKAGE" == "true" ] ; then
   cp -r ${FILES} ziptmp/
 
   cd ziptmp
+
+  if [ "$SIGN_EXECUTABLE" == "true" ] ; then
+      ../ci/sign-windows-release.bash
+  fi
 
   zip -r ../slm-${PLATFORM_DESC}_${VER}.zip *
 fi
