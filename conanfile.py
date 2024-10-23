@@ -8,12 +8,13 @@ import os
 import platform
 import tomllib
 from conan import ConanFile
+from conan.errors import ConanInvalidConfiguration
 from conan.tools.build import can_run
 from conan.tools.files import copy
 from conan.tools.cmake import CMakeDeps, CMakeToolchain
 from conan.tools.env import VirtualBuildEnv
 from pathlib import Path
-from shutil import copy2, copytree
+from shutil import copy2, copytree, which
 
 required_conan_version = ">=2.0"
 
@@ -25,9 +26,18 @@ class ConanSlmPackage(ConanFile):
   #settings = "os", "arch", "compiler", "build_type"
   settings = "os", "arch"
 
+  options = {"codesign": [True, False]}
+  default_options = {"codesign": False}
+
   # hide all dependencies from consumers
   # https://blog.conan.io/2024/07/09/Introducing-vendoring-packages.html
   vendor = True
+
+
+  def config_options(self):
+    # codesigning only supported on windows
+    if self.settings.os != "Windows":
+      self.options.rm_safe("codesign")
 
 
   # set_name(): Dynamically define the name of a package
@@ -44,6 +54,36 @@ class ConanSlmPackage(ConanFile):
     with open(f"{self.recipe_folder}/slm.toml", "rb") as f:
         self.version = tomllib.load(f)["version"]
     self.output.info(f"conanfile.py: set_version() - self.version={self.version} from slm.toml")
+
+
+  # validate_build(): Verify if a package binary can be built with the current configuration
+  def validate_build(self):
+    self.output.info("conanfile.py: validate_build()")
+    # if codesigning is enabled
+    if self.options.get_safe("codesign", default=False):
+      # Verify that the required environment variables and programs exist
+      ### required environment variables for authentication with DigiCert
+      # example: SM_API_KEY="00000000000000000000000000_0000000000000000000000000000000000000000000000000000000000000000"
+      # example: SM_CLIENT_CERT_FILE="C:\Users\Administrator\.signingmanager\jwatson-digicert-clientcert-20231212-Certificate_pkcs12.p12"
+      # example: SM_CLIENT_CERT_PASSWORD="xxxxxxxxxxxx"
+      # example: SM_KEY_ALIAS="key_000000000"
+      # example: SMCTL="C:\Program Files\DigiCert\DigiCert Keylocker Tools\smctl.exe"
+      VARERR=0
+      for V in ["SM_API_KEY", "SM_CLIENT_CERT_FILE", "SM_CLIENT_CERT_PASSWORD", "SM_KEY_ALIAS", "SMCTL"]:
+        if V not in os.environ:
+          self.output.error(f"conanfile.py: validate_build(): codesigning environment variable {V} not found")
+          VARERR=1
+      if VARERR > 0:
+        raise ConanInvalidConfiguration("Required code signing configuration not found")
+      for V in ["SM_CLIENT_CERT_FILE", "SMCTL"]:
+        if not os.path.exists(os.getenv(V)):
+          self.output.error(f"conanfile.py: validate_build(): codesigning {V} file \"{os.getenv(V)}\" does not exist")
+          VARERR=1
+      if not which("signtool"):
+          self.output.error(f"conanfile.py: validate_build(): codesigning file \"signtool\" is not on PATH")
+          VARERR=1
+      if VARERR > 0:
+        raise ConanInvalidConfiguration("Required code signing configuration not found")
 
 
   # export(): Copies files that are part of the recipe
@@ -66,6 +106,7 @@ class ConanSlmPackage(ConanFile):
     copy2(os.path.join(self.recipe_folder, "stanza.proj"), self.export_sources_folder)
     for f in Path(".").glob("stanza-library.proj"):
         copy2(os.path.join(self.recipe_folder, f), self.export_sources_folder)
+    copytree(os.path.join(self.recipe_folder, "ci"), os.path.join(self.export_sources_folder, "ci"))
     copytree(os.path.join(self.recipe_folder, "src"), os.path.join(self.export_sources_folder, "src"))
     copytree(os.path.join(self.recipe_folder, "tests"), os.path.join(self.export_sources_folder, "tests"))
 
@@ -186,10 +227,21 @@ class ConanSlmPackage(ConanFile):
       self.run(f"bash -c '{update_path_cmd} {d}/{t}'",
                cwd=self.source_folder, scope="build")
 
+
+  # _codesign(): Internal function to sign the executables
+  def _codesign(self):
+    self.output.info("conanfile.py: _codesign()")
+    self.run("ls -la", cwd=self.source_folder, scope="build")
+    self.run("bash -e ci/sign-windows-release.bash", cwd=self.source_folder, scope="build")
+
+
   # package(): Copies files from build folder to the package folder.
   def package(self):
     self.output.info("conanfile.py: package()")
     outerlibname = self.name.removeprefix("slm-")
+
+    if self.options.get_safe("codesign", default=False):
+      self._codesign()
 
     copy2(os.path.join(self.source_folder, "slm.toml"), self.package_folder)
     #copy2(os.path.join(self.source_folder, "slm.lock"), self.package_folder)
