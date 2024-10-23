@@ -78,7 +78,13 @@ esac
 cd "${REPODIR}"
 echo "Building slm version ${VER} in ${PWD}"
 
-${MAKE}
+CONAN_OPTS="-vtrace"
+if [ "$SIGN_EXECUTABLE" == "true" ] ; then
+    CONAN_OPTS=" -o:h codesign=True ${CONAN_OPTS}"
+fi
+MAKEARGS=" CONAN_OPTS=\" ${CONAN_OPTS}\" "
+
+${MAKE} ${MAKEARGS}
 
 if [ "$CREATE_PACKAGE" == "true" ] ; then
   #VERU=${VER//./_}  # convert dots to underscores
@@ -101,10 +107,6 @@ if [ "$CREATE_PACKAGE" == "true" ] ; then
   cp -r ${FILES} ziptmp/
 
   cd ziptmp
-
-  if [ "$SIGN_EXECUTABLE" == "true" ] ; then
-      ../ci/sign-windows-release.bash
-  fi
 
   zip -r ../slm-${PLATFORM_DESC}_${VER}.zip *
 fi
