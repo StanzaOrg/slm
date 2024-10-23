@@ -115,6 +115,9 @@ class ConanSlmPackage(ConanFile):
   def configure(self):
     self.output.info("conanfile.py: configure()")
 
+    if self.options.get_safe("codesign", default=False):
+      self.options["slm/*"]._set("codesign", True)
+
     with open(f"{self.recipe_folder}/slm.toml", "rb") as f:
       deps = tomllib.load(f)["dependencies"]
       # get current platform
