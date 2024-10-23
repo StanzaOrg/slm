@@ -82,9 +82,9 @@ CONAN_OPTS="-vtrace"
 if [ "$SIGN_EXECUTABLE" == "true" ] ; then
     CONAN_OPTS=" -o:h codesign=True ${CONAN_OPTS}"
 fi
-MAKEARGS=" CONAN_OPTS=\" ${CONAN_OPTS}\" "
+export CONAN_OPTS
 
-${MAKE} ${MAKEARGS}
+${MAKE}
 
 if [ "$CREATE_PACKAGE" == "true" ] ; then
   #VERU=${VER//./_}  # convert dots to underscores
