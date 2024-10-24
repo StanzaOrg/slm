@@ -33,6 +33,7 @@ class ConanSlmPackage(ConanFile):
   vendor = True
 
 
+  # config_options(): Configure options while computing dependency graph
   def config_options(self):
     # codesigning only supported on windows
     if self.settings.os != "Windows":
@@ -113,6 +114,9 @@ class ConanSlmPackage(ConanFile):
   # configure(): Allows configuring settings and options while computing dependencies
   def configure(self):
     self.output.info("conanfile.py: configure()")
+
+    if self.options.get_safe("codesign") == None:
+      self.options._set("codesign", False)
 
     with open(f"{self.recipe_folder}/slm.toml", "rb") as f:
       deps = tomllib.load(f)["dependencies"]
