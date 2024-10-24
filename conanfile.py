@@ -27,7 +27,6 @@ class ConanSlmPackage(ConanFile):
   settings = "os", "arch"
 
   options = {"codesign": [True, False]}
-  default_options = {"codesign": False}
 
   # hide all dependencies from consumers
   # https://blog.conan.io/2024/07/09/Introducing-vendoring-packages.html
@@ -115,9 +114,6 @@ class ConanSlmPackage(ConanFile):
   def configure(self):
     self.output.info("conanfile.py: configure()")
 
-    if self.options.get_safe("codesign", default=False):
-      self.options["slm/*"]._set("codesign", True)
-
     with open(f"{self.recipe_folder}/slm.toml", "rb") as f:
       deps = tomllib.load(f)["dependencies"]
       # get current platform
@@ -173,7 +169,7 @@ class ConanSlmPackage(ConanFile):
   
     # use stanza provided by conan
     self.tool_requires("lbstanza/[>=0.18.78 <1.0]")
-    self.tool_requires(f"slm/[>=0.6.18 <{self.version}]")
+    self.tool_requires(f"slm/[>=0.6.22 <{self.version}]")
 
     # use cmake and ninja provided by conan
     # necessary if compiling non-stanza dependencies
