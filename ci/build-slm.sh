@@ -80,7 +80,7 @@ echo "Building slm version ${VER} in ${PWD}"
 
 CONAN_OPTS="-vtrace"
 if [ "$SIGN_EXECUTABLE" == "true" ] ; then
-    CONAN_OPTS=" -o:h codesign=True ${CONAN_OPTS}"
+    CONAN_OPTS=" -c:h user.jitx.slm:codesign=True ${CONAN_OPTS}"
 fi
 export CONAN_OPTS
 
