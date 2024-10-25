@@ -26,7 +26,10 @@ class ConanSlmPackage(ConanFile):
   #settings = "os", "arch", "compiler", "build_type"
   settings = "os", "arch"
 
-  options = {"codesign": [True, False]}
+  # use an option to request codesigning of the output executable
+  # but allow building with codesigned or not
+  options = {"codesign": [True, False, None]}
+  default_build_options = {"slm/*:codesign": "ANY"}
 
   # hide all dependencies from consumers
   # https://blog.conan.io/2024/07/09/Introducing-vendoring-packages.html
@@ -59,6 +62,11 @@ class ConanSlmPackage(ConanFile):
   # validate_build(): Verify if a package binary can be built with the current configuration
   def validate_build(self):
     self.output.info("conanfile.py: validate_build()")
+
+    #self.settings.compiler
+
+    breakpoint()
+
     # if codesigning is enabled
     if self.options.get_safe("codesign", default=False):
       # Verify that the required environment variables and programs exist
@@ -114,9 +122,6 @@ class ConanSlmPackage(ConanFile):
   # configure(): Allows configuring settings and options while computing dependencies
   def configure(self):
     self.output.info("conanfile.py: configure()")
-
-    if self.options.get_safe("codesign") == None:
-      self.options._set("codesign", False)
 
     with open(f"{self.recipe_folder}/slm.toml", "rb") as f:
       deps = tomllib.load(f)["dependencies"]
