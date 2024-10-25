@@ -28,7 +28,7 @@ class ConanSlmPackage(ConanFile):
 
   # use an option to request codesigning of the output executable
   # but allow building with codesigned or not
-  options = {"codesign": [True, False, None]}
+  options = {"codesign": [True, False, None, "ANY"]}
   default_build_options = {"slm/*:codesign": "ANY"}
 
   # hide all dependencies from consumers
@@ -62,10 +62,6 @@ class ConanSlmPackage(ConanFile):
   # validate_build(): Verify if a package binary can be built with the current configuration
   def validate_build(self):
     self.output.info("conanfile.py: validate_build()")
-
-    #self.settings.compiler
-
-    breakpoint()
 
     # if codesigning is enabled
     if self.options.get_safe("codesign", default=False):
