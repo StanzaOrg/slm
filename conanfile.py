@@ -28,8 +28,8 @@ class ConanSlmPackage(ConanFile):
 
   # use an option to request codesigning of the output executable
   # but allow building with codesigned or not
-  options = {"codesign": [True, False, None, "ANY"]}
-  default_build_options = {"slm/*:codesign": "ANY"}
+  options = {"codesign": [True, False, None]}
+  default_build_options = {"slm/*:codesign": None}
 
   # hide all dependencies from consumers
   # https://blog.conan.io/2024/07/09/Introducing-vendoring-packages.html
