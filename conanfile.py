@@ -26,21 +26,9 @@ class ConanSlmPackage(ConanFile):
   #settings = "os", "arch", "compiler", "build_type"
   settings = "os", "arch"
 
-  # use an option to request codesigning of the output executable
-  # but allow building with codesigned or not
-  options = {"codesign": [True, False, None]}
-  default_build_options = {"slm/*:codesign": None}
-
   # hide all dependencies from consumers
   # https://blog.conan.io/2024/07/09/Introducing-vendoring-packages.html
   vendor = True
-
-
-  # config_options(): Configure options while computing dependency graph
-  def config_options(self):
-    # codesigning only supported on windows
-    if self.settings.os != "Windows":
-      self.options.rm_safe("codesign")
 
 
   # set_name(): Dynamically define the name of a package
@@ -64,7 +52,7 @@ class ConanSlmPackage(ConanFile):
     self.output.info("conanfile.py: validate_build()")
 
     # if codesigning is enabled
-    if self.options.get_safe("codesign", default=False):
+    if self.conf.get("user.jitx.slm:codesign") and self.settings.os == "Windows":
       # Verify that the required environment variables and programs exist
       ### required environment variables for authentication with DigiCert
       # example: SM_API_KEY="00000000000000000000000000_0000000000000000000000000000000000000000000000000000000000000000"
@@ -244,7 +232,7 @@ class ConanSlmPackage(ConanFile):
     self.output.info("conanfile.py: package()")
     outerlibname = self.name.removeprefix("slm-")
 
-    if self.options.get_safe("codesign", default=False):
+    if self.conf.get("user.jitx.slm:codesign") and self.settings.os == "Windows":
       self._codesign()
 
     copy2(os.path.join(self.source_folder, "slm.toml"), self.package_folder)
