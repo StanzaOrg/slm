@@ -20,7 +20,7 @@ required_conan_version = ">=2.0"
 
 class ConanSlmPackage(ConanFile):
   package_type = "application"
-  python_requires = "lbstanzagenerator_pyreq/[>=0.6.18 <0.7.0]"
+  python_requires = "lbstanzagenerator_pyreq/[>=0.6.20 <0.7.0]"
 
   # Binary configuration
   #settings = "os", "arch", "compiler", "build_type"
