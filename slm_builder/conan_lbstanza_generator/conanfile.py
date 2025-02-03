@@ -4,15 +4,12 @@
 
 from conan import ConanFile
 from conan.tools.files import save
-from conans.model.conanfile_interface import ConanFileInterface
-from conans.model.pkg_type import PackageType
-from conans.model.build_info import _Component
 from io import TextIOWrapper
 from pathlib import Path
 
 class LBStanzaGeneratorPyReq(ConanFile):
     name = "lbstanzagenerator_pyreq"
-    version = "0.6.18"
+    version = "0.6.20"
     package_type = "python-require"
 
 # LBStanza Generator class
@@ -21,7 +18,7 @@ class LBStanzaGenerator:
     def __init__(self, conanfile):
         self._conanfile = conanfile
 
-    def get_libs_from_component(self, compname: str, compinst: _Component) -> dict[str, str]:
+    def get_libs_from_component(self, compname: str, compinst) -> dict[str, str]:
         #breakpoint()
         self._conanfile.output.trace(f"      - {compname}")
 
@@ -83,11 +80,11 @@ class LBStanzaGenerator:
             if is_shared_lib:
                 outf.write(f'  dynamic-libraries:\n')
                 outf.write(f'    on-platform:\n')
-                s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["linux"]])
+                s = " ".join([fr'"{str(p).replace('\\', '/')}"' for p in libs["linux"]])
                 outf.write(f'      linux: ( {s} )\n')
-                s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["macos"]])
+                s = " ".join([fr'"{str(p).replace('\\', '/')}"' for p in libs["macos"]])
                 outf.write(f'      os-x: ( {s} )\n')
-                s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["windows"]])
+                s = " ".join([fr'"{str(p).replace('\\', '/')}"' for p in libs["windows"]])
                 outf.write(f'      windows: ( {s} )\n')
             else:  # static
                 pass
@@ -96,11 +93,11 @@ class LBStanzaGenerator:
             incdirall = ""
             for incdir in include_dirs:
                 incdirall += f" \"-I{incdir.replace('\\', '/')}\" "
-            s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["linux"]])
+            s = " ".join([fr'"{str(p).replace('\\', '/')}"' for p in libs["linux"]])
             outf.write(f'      linux: ( {incdirall} {startgrp} {s} {extralibslnx} {endgrp} )\n')
-            s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["macos"]])
+            s = " ".join([fr'"{str(p).replace('\\', '/')}"' for p in libs["macos"]])
             outf.write(f'      os-x: ( {incdirall} {s} {extralibsmac} )\n')
-            s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["windows"]])
+            s = " ".join([fr'"{str(p).replace('\\', '/')}"' for p in libs["windows"]])
             outf.write(f'      windows: ( {incdirall} {startgrp} {s} {extralibswin} {endgrp} )\n')
 
             outf.write(f'\n')
@@ -110,25 +107,25 @@ class LBStanzaGenerator:
             if is_shared_lib:
                 outf.write(f'  dynamic-libraries:\n')
                 outf.write(f'    on-platform:\n')
-                s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["linux"]])
+                s = " ".join([fr'"{str(p).replace('\\', '/')}"' for p in libs["linux"]])
                 outf.write(f'      linux: ( {s} )\n')
-                s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["macos"]])
+                s = " ".join([fr'"{str(p).replace('\\', '/')}"' for p in libs["macos"]])
                 outf.write(f'      os-x: ( {s} )\n')
-                s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["windows"]])
+                s = " ".join([fr'"{str(p).replace('\\', '/')}"' for p in libs["windows"]])
                 outf.write(f'      windows: ( {s} )\n')
             else:  # static
                 pass
             outf.write(f'  ccflags:\n')
             outf.write(f'    on-platform:\n')
-            s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["linux"]])
+            s = " ".join([fr'"{str(p).replace('\\', '/')}"' for p in libs["linux"]])
             outf.write(f'      linux: ( {incdirall} {startgrp} {s} {extralibslnx} {endgrp} )\n')
-            s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["macos"]])
+            s = " ".join([fr'"{str(p).replace('\\', '/')}"' for p in libs["macos"]])
             outf.write(f'      os-x: ( {incdirall} {s} {extralibsmac} )\n')
-            s = " ".join([f'"{str(p).replace('\\', '/')}"' for p in libs["windows"]])
+            s = " ".join([fr'"{str(p).replace('\\', '/')}"' for p in libs["windows"]])
             outf.write(f'      windows: ( {incdirall} {startgrp} {s} {extralibswin} {endgrp} )\n')
 
 
-    def get_component_libs_from_dependency(self, depname: str, depinst: ConanFileInterface) -> list:
+    def get_component_libs_from_dependency(self, depname: str, depinst) -> list:
         #self._conanfile.output.trace(f"    - depinst.cppinfo: \"{depinst.cpp_info.serialize()}\"")
         #self._conanfile.output.trace(f"    - depinst.cppinfo:")
         #self._conanfile.output.trace(json.dumps(depinst.cpp_info.serialize(), jdkwargs={"indent": 2}))
@@ -197,6 +194,11 @@ class LBStanzaGenerator:
         self._conanfile.output.trace(f"Generating {outfilename} for {outerlibname}")
         self.write_package_fragment(is_shared_lib, [], libfilenames["relative"], outfilename)
 
+    def dep_is_shared_lib(self, dep, dinst):
+        # compare with a public interface string value instead of the private interface PackageType.SHARED
+        shared_lib_string = 'shared-library'
+        return str(dinst.package_type) == shared_lib_string
+
     def create_stanza_proj_fragment(self):
         incdirs = []
         libs = {}
@@ -217,7 +219,7 @@ class LBStanzaGenerator:
                 continue
             if len(dinst.cpp_info.components) > 0:
                 self._conanfile.output.trace(f"    - dep \"{dreq.ref}\" components:")
-                is_shared_lib = dinst.package_type is PackageType.SHARED  # assumption: accept the last value because they should all be the same
+                is_shared_lib = dinst.package_type is self.dep_is_shared_lib(dep, dinst)  # assumption: accept the last value because they should all be the same
                 for compname, compinst in dinst.cpp_info.get_sorted_components().items():
                     incdirs.extend(compinst.includedirs)
                 for cl in self.get_component_libs_from_dependency(str(dreq.ref), dinst):
@@ -235,7 +237,7 @@ class LBStanzaGenerator:
                 if len(dinst.cpp_info.libdirs) > 1:
                     self._conanfile.output.error(f"Dependency \"{dreq.ref}\" has more than one libdir.  This generator currently doesn't handle that.")
                 if len(dinst.cpp_info.libdirs) > 0:
-                    is_shared_lib = dinst.package_type is PackageType.SHARED  # assumption: accept the last value because they should all be the same
+                    is_shared_lib = dinst.package_type is self.dep_is_shared_lib(dep, dinst)  # assumption: accept the last value because they should all be the same
                     libdir = dinst.cpp_info.libdirs[0]
                     d = {}
                     for l in dinst.cpp_info.libs:
